@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <h1>Test Login Flow</h1>
+  <div id="log" style="white-space: pre-wrap; font-family: monospace;"></div>
+  <script>
+    const log = (msg) => {
+      document.getElementById('log').textContent += msg + '\n';
+      console.log(msg);
+    };
+
+    async function test() {
+      try {
+        log('Logging in...');
+        const loginRes = await fetch('http://localhost:8080/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: 'testauth@example.com', password: 'Password@123' })
+        });
+        
+        const loginJson = await loginRes.json();
+        log('Login response: ' + loginRes.status);
+        
+        if (!loginJson.data || !loginJson.data.token) {
+          log('Token missing!');
+          return;
+        }
+        
+        const token = loginJson.data.token;
+        log('Token: ' + token.substring(0, 20) + '...');
+        
+        const endpoints = ['/api/profile', '/api/addresses', '/api/orders'];
+        for (const ep of endpoints) {
+          log('Fetching ' + ep + '...');
+          const res = await fetch('http://localhost:8080' + ep, {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          log('Response ' + ep + ': ' + res.status);
+          const txt = await res.text();
+          log('Body: ' + txt.substring(0, 50));
+        }
+        
+      } catch (e) {
+        log('Error: ' + e.message);
+      }
+    }
+    
+    test();
+  </script>
+</body>
+</html>

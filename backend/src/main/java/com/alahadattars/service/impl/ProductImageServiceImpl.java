@@ -1,0 +1,175 @@
+package com.alahadattars.service.impl;
+
+import com.alahadattars.dto.product.ProductImageResponse;
+import com.alahadattars.entity.Product;
+import com.alahadattars.entity.ProductImage;
+import com.alahadattars.exception.BadRequestException;
+import com.alahadattars.exception.ResourceNotFoundException;
+import com.alahadattars.mapper.ProductImageMapper;
+import com.alahadattars.repository.ProductImageRepository;
+import com.alahadattars.repository.ProductRepository;
+import com.alahadattars.service.ProductImageService;
+import com.alahadattars.service.UploadService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class ProductImageServiceImpl implements ProductImageService {
+
+    private final ProductImageRepository productImageRepository;
+    private final ProductRepository productRepository;
+    private final ProductImageMapper productImageMapper;
+    private final UploadService uploadService;
+
+    @Override
+    @Transactional
+    public ProductImageResponse uploadImage(Long productId, MultipartFile file) {
+        if (file.isEmpty()) {
+            throw new BadRequestException("File is empty");
+        }
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + productId));
+
+        int currentCount = productImageRepository.countByProductAndActiveTrue(product);
+        if (currentCount >= 10) {
+            throw new BadRequestException("Maximum 10 images allowed per product");
+        }
+
+        try {
+            String storedPath = uploadService.uploadFile(file, "products");
+
+            String originalFilename = file.getOriginalFilename();
+            String format = "jpeg";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                format = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
+            }
+
+            ProductImage productImage = ProductImage.builder()
+                    .product(product)
+                    .imageUrl(storedPath)
+                    .format(format)
+                    .displayOrder(currentCount)
+                    .isPrimary(currentCount == 0)
+                    .active(true)
+                    .build();
+
+            product.addImage(productImage);
+            ProductImage savedImage = productImageRepository.save(productImage);
+
+            log.info("Uploaded image for product {}: {}", productId, storedPath);
+            return productImageMapper.toResponse(savedImage);
+            
+        } catch (Exception e) {
+            log.error("Failed to upload product image: {}", e.getMessage());
+            throw new BadRequestException("Failed to upload image: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public List<ProductImageResponse> getImagesByProduct(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + productId));
+
+        return productImageRepository.findByProductAndActiveTrueOrderByDisplayOrderAsc(product)
+                .stream()
+                .map(productImageMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void deleteImage(Long imageId) {
+        ProductImage image = productImageRepository.findById(imageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Image not found with ID: " + imageId));
+        
+        // Remove from db (soft delete)
+        image.setActive(false);
+        productImageRepository.save(image);
+        
+        // Remove physical file
+        try {
+            uploadService.deleteFile(image.getImageUrl());
+        } catch (Exception e) {
+            log.warn("Could not delete physical file for image {}: {}", imageId, e.getMessage());
+        }
+        
+        // If it was primary, try to set another one as primary
+        if (image.isPrimary()) {
+            Product product = image.getProduct();
+            List<ProductImage> remaining = productImageRepository.findByProductAndActiveTrueOrderByDisplayOrderAsc(product);
+            if (!remaining.isEmpty()) {
+                ProductImage newPrimary = remaining.get(0);
+                newPrimary.setPrimary(true);
+                productImageRepository.save(newPrimary);
+            }
+        }
+        
+        log.info("Deleted image ID: {}", imageId);
+    }
+
+    @Override
+    @Transactional
+    public List<ProductImageResponse> updateDisplayOrder(Long productId, List<Long> orderedImageIds) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + productId));
+
+        List<ProductImage> images = productImageRepository.findByProductAndActiveTrueOrderByDisplayOrderAsc(product);
+        
+        for (int i = 0; i < orderedImageIds.size(); i++) {
+            Long targetId = orderedImageIds.get(i);
+            for (ProductImage img : images) {
+                if (img.getId().equals(targetId)) {
+                    img.setDisplayOrder(i);
+                    break;
+                }
+            }
+        }
+        
+        productImageRepository.saveAll(images);
+        
+        return images.stream()
+                .sorted((a, b) -> Integer.compare(a.getDisplayOrder(), b.getDisplayOrder()))
+                .map(productImageMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public ProductImageResponse setPrimaryImage(Long imageId) {
+        ProductImage newPrimary = productImageRepository.findById(imageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Image not found with ID: " + imageId));
+                
+        if (!newPrimary.isActive()) {
+            throw new BadRequestException("Cannot set inactive image as primary");
+        }
+
+        Product product = newPrimary.getProduct();
+        
+        productImageRepository.findByProductAndIsPrimaryAndActiveTrue(product, true)
+            .ifPresent(oldPrimary -> {
+                oldPrimary.setPrimary(false);
+                productImageRepository.save(oldPrimary);
+            });
+
+        newPrimary.setPrimary(true);
+        ProductImage savedImage = productImageRepository.save(newPrimary);
+        
+        return productImageMapper.toResponse(savedImage);
+    }
+
+    @Override
+    @Transactional
+    public void migrateVariantImages() {
+        // This is a stub for the migration logic if needed to run from within service
+    }
+}

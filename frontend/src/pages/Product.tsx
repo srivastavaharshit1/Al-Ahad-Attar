@@ -1,0 +1,354 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Breadcrumb } from '../components/ui/Breadcrumb';
+import { productService } from '../services/productService';
+import { useCart } from '../hooks/useCart';
+import { useWishlist } from '../hooks/useWishlist';
+import { formatPrice } from '../utils/formatPrice';
+import type { Product as ProductType, Variant } from '../types';
+import { getImageUrl } from '../utils/getImageUrl';
+import { usePromotions } from '../context/PromotionContext';
+import { getPromoIcon, getDaysRemaining } from '../utils/promotionHelpers';
+import { ReviewList } from '../components/reviews/ReviewList';
+import { RelatedProducts } from '../components/reviews/RelatedProducts';
+import { StarRating } from '../components/common/StarRating';
+
+export const ProductPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { addItem } = useCart();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const { activePromotions } = usePromotions();
+  
+  const [product, setProduct] = useState<ProductType | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
+  const [mainImage, setMainImage] = useState<string>('');
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        setIsLoading(true);
+        if (id) {
+          const res = await productService.getProduct(id);
+          setProduct(res.data);
+          
+          if (res.data.images && res.data.images.length > 0) {
+            const primary = res.data.images.find((img: any) => img.isPrimary) || res.data.images[0];
+            setMainImage(primary.imageUrl);
+          }
+          
+          if (res.data.variants && res.data.variants.length > 0) {
+            setSelectedVariant(res.data.variants[0]);
+          }
+        }
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to load product');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchProduct();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[60vh]">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-[60vh] text-center">
+        <span className="material-symbols-outlined text-6xl text-error mb-4">error</span>
+        <h2 className="font-headline-md text-2xl mb-2">Product Not Found</h2>
+        <p className="text-on-surface-variant mb-6">The product you are looking for does not exist or an error occurred.</p>
+        <button onClick={() => navigate('/collection')} className="bg-primary text-on-primary px-6 py-2 rounded-DEFAULT hover:bg-surface-tint">
+          Back to Collection
+        </button>
+      </div>
+    );
+  }
+
+  const sortedImages = [...(product.images || [])].sort((a, b) => a.displayOrder - b.displayOrder);
+  const allImages = sortedImages.map(img => img.imageUrl);
+
+  const handleVariantChange = (variant: Variant) => {
+    setSelectedVariant(variant);
+    // Note: In the new architecture, images are tied to Product, not Variant.
+    // Changing variant size no longer changes the image.
+  };
+
+  const handleAddToCart = () => {
+    if (!selectedVariant) return;
+    
+      addItem({
+        id: '', // Will be generated
+        productId: product!.id.toString(),
+        variantId: selectedVariant.id,
+        quantity: 1,
+        name: product!.name,
+        image: mainImage,
+        size: selectedVariant.size,
+      });
+  };
+
+  const handleToggleWishlist = () => {
+    if (!selectedVariant) return;
+    if (isInWishlist(selectedVariant.id.toString())) {
+      removeFromWishlist(selectedVariant.id.toString());
+    } else {
+      addToWishlist(selectedVariant.id.toString());
+    }
+  };
+
+  // Find all applicable promotions for this product
+  const applicablePromos = activePromotions.filter(promo => {
+    if (promo.promotionType === 'PRODUCT_DISCOUNT' && promo.configuration?.applicableProductIds?.includes(product.id)) return true;
+    if (promo.promotionType === 'CATEGORY_DISCOUNT' && product.category?.id && promo.configuration?.applicableCategoryIds?.includes(product.category.id)) return true;
+    if (promo.promotionType === 'FREE_PRODUCT') {
+      if (promo.configuration?.buyProductId && promo.configuration.buyProductId === product.id) return true;
+      if (product.category?.id && promo.configuration?.buyCategoryId === product.category.id) return true;
+      if (!promo.configuration?.buyProductId && !promo.configuration?.buyCategoryId) return true;
+    }
+    return false;
+  });
+
+  const renderPromoBanner = () => {
+    if (applicablePromos.length === 0) return null;
+
+    return (
+      <div className="space-y-3 mt-6">
+        {applicablePromos.map(promo => {
+          const icon = getPromoIcon(promo);
+          const daysLeft = getDaysRemaining(promo.endDate);
+
+          let title = '';
+          let subtitle = '';
+
+          if (promo.promotionType === 'FREE_PRODUCT') {
+            title = `Free Gift Included`;
+            subtitle = `Buy this product to unlock a free gift in your cart`;
+          } else if (promo.discountType === 'PERCENTAGE') {
+            title = `${promo.discountValue}% Off This Product`;
+            subtitle = promo.description || 'Discount applied automatically at checkout';
+          } else if (promo.discountType === 'FIXED_AMOUNT') {
+            title = `₹${promo.discountValue} Off This Product`;
+            subtitle = promo.description || 'Discount applied automatically at checkout';
+          }
+
+          return (
+            <div
+              key={promo.id}
+              className="relative overflow-hidden rounded-lg border border-primary/15 bg-gradient-to-r from-primary/[0.04] to-transparent"
+            >
+              {/* Subtle top accent */}
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary/40 via-primary/20 to-transparent"></div>
+
+              <div className="px-4 py-3 flex items-start gap-3">
+                <span className="text-xl mt-0.5 flex-shrink-0" aria-hidden="true">{icon}</span>
+                <div className="flex-grow min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="font-label-md text-primary tracking-wide">{title}</h4>
+                    {promo.code && (
+                      <span className="bg-primary/10 text-primary text-[10px] font-mono font-semibold px-2 py-0.5 rounded tracking-wider border border-primary/10">
+                        {promo.code}
+                      </span>
+                    )}
+                  </div>
+                  <p className="font-body-sm text-on-surface-variant leading-relaxed">{subtitle}</p>
+                  {daysLeft !== null && (
+                    <p className="font-body-sm text-on-surface-variant mt-1.5 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[14px]">schedule</span>
+                      {daysLeft === 1 ? 'Ends tomorrow' : `Offer ends in ${daysLeft} days`}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <main className="w-full py-12 flex flex-col gap-16">
+      
+      {/* SECTION 1: Product Hero (1400px) */}
+      <section className="max-w-[1400px] mx-auto w-full px-4 md:px-8">
+      <Breadcrumb items={[
+        { label: 'Home', href: '/' },
+        { label: 'Collection', href: '/collection' },
+        ...(product.category ? [{ 
+          label: product.category.name, 
+          href: `/collection?category=${product.category.name.toLowerCase()}` 
+        }] : []),
+        ...(product.subcategory ? [{ 
+          label: product.subcategory.charAt(0).toUpperCase() + product.subcategory.slice(1).toLowerCase(), 
+          href: `/collection?category=${product.category?.name.toLowerCase()}&subcategory=${product.subcategory}` 
+        }] : []),
+        { label: product.name }
+      ]} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter lg:gap-16">
+        {/* Left Column: Image Gallery */}
+        <div className="flex flex-col md:flex-row gap-4 lg:col-span-5 w-full max-w-[540px] mx-auto lg:mx-0">
+          
+          {/* Thumbnails */}
+          {allImages.length > 1 && (
+            <div className="order-2 md:order-1 flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto pb-2 md:pb-0 md:pr-2 hide-scrollbar w-full md:w-[76px] flex-shrink-0">
+              {allImages.map((img, idx) => (
+                <button 
+                  key={idx} 
+                  className={`flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden border-2 bg-[#FCFBF8] transition-all duration-200 hover:-translate-y-[1px] md:hover:-translate-y-0 md:hover:-translate-x-[2px] ${mainImage === img ? 'border-[#D4AF37] shadow-sm' : 'border-transparent hover:border-[#D4AF37]/50'}`}
+                  onClick={() => setMainImage(img)}
+                >
+                  <img src={getImageUrl(img)} alt={`Thumbnail ${idx+1}`} className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Main Image */}
+          <div className="order-1 md:order-2 w-full h-auto aspect-[4/5] max-h-[560px] rounded-2xl overflow-hidden bg-[#FCFBF8] border border-black/5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] relative group cursor-zoom-in flex items-center justify-center">
+            {mainImage ? (
+              <img 
+                src={getImageUrl(mainImage)} 
+                alt={product.name} 
+                className="w-full h-full object-contain p-4 md:p-[16px] lg:p-[20px] transition-transform duration-700 group-hover:scale-105" 
+              />
+            ) : (
+               <div className="w-full h-full flex items-center justify-center text-on-surface-variant">
+                 <span className="material-symbols-outlined text-6xl">image</span>
+               </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Product Details */}
+        <div className="flex flex-col lg:col-span-7">
+          <div className="mb-6">
+            <h1 className="font-headline-lg text-headline-lg text-primary mb-3 mt-1 lg:mt-0">{product.name}</h1>
+            
+            <div className="flex items-center space-x-4 mb-5">
+              <div className="flex text-inverse-primary fill-icon">
+                <StarRating rating={product.averageRating || 0} size={20} showText={false} />
+              </div>
+              <span className="font-label-sm text-label-sm text-on-surface-variant">({product.reviewCount || 0} Reviews)</span>
+            </div>
+            
+            <div className="flex items-baseline space-x-4 mb-7">
+              <span className="font-display-lg-mobile text-display-lg-mobile text-on-surface">{selectedVariant ? formatPrice(selectedVariant.price) : 'N/A'}</span>
+            </div>
+            
+            <p className="font-body-lg text-body-lg text-on-surface-variant mb-8 max-w-[85%] leading-relaxed">
+              {product.description}
+            </p>
+            
+            <div className="space-y-6">
+              {product.category?.name === 'Bakhoor' || product.variants.length === 1 ? (
+                <div>
+                  <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-3">Weight</h3>
+                  <div className="px-6 py-3 border border-outline-variant rounded-DEFAULT font-label-md text-label-md text-on-surface inline-block bg-surface-bright">
+                    {product.variants[0].size} Pack
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-3">Select Size</h3>
+                  <div className="flex flex-wrap gap-4">
+                    {product.variants.map((variant) => (
+                      <label key={variant.id} className="cursor-pointer">
+                        <input 
+                          type="radio" 
+                          name="size" 
+                          className="peer sr-only variant-radio" 
+                          checked={selectedVariant?.id === variant.id}
+                          onChange={() => handleVariantChange(variant)}
+                        />
+                        <div className="px-6 py-3 border border-outline-variant rounded-md font-label-md text-label-md text-on-surface hover:border-[#D4AF37] peer-checked:bg-[#D4AF37] peer-checked:text-white peer-checked:border-[#D4AF37] transition-all duration-200 shadow-sm">
+                          {variant.size}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+
+              {/* Premium Promotion Banner */}
+              {renderPromoBanner()}
+              
+              <div className="flex gap-4 pt-7">
+                <button 
+                  onClick={handleAddToCart}
+                  disabled={!selectedVariant || selectedVariant.stock === 0}
+                  className="w-[85%] h-[56px] bg-primary text-on-primary rounded-md font-label-md uppercase tracking-widest hover:bg-surface-tint transition-all duration-200 flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-[1px] hover:shadow-lg"
+                >
+                  <span className="material-symbols-outlined text-[20px]">shopping_bag</span>
+                  {selectedVariant && selectedVariant.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
+                </button>
+                <button 
+                  onClick={handleToggleWishlist}
+                  disabled={!selectedVariant}
+                  className={`w-[15%] min-w-[56px] h-[56px] border rounded-md flex justify-center items-center transition-all duration-200 hover:-translate-y-[1px] ${
+                    selectedVariant && isInWishlist(selectedVariant.id.toString()) 
+                      ? 'border-[#D4AF37] text-[#D4AF37] bg-[#D4AF37]/10' 
+                      : 'border-outline-variant text-on-surface hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                  }`}
+                  aria-label={selectedVariant && isInWishlist(selectedVariant.id.toString()) ? 'Remove from wishlist' : 'Add to wishlist'}
+                >
+                  <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: selectedVariant && isInWishlist(selectedVariant.id.toString()) ? "'FILL' 1" : "'FILL' 0" }}>
+                    favorite
+                  </span>
+                </button>
+              </div>
+
+              {/* Trust Section */}
+              <div className="flex flex-wrap items-center gap-5 pt-6 text-[10px] sm:text-[11px] uppercase tracking-wider text-on-surface-variant/80 font-medium">
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[16px]">verified</span>
+                  100% Original
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[16px]">lock</span>
+                  Secure Checkout
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[16px]">local_shipping</span>
+                  Fast Shipping
+                </div>
+                <div className="flex items-center gap-1.5 hidden sm:flex">
+                  <span className="material-symbols-outlined text-[16px]">package_2</span>
+                  Premium Packaging
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </section>
+      
+      {/* SECTION 3: Customer Reviews (1100px) */}
+      {product && (
+        <section className="max-w-[1100px] mx-auto w-full px-4 md:px-8">
+          <ReviewList productId={product.id} />
+        </section>
+      )}
+
+      {/* SECTION 4: Similar Fragrances (1280px) */}
+      {product && (
+        <section className="max-w-[1280px] mx-auto w-full px-4 sm:px-6 md:px-8 lg:px-10">
+          <RelatedProducts productId={product.id} />
+        </section>
+      )}
+    </main>
+  );
+};
+
+export const Product = ProductPage;
