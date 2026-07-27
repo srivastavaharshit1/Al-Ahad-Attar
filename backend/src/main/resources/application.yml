@@ -1,0 +1,53 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: backend
+  
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+  
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/alahadattars?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+app:
+  admin:
+    email: ${ADMIN_EMAIL:admin@alahadattars.com}
+    password: ${ADMIN_PASSWORD:Admin@123}
+  upload:
+    dir: ${UPLOAD_DIR:uploads}
+
+logging:
+  level:
+    root: INFO
+    com.alahadattars: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+jwt:
+  secret: ${JWT_SECRET:8a9b3c5d7e6f1a2b4c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+razorpay:
+  key:
+    id: ${RAZORPAY_KEY_ID}
+    secret: ${RAZORPAY_KEY_SECRET}
+
+# (Removed Cloudinary)
+  

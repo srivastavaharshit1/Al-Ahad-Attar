@@ -1,0 +1,160 @@
+import React, { useState } from 'react';
+import { useStoreSettings } from '../context/StoreSettingsContext';
+import { contactService } from '../services/contactService';
+import toast from 'react-hot-toast';
+
+export const Contact: React.FC = () => {
+  const { settings } = useStoreSettings();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    inquiryType: 'general',
+    message: ''
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await contactService.submitInquiry(formData);
+      toast.success('Your message has been sent successfully!');
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        inquiryType: 'general',
+        message: ''
+      });
+    } catch (error) {
+      console.error('Submission failed:', error);
+      toast.error('Failed to send message. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <main className="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-section-gap">
+      {/* Header Section */}
+      <header className="text-center mb-24 animate-[fadeIn_0.8s_ease-out_forwards]">
+        <h1 className="font-display-lg-mobile text-display-lg-mobile md:font-display-lg md:text-display-lg text-primary mb-6">Contact Us</h1>
+        <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto">
+          We invite you to reach out for bespoke inquiries, private consultations, or any questions regarding our heritage collections.
+        </p>
+      </header>
+
+      {/* Bento Grid Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+        {/* Contact Form */}
+        <div className="lg:col-span-7 bg-surface-container-lowest p-8 md:p-12 border border-outline-variant rounded shadow-[0_10px_30px_rgba(31,41,55,0.04)] animate-[fadeIn_0.8s_ease-out_forwards] [animation-delay:0.2s] opacity-0 fill-mode-forwards">
+          <h2 className="font-headline-lg text-headline-lg text-primary mb-8">Send a Message</h2>
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="flex flex-col group">
+                <label className="font-label-sm text-label-sm text-on-surface-variant uppercase mb-2 group-focus-within:text-primary transition-colors" htmlFor="firstName">First Name</label>
+                <input className="border-0 border-b border-outline bg-transparent rounded-none py-3 px-0 focus:outline-none focus:ring-0 focus:border-primary-fixed text-body-md transition-colors" id="firstName" name="firstName" required type="text" value={formData.firstName} onChange={handleChange} />
+              </div>
+              <div className="flex flex-col group">
+                <label className="font-label-sm text-label-sm text-on-surface-variant uppercase mb-2 group-focus-within:text-primary transition-colors" htmlFor="lastName">Last Name</label>
+                <input className="border-0 border-b border-outline bg-transparent rounded-none py-3 px-0 focus:outline-none focus:ring-0 focus:border-primary-fixed text-body-md transition-colors" id="lastName" name="lastName" required type="text" value={formData.lastName} onChange={handleChange} />
+              </div>
+            </div>
+            <div className="flex flex-col group">
+              <label className="font-label-sm text-label-sm text-on-surface-variant uppercase mb-2 group-focus-within:text-primary transition-colors" htmlFor="email">Email Address</label>
+              <input className="border-0 border-b border-outline bg-transparent rounded-none py-3 px-0 focus:outline-none focus:ring-0 focus:border-primary-fixed text-body-md transition-colors" id="email" name="email" required type="email" value={formData.email} onChange={handleChange} />
+            </div>
+            <div className="flex flex-col group">
+              <label className="font-label-sm text-label-sm text-on-surface-variant uppercase mb-2 group-focus-within:text-primary transition-colors" htmlFor="inquiryType">Inquiry Type</label>
+              <select className="border-0 border-b border-outline bg-transparent rounded-none py-3 px-0 focus:outline-none focus:ring-0 focus:border-primary-fixed text-body-md appearance-none transition-colors" id="inquiryType" name="inquiryType" value={formData.inquiryType} onChange={handleChange}>
+                <option value="general">General Inquiry</option>
+                <option value="bespoke">Bespoke Consultation</option>
+                <option value="wholesale">Wholesale</option>
+                <option value="press">Press &amp; Media</option>
+              </select>
+            </div>
+            <div className="flex flex-col group">
+              <label className="font-label-sm text-label-sm text-on-surface-variant uppercase mb-2 group-focus-within:text-primary transition-colors" htmlFor="message">Message</label>
+              <textarea className="border-0 border-b border-outline bg-transparent rounded-none py-3 px-0 focus:outline-none focus:ring-0 focus:border-primary-fixed text-body-md resize-none transition-colors" id="message" name="message" required rows={4} value={formData.message} onChange={handleChange}></textarea>
+            </div>
+            <button disabled={isSubmitting} className="w-full md:w-auto px-8 py-4 bg-primary text-on-primary font-label-md text-label-md uppercase tracking-widest hover:bg-tertiary-container transition-colors duration-300 rounded-sm disabled:opacity-50" type="submit">
+              {isSubmitting ? 'Submitting...' : 'Submit Inquiry'}
+            </button>
+          </form>
+        </div>
+
+        {/* Concierge & Boutiques */}
+        <div className="lg:col-span-5 flex flex-col gap-gutter animate-[fadeIn_0.8s_ease-out_forwards] [animation-delay:0.4s] opacity-0 fill-mode-forwards">
+          {/* Concierge Card */}
+          <div className="bg-primary-container text-on-primary-container p-8 border border-outline-variant rounded shadow-[0_10px_30px_rgba(31,41,55,0.04)] relative overflow-hidden group">
+            <div className="absolute inset-0 bg-primary opacity-10 group-hover:opacity-20 transition-opacity duration-500"></div>
+            <div className="relative z-10 flex flex-col h-full justify-center">
+              <span className="material-symbols-outlined text-4xl mb-4" style={{ fontVariationSettings: "'FILL' 1" }}>support_agent</span>
+              <h3 className="font-headline-md text-headline-md mb-2">Concierge Support</h3>
+              <p className="font-body-md text-body-md mb-6 opacity-90">Experience personalized assistance for your olfactory journey. Connect with our experts via WhatsApp.</p>
+              <a href={settings?.whatsappNumber ? `https://wa.me/${settings.whatsappNumber.replace(/[^0-9]/g, '')}` : '#'} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 font-label-md text-label-md uppercase tracking-widest border-b border-on-primary-container pb-1 self-start hover:text-tertiary-fixed transition-colors">
+                <span className="material-symbols-outlined text-xl">forum</span>
+                Message on WhatsApp
+              </a>
+            </div>
+          </div>
+
+          {/* Dynamic Boutique Location */}
+          <div className="bg-surface-container-lowest p-8 border border-outline-variant rounded shadow-[0_10px_30px_rgba(31,41,55,0.04)]">
+            <h3 className="font-headline-md text-headline-md text-primary mb-4 flex items-center gap-2">
+              <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>location_on</span>
+              {settings?.storeName || 'Our Boutique'}
+            </h3>
+            
+            {(settings?.businessAddress || settings?.city || settings?.country) && (
+              <address className="not-italic font-body-md text-body-md text-on-surface-variant mb-4">
+                {settings?.businessAddress && <>{settings.businessAddress}<br/></>}
+                {settings?.city}{settings?.state && `, ${settings.state}`} {settings?.pincode && settings.pincode}<br/>
+                {settings?.country}
+              </address>
+            )}
+
+            {settings?.businessHours && (
+              <p className="font-body-md text-body-md text-on-surface-variant mb-2 whitespace-pre-wrap">
+                <span className="font-medium">Hours:</span> {settings.businessHours}
+              </p>
+            )}
+
+            {settings?.phoneNumber && (
+              <p className="font-body-md text-body-md text-on-surface-variant mb-2">
+                <span className="font-medium">Phone:</span> {settings.phoneNumber}
+              </p>
+            )}
+
+            {settings?.emailAddress && (
+              <p className="font-body-md text-body-md text-on-surface-variant mb-4">
+                <span className="font-medium">Email:</span> {settings.emailAddress}
+              </p>
+            )}
+
+            {settings?.mapEmbedUrl && (
+              <div className="mt-4 w-full h-48 bg-surface-dim rounded overflow-hidden">
+                <iframe 
+                  src={settings.mapEmbedUrl} 
+                  width="100%" 
+                  height="100%" 
+                  style={{ border: 0 }} 
+                  allowFullScreen={true} 
+                  loading="lazy" 
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Google Maps Location"
+                  className="grayscale hover:grayscale-0 transition-all duration-500"
+                ></iframe>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+};

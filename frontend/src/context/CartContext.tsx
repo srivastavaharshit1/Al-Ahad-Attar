@@ -1,0 +1,330 @@
+import React, { createContext, useState, useEffect, type ReactNode } from 'react';
+import type { CartItem } from '../types';
+import { storage } from '../utils/storage';
+import { useAuth } from '../hooks/useAuth';
+import { cartService } from '../services/cartService';
+import toast from 'react-hot-toast';
+
+interface CartContextType {
+  items: CartItem[];
+  addItem: (item: CartItem) => void;
+  removeItem: (id: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
+  clearCart: () => void;
+  itemCount: number;
+  subtotal: number;
+  offerDiscount: number;
+  couponCode: string | null;
+  discount: number; // coupon discount
+  cartDiscount: number;
+  appliedPromotions: any[];
+  availablePromotions: any[];
+  lockedPromotions: any[];
+  unlockMessages: string[];
+  applyCoupon: (code: string) => Promise<void>;
+  removeCoupon: () => Promise<void>;
+  manuallySelectedPromotionId: number | null;
+  applyPromotion: (promotionId: number) => Promise<void>;
+  removePromotion: () => Promise<void>;
+  freeProductOptions: any[];
+  addFreeItem: (promotionId: number, variantId: number) => Promise<void>;
+  removeFreeItem: (cartItemId: string) => Promise<void>;
+}
+
+export const CartContext = createContext<CartContextType | undefined>(undefined);
+
+export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [items, setItems] = useState<CartItem[]>(() => {
+    // Synchronous initial load to prevent localStorage overwrite race condition
+    const token = storage.get('token', null);
+    if (!token) {
+      return storage.get<CartItem[]>('cart', []);
+    }
+    return [];
+  });
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [couponCode, setCouponCode] = useState<string | null>(() => storage.get('cart_coupon', null));
+  const [discount] = useState<number>(() => storage.get('cart_discount', 0));
+  const [cartDiscount, setCartDiscount] = useState<number>(0);
+  const [appliedPromotions, setAppliedPromotions] = useState<any[]>([]);
+  const [availablePromotions, setAvailablePromotions] = useState<any[]>([]);
+  const [lockedPromotions, setLockedPromotions] = useState<any[]>([]);
+  const [unlockMessages, setUnlockMessages] = useState<string[]>([]);
+  const [manuallySelectedPromotionId, setManuallySelectedPromotionId] = useState<number | null>(() => storage.get('cart_manual_promo', null));
+  const [freeProductOptions, setFreeProductOptions] = useState<any[]>([]);
+  const { isAuthenticated, user } = useAuth();
+
+  const syncCartState = (cartData: any) => {
+    if (!cartData) return;
+    const mappedItems: CartItem[] = (cartData.items || []).map((i: any) => ({
+      id: i.id.toString(),
+      productId: i.productId.toString(),
+      variantId: i.variantId.toString(),
+      name: i.name,
+      image: i.image,
+      size: i.size,
+      quantity: i.quantity,
+      price: Number(i.finalPrice || i.price),
+      originalPrice: Number(i.originalPrice || i.price),
+      discountAmount: Number(i.discountAmount || 0),
+      finalPrice: Number(i.finalPrice || i.price)
+    }));
+    setItems(mappedItems);
+    setCartDiscount(Number(cartData.cartDiscount || 0));
+    setAppliedPromotions(cartData.appliedPromotions || []);
+    setAvailablePromotions(cartData.availablePromotions || []);
+    setLockedPromotions(cartData.lockedPromotions || []);
+    setUnlockMessages(cartData.unlockMessages || []);
+    setFreeProductOptions(cartData.freeProductOptions || []);
+    
+    if (cartData.couponCode !== undefined) {
+      setCouponCode(cartData.couponCode);
+    }
+    
+    if (cartData.manuallySelectedPromotionId !== undefined) {
+      setManuallySelectedPromotionId(cartData.manuallySelectedPromotionId === -1 ? null : cartData.manuallySelectedPromotionId);
+    }
+  };
+
+  // Load cart data
+  useEffect(() => {
+    const loadCart = async () => {
+      if (isAuthenticated) {
+        try {
+          const response = await cartService.getCart();
+          if (response) {
+            syncCartState(response.data);
+          }
+        } catch (error) {
+          console.error("Failed to fetch cart from server", error);
+        }
+      }
+      setIsLoaded(true);
+    };
+
+    if (isAuthenticated) {
+      loadCart();
+    } else {
+      setIsLoaded(true);
+    }
+  }, [isAuthenticated, user]);
+
+  // Save to local storage on change (only if not authenticated)
+  useEffect(() => {
+    if (!isAuthenticated && isLoaded) {
+      storage.set('cart', items);
+    }
+  }, [items, isAuthenticated, isLoaded]);
+
+  useEffect(() => {
+    storage.set('cart_coupon', couponCode);
+    storage.set('cart_discount', discount);
+    storage.set('cart_manual_promo', manuallySelectedPromotionId);
+  }, [couponCode, discount, manuallySelectedPromotionId]);
+
+  const addItem = async (item: CartItem) => {
+    if (isAuthenticated && item.variantId) {
+      try {
+        const response = await cartService.addToCart(Number(item.variantId), item.quantity);
+        if (response) {
+            syncCartState(response.data);
+            toast.success(`${item.name} added to cart`);
+        }
+      } catch (error) {
+        console.error("Failed to add item to remote cart", error);
+        toast.error("Failed to add item to cart");
+      }
+    } else {
+      setItems(prev => {
+        const existingItem = prev.find(i => i.productId === item.productId && i.variantId === item.variantId);
+        if (existingItem) {
+          return prev.map(i => 
+            i.id === existingItem.id ? { ...i, quantity: i.quantity + item.quantity } : i
+          );
+        }
+        return [...prev, { ...item, id: Math.random().toString(36).substring(2, 9) }];
+      });
+      toast.success(`${item.name} added to cart`);
+    }
+  };
+
+  const removeItem = async (id: string) => {
+    if (isAuthenticated) {
+      try {
+        await cartService.removeFromCart(Number(id));
+        // Re-fetch full cart to re-evaluate promotions
+        const response = await cartService.getCart();
+        if (response) {
+          syncCartState(response.data);
+        }
+        toast.success("Item removed from cart");
+      } catch (error) {
+        console.error("Failed to remove item from remote cart", error);
+        toast.error("Failed to remove item");
+      }
+    } else {
+      setItems(prev => prev.filter(item => item.id !== id));
+      toast.success("Item removed from cart");
+    }
+  };
+
+
+  const updateQuantity = async (id: string, quantity: number) => {
+    if (quantity <= 0) {
+      await removeItem(id);
+      return;
+    }
+    
+    if (isAuthenticated) {
+      try {
+        const response = await cartService.updateQuantity(Number(id), quantity);
+        if (response) {
+            syncCartState(response.data);
+        }
+      } catch (error) {
+        console.error("Failed to update remote cart quantity", error);
+      }
+    } else {
+      setItems(prev => prev.map(item => item.id === id ? { ...item, quantity } : item));
+    }
+  };
+
+  const clearCart = async () => {
+    if (isAuthenticated) {
+      try {
+        await cartService.clearCart();
+        setItems([]);
+      } catch (error) {
+        console.error("Failed to clear remote cart", error);
+      }
+    } else {
+      setItems([]);
+    }
+    removeCoupon();
+    removePromotion();
+  };
+  
+  const applyCoupon = async (code: string) => {
+    if (isAuthenticated) {
+      try {
+        const response = await cartService.applyCoupon(code);
+        if (response) {
+            syncCartState(response.data);
+            toast.success("Coupon applied");
+        }
+      } catch (error: any) {
+        console.error("Failed to apply coupon", error);
+        toast.error(error.response?.data?.message || "Failed to apply coupon");
+        throw error;
+      }
+    } else {
+      setCouponCode(code);
+    }
+  };
+  
+  const removeCoupon = async () => {
+    if (isAuthenticated) {
+      try {
+        const response = await cartService.removeCoupon();
+        if (response) {
+            syncCartState(response.data);
+            toast.success("Coupon removed");
+        }
+      } catch (error) {
+        console.error("Failed to remove coupon", error);
+        toast.error("Failed to remove coupon");
+      }
+    } else {
+      setCouponCode(null);
+    }
+  };
+
+  const applyPromotion = async (promotionId: number) => {
+    if (isAuthenticated) {
+      try {
+        const response = await cartService.applyPromotion(promotionId);
+        if (response) {
+            syncCartState(response.data);
+            toast.success("Offer applied");
+        }
+      } catch (error: any) {
+        console.error("Failed to apply promotion", error);
+        toast.error(error.response?.data?.message || "Failed to apply promotion");
+      }
+    } else {
+      setManuallySelectedPromotionId(promotionId);
+    }
+  };
+
+  const removePromotion = async () => {
+    if (isAuthenticated) {
+      try {
+        const response = await cartService.removePromotion();
+        if (response) {
+            syncCartState(response.data);
+            toast.success("Offer removed");
+        }
+      } catch (error) {
+        console.error("Failed to remove promotion", error);
+        toast.error("Failed to remove promotion");
+      }
+    } else {
+      setManuallySelectedPromotionId(null);
+    }
+  };
+
+  const addFreeItem = async (promotionId: number, variantId: number) => {
+    if (isAuthenticated) {
+      try {
+        const response = await cartService.addFreeProduct(promotionId, variantId);
+        if (response) {
+          syncCartState(response.data);
+          toast.success("Free gift added to cart");
+        }
+      } catch (error: any) {
+        console.error("Failed to add free item", error);
+        toast.error(error.response?.data?.message || "Failed to add free item");
+      }
+    } else {
+      toast.error("Please login to claim free gifts");
+    }
+  };
+
+  const removeFreeItem = async (cartItemId: string) => {
+    if (isAuthenticated) {
+      try {
+        const response = await cartService.removeFreeProduct(Number(cartItemId));
+        if (response) {
+          syncCartState(response.data);
+          toast.success("Free gift removed");
+        }
+      } catch (error: any) {
+        console.error("Failed to remove free item", error);
+        toast.error(error.response?.data?.message || "Failed to remove free item");
+      }
+    } else {
+      // Local removal (should not occur since we require auth for free items)
+      setItems(prev => prev.filter(item => item.id !== cartItemId));
+      toast.success("Free gift removed");
+    }
+  };
+
+  const itemCount = items.reduce((acc, item) => acc + item.quantity, 0);
+  const subtotal = items.reduce((acc, item) => acc + ((item.originalPrice || 0) * item.quantity), 0);
+  const offerDiscount = items.reduce((acc, item) => acc + ((item.discountAmount || 0) * item.quantity), 0);
+  const totalAfterOffer = subtotal - offerDiscount;
+  
+  const effectiveDiscount = Math.min(discount, totalAfterOffer);
+
+  return (
+    <CartContext.Provider value={{ 
+      items, addItem, removeItem, updateQuantity, clearCart, 
+      itemCount, subtotal, offerDiscount, couponCode, discount: effectiveDiscount,
+      cartDiscount, appliedPromotions, availablePromotions, lockedPromotions, unlockMessages,
+      applyCoupon, removeCoupon, manuallySelectedPromotionId, applyPromotion, removePromotion,
+      freeProductOptions, addFreeItem, removeFreeItem
+    }}>
+      {children}
+    </CartContext.Provider>
+  );
+};

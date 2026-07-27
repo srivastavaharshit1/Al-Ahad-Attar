@@ -1,0 +1,79 @@
+# ============================================================
+# Al Ahad Attars — .gitignore
+# ============================================================
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build outputs
+dist/
+build/
+target/
+frontend/dist/
+backend/target/
+
+# Coverage
+coverage/
+
+# Environment / secrets
+.env
+.env.*
+backend/.env
+frontend/.env
+
+# Compiled Java class files
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+backend/*.log
+
+# Debug/temp JSON files (keep config JSONs)
+*.json
+!backend/src/**/*.json
+!frontend/src/**/*.json
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/tsconfig.json
+!frontend/tsconfig.app.json
+!frontend/tsconfig.node.json
+!backend/pom.xml
+
+# Temp/scratch scripts
+*.py
+fix*.js
+test*.js
+check*.js
+update*.js
+debug_*.json
+active_debug.json
+admin_promos.json
+api_response.json
+engine_backup.java
+backup_*.tsx
+admin_audit.js
+stress_test.js
+checkout_audit.js
+createGifts.js
+
+# Test environment
+test-env/
+
+# Gemini IDE
+.gemini/
+
+# Uploads (binary assets — keep on disk, don't commit)
+backend/uploads/
+
