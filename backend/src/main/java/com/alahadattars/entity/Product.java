@@ -49,6 +49,9 @@ import java.util.HashSet;
 @AllArgsConstructor
 @Builder
 @ToString(callSuper = true)
+// Batches lazy-loading of Product proxies (e.g. ProductVariant.product across a paged order/
+// variant list) into one IN-clause query per page instead of one per row.
+@org.hibernate.annotations.BatchSize(size = 20)
 public class Product extends BaseEntity {
 
     @NotBlank
@@ -67,34 +70,31 @@ public class Product extends BaseEntity {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String description;
 
-    @NotBlank
+    // Brand, fragrance pyramid, longevity and projection are admin-facing "advanced details" —
+    // optional by design (not every product has notes/projection data on hand at listing time).
+    // nullable stays false since the form always submits an actual string (possibly empty ""),
+    // never a missing/null field, so NOT NULL is never actually violated.
     @Column(length = 100, nullable = false)
     private String brand;
 
     @Column(length = 100)
     private String subcategory;
 
-    @NotBlank
     @Column(name = "fragrance_family", nullable = false)
     private String fragranceFamily;
 
-    @NotBlank
     @Column(name = "top_notes", nullable = false)
     private String topNotes;
 
-    @NotBlank
     @Column(name = "middle_notes", nullable = false)
     private String middleNotes;
 
-    @NotBlank
     @Column(name = "base_notes", nullable = false)
     private String baseNotes;
 
-    @NotBlank
     @Column(nullable = false)
     private String longevity;
 
-    @NotBlank
     @Column(nullable = false)
     private String projection;
 
@@ -130,6 +130,11 @@ public class Product extends BaseEntity {
 
     @ToString.Exclude
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    // Batches loading across a page of products into ~1 query per page instead of 1 per product
+    // (N+1) — product listing endpoints page through products without a fetch join.
+    // Sized above the storefront's page size (24, see Collection.tsx/Search.tsx) so one page needs
+    // exactly one batch query per association instead of splitting into two round trips.
+    @org.hibernate.annotations.BatchSize(size = 32)
     @Builder.Default
     private List<ProductVariant> variants = new ArrayList<>();
 
@@ -140,11 +145,20 @@ public class Product extends BaseEntity {
 
     @ToString.Exclude
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 32)
     @Builder.Default
     private List<ProductImage> images = new ArrayList<>();
 
+    // EAGER (kept — every consumer of Product reads this immediately, so LAZY would just move the
+    // same query to a different, less predictable place) but batched: without @BatchSize, Hibernate
+    // issues one separate product_collections query PER PRODUCT the instant each Product loads —
+    // 11 products loaded == 11 sequential round trips just for this one field. This was confirmed
+    // as 11 of the 21 sequential queries behind the ~9s /api/homepage response time (see
+    // PRODUCTION_AUDIT_REPORT.md's timeout investigation). Batching collapses all of them into one
+    // query, matching the pattern already used for Product.variants/images.
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "product_collections", joinColumns = @JoinColumn(name = "product_id"))
+    @org.hibernate.annotations.BatchSize(size = 32)
     @Column(name = "collection_name")
     @Builder.Default
     private Set<String> collections = new HashSet<>();

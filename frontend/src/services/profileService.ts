@@ -1,5 +1,5 @@
 import { apiClient } from '../api/axios';
-import type { User, Address, AddressRequest, ApiResponse } from '../types';
+import type { User, Address, AddressRequest, ApiResponse, ChangePasswordRequest } from '../types';
 
 export const profileService = {
   getProfile: async (): Promise<ApiResponse<User>> => {
@@ -12,7 +12,7 @@ export const profileService = {
     return response.data;
   },
 
-  changePassword: async (data: any): Promise<ApiResponse<void>> => {
+  changePassword: async (data: ChangePasswordRequest): Promise<ApiResponse<void>> => {
     const response = await apiClient.patch<ApiResponse<void>>('/profile/change-password', data);
     return response.data;
   },

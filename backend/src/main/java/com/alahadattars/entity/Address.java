@@ -7,6 +7,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import com.alahadattars.validation.ValidPhoneNumber;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -29,6 +30,9 @@ import lombok.ToString;
 @AllArgsConstructor
 @Builder
 @ToString(callSuper = true)
+// Batches lazy-loading of Address proxies (e.g. Order.shippingAddress across a paged order list)
+// into one IN-clause query per page instead of one per order.
+@org.hibernate.annotations.BatchSize(size = 20)
 public class Address extends BaseEntity {
 
     @ToString.Exclude
@@ -42,8 +46,16 @@ public class Address extends BaseEntity {
     private String fullName;
 
     @NotBlank
+    @ValidPhoneNumber
     @Column(nullable = false, length = 20)
     private String phone;
+
+    // Same decomposed-storage pattern as User.phone — see the comment there.
+    @Column(name = "phone_country_code", length = 5)
+    private String phoneCountryCode;
+
+    @Column(name = "phone_national_number", length = 15)
+    private String phoneNationalNumber;
 
     @NotBlank
     @Column(name = "address_line1", nullable = false)

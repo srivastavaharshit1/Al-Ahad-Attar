@@ -3,6 +3,7 @@ package com.alahadattars.service;
 import com.alahadattars.dto.cart.CartResponse;
 import com.alahadattars.dto.cart.FreeProductOptionResponse;
 import com.alahadattars.entity.Cart;
+import com.alahadattars.entity.CartItem;
 import com.alahadattars.entity.Product;
 
 import java.math.BigDecimal;
@@ -43,4 +44,12 @@ public interface PromotionEngineService {
      * Used by CartServiceImpl when adding a free item.
      */
     void validateFreeItemEligibility(Cart cart, Long promotionId, Long variantId);
+
+    /**
+     * Read-only check for whether an existing free cart item still qualifies (promotion still
+     * active/in-date, cart still meets the buy condition, chosen variant still matches the free
+     * rule, still in stock). Used by CartServiceImpl to actually prune stale free items instead of
+     * only warning about them.
+     */
+    boolean isFreeCartItemStillValid(Cart cart, CartItem freeItem);
 }

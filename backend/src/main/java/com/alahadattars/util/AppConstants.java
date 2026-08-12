@@ -12,6 +12,4 @@ public final class AppConstants {
     
     public static final String DEFAULT_SORT_BY = "createdAt";
     public static final String DEFAULT_SORT_DIRECTION = "desc";
-    
-    public static final String PHONE_REGEX = "^\\+?[0-9]{10,14}$";
 }

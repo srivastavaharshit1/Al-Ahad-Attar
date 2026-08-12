@@ -4,6 +4,7 @@ import com.alahadattars.entity.Promotion;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -37,4 +38,13 @@ public interface PromotionRepository extends JpaRepository<Promotion, Long> {
            "AND (p.endDate IS NULL OR p.endDate >= :now) " +
            "ORDER BY p.priority DESC")
     List<Promotion> findAllActivePromotions(@Param("now") LocalDateTime now);
+
+    /**
+     * Conditionally claims one redemption. Returns 0 when the usage limit is already exhausted, which is
+     * what makes the limit hold under concurrent checkouts instead of being a read-only suggestion.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE Promotion p SET p.usedCount = p.usedCount + 1 " +
+           "WHERE p.id = :id AND (p.usageLimit IS NULL OR p.usedCount < p.usageLimit)")
+    int claimRedemption(@Param("id") Long id);
 }

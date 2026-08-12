@@ -1,7 +1,9 @@
 import React, { useState, useRef } from 'react';
-import type { ProductImage } from '../../types';
 import { apiClient } from '../../api/axios';
 import { Loader2, UploadCloud, Star, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { ConfirmationDialog } from '../ui/ConfirmationDialog';
+import { getImageUrl } from '../../utils/getImageUrl';
 
 export type ManagedImage = {
   id: string | number;
@@ -19,15 +21,17 @@ interface ImageManagerProps {
 export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, onImagesChange }) => {
   const [uploading, setUploading] = useState(false);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    
+
     const newFiles = Array.from(e.target.files);
-    
+
     if (images.length + newFiles.length > 10) {
-      alert("Maximum 10 images allowed per product");
+      toast.error("Maximum 10 images allowed per product");
       return;
     }
 
@@ -38,12 +42,12 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
         const updatedImages = [...images];
         for (const file of newFiles) {
           if (file.size > 5 * 1024 * 1024) {
-            alert(`File ${file.name} exceeds 5MB limit.`);
+            toast.error(`File ${file.name} exceeds 5MB limit.`);
             continue;
           }
           const formData = new FormData();
           formData.append('file', file);
-          
+
           const response = await apiClient.post(`/products/${productId}/images`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
@@ -51,7 +55,7 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
         }
         onImagesChange(updatedImages);
       } catch (error: any) {
-        alert("Failed to upload images: " + error.message);
+        toast.error("Failed to upload images: " + error.message);
       } finally {
         setUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -61,7 +65,7 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
       const updatedImages = [...images];
       for (const file of newFiles) {
         if (file.size > 5 * 1024 * 1024) {
-          alert(`File ${file.name} exceeds 5MB limit.`);
+          toast.error(`File ${file.name} exceeds 5MB limit.`);
           continue;
         }
         updatedImages.push({
@@ -86,7 +90,7 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
         }));
         onImagesChange(updatedImages);
       } catch (error: any) {
-        alert("Failed to set primary image.");
+        toast.error("Failed to set primary image.");
       }
     } else {
       const updatedImages = images.map(img => ({
@@ -97,14 +101,20 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
     }
   };
 
-  const handleDelete = async (imageId: string | number) => {
-    if (!window.confirm("Are you sure you want to delete this image?")) return;
-    
+  const handleDelete = (imageId: string | number) => {
+    setDeleteTargetId(imageId);
+  };
+
+  const confirmDelete = async () => {
+    if (deleteTargetId === null) return;
+    const imageId = deleteTargetId;
+
     if (productId && typeof imageId === 'number') {
       try {
+        setIsDeleting(true);
         await apiClient.delete(`/images/${imageId}`);
         let updatedImages = images.filter(img => img.id !== imageId);
-        
+
         // If we deleted the primary, refresh to get new primary
         if (images.find(img => img.id === imageId)?.isPrimary && updatedImages.length > 0) {
           const response = await apiClient.get(`/products/${productId}/images`);
@@ -112,8 +122,11 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
         } else {
           onImagesChange(updatedImages);
         }
+        setDeleteTargetId(null);
       } catch (error: any) {
-        alert("Failed to delete image.");
+        toast.error("Failed to delete image.");
+      } finally {
+        setIsDeleting(false);
       }
     } else {
       let updatedImages = images.filter(img => img.id !== imageId);
@@ -122,6 +135,7 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
         updatedImages[0].isPrimary = true;
       }
       onImagesChange(updatedImages);
+      setDeleteTargetId(null);
     }
   };
 
@@ -138,51 +152,53 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
   const handleDrop = async (e: React.DragEvent, targetIdx: number) => {
     e.preventDefault();
     if (draggedIdx === null || draggedIdx === targetIdx) return;
-    
+
     const newImages = [...images];
     const [draggedItem] = newImages.splice(draggedIdx, 1);
     newImages.splice(targetIdx, 0, draggedItem);
-    
+
     onImagesChange(newImages);
-    
+
     if (productId && newImages.every(img => typeof img.id === 'number')) {
       try {
         const orderedIds = newImages.map(img => img.id as number);
         await apiClient.patch(`/products/${productId}/images/reorder`, orderedIds);
       } catch (error: any) {
-        alert("Failed to reorder images.");
+        toast.error("Failed to reorder images.");
       }
     }
-    
+
     setDraggedIdx(null);
   };
 
   return (
-    <div className="bg-surface-container rounded-xl border border-outline-variant p-6">
+    <div className="card p-6">
       <div className="flex justify-between items-center mb-6">
-        <h3 className="text-lg font-medium text-on-surface">Product Images</h3>
-        <span className="text-sm text-on-surface-variant">{images.length} / 10 limit</span>
+        <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">Product Images</h3>
+        <span className="badge badge-neutral">{images.length} / 10</span>
       </div>
 
       {/* Upload Zone */}
-      <div 
-        className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
-          uploading ? 'border-primary/50 bg-primary/5' : 'border-outline-variant hover:border-primary hover:bg-surface-container-highest'
+      <div
+        className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-accent/40 focus-within:border-accent ${
+          uploading ? 'border-accent/50 bg-accent-soft/40' : 'border-outline-variant hover:border-accent hover:bg-surface-container'
         }`}
         onClick={() => !uploading && fileInputRef.current?.click()}
       >
-        <input 
-          type="file" 
+        <input
+          type="file"
           ref={fileInputRef}
-          className="hidden" 
-          multiple 
+          className="sr-only"
+          multiple
           accept="image/jpeg,image/png,image/webp"
           onChange={handleFileChange}
+          disabled={uploading}
+          aria-label="Upload product images"
         />
         <div className="flex flex-col items-center justify-center gap-3">
           {uploading ? (
             <>
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <Loader2 className="w-8 h-8 animate-spin text-accent" />
               <p className="text-on-surface font-medium">Uploading...</p>
             </>
           ) : (
@@ -201,43 +217,44 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
       {images.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-6">
           {images.map((img, idx) => (
-            <div 
+            <div
               key={img.id}
               draggable
               onDragStart={(e) => handleDragStart(e, idx)}
               onDragOver={(e) => handleDragOver(e)}
               onDrop={(e) => handleDrop(e, idx)}
-              className="relative aspect-square rounded-lg border border-outline-variant overflow-hidden group bg-surface hover:shadow-md transition-all cursor-move"
+              className="group relative aspect-square rounded-lg border border-outline-variant overflow-hidden bg-surface-container-lowest transition-all hover:shadow-md hover:border-accent/40 cursor-move"
             >
-              <img 
-                src={img.imageUrl} 
-                alt="Product" 
+              <img
+                src={getImageUrl(img.imageUrl)}
+                alt="Product"
                 className="w-full h-full object-contain p-2"
               />
-              
+
               {/* Primary Badge */}
               {img.isPrimary && (
-                <div className="absolute top-2 left-2 bg-primary text-on-primary text-[10px] uppercase font-bold px-2 py-1 rounded shadow-sm">
+                <div className="badge badge-gold absolute top-2 left-2 shadow-sm">
+                  <Star className="w-2.5 h-2.5 fill-current" />
                   Primary
                 </div>
               )}
-              
+
               {/* Overlay Controls */}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+              <div className="absolute inset-0 bg-ink/45 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex items-center justify-center gap-3">
                 {!img.isPrimary && (
-                  <button 
+                  <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); handleSetPrimary(img.id); }}
-                    className="p-2 bg-white rounded-full text-on-surface hover:text-[#D4AF37] transition-colors"
+                    className="p-2 bg-surface-container-lowest rounded-full text-on-surface hover:text-accent transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
                     title="Set as Primary"
                   >
                     <Star className="w-4 h-4" />
                   </button>
                 )}
-                <button 
+                <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); handleDelete(img.id); }}
-                  className="p-2 bg-white rounded-full text-error hover:bg-error/10 transition-colors"
+                  className="p-2 bg-surface-container-lowest rounded-full text-error hover:bg-error/10 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-error focus-visible:outline-offset-2"
                   title="Delete Image"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -247,6 +264,17 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
           ))}
         </div>
       )}
+
+      <ConfirmationDialog
+        isOpen={deleteTargetId !== null}
+        onClose={() => !isDeleting && setDeleteTargetId(null)}
+        onConfirm={confirmDelete}
+        title="Delete Image"
+        description="Are you sure you want to delete this image?"
+        confirmText="Delete Image"
+        isLoading={isDeleting}
+        actionType="DELETE"
+      />
     </div>
   );
 };

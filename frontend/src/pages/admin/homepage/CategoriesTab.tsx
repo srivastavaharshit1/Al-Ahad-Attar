@@ -63,7 +63,22 @@ export const CategoriesTab: React.FC = () => {
 
   const handleSave = async () => {
     if (!editingCategory) return;
-    
+
+    // Validate any selected image files client-side before hitting the network —
+    // the backend rejects anything over 5MB (application.yml multipart.max-file-size).
+    const filesToCheck = [desktopInputRef.current?.files?.[0], mobileInputRef.current?.files?.[0]];
+    for (const f of filesToCheck) {
+      if (!f) continue;
+      if (!f.type.startsWith('image/')) {
+        toast.error(`File "${f.name}" is not a supported image type.`);
+        return;
+      }
+      if (f.size > 5 * 1024 * 1024) {
+        toast.error(`File "${f.name}" exceeds the 5MB size limit.`);
+        return;
+      }
+    }
+
     setIsSaving(true);
     const request = {
       name: editingCategory.name,
@@ -175,19 +190,19 @@ export const CategoriesTab: React.FC = () => {
       ) : (
         <div className="space-y-4">
           {categories.map((category, idx) => (
-            <div key={category.id} className="flex gap-4 p-4 border border-outline-variant rounded-lg bg-surface hover:bg-surface-container-low transition-colors shadow-sm items-center">
+            <div key={category.id} className="card flex gap-4 p-4 items-center">
               <div className="flex flex-col gap-1 shrink-0">
-                <button 
-                  onClick={() => handleMoveUp(idx)} 
+                <button
+                  onClick={() => handleMoveUp(idx)}
                   disabled={idx === 0}
-                  className={`p-1 rounded bg-surface-container text-on-surface-variant ${idx === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
+                  className={`p-1 rounded bg-surface-container text-on-surface-variant transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${idx === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-accent'}`}
                 >
                   <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
                 </button>
-                <button 
-                  onClick={() => handleMoveDown(idx)} 
+                <button
+                  onClick={() => handleMoveDown(idx)}
                   disabled={idx === categories.length - 1}
-                  className={`p-1 rounded bg-surface-container text-on-surface-variant ${idx === categories.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
+                  className={`p-1 rounded bg-surface-container text-on-surface-variant transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${idx === categories.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-accent'}`}
                 >
                   <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
                 </button>
@@ -203,13 +218,14 @@ export const CategoriesTab: React.FC = () => {
                   </div>
                 )}
                 {category.mobileImageUrl && (
-                  <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] px-1 rounded uppercase">Mobile</div>
+                  <div className="absolute bottom-1 right-1 bg-ink/75 text-inverse-on-surface text-[9px] px-1 rounded uppercase">Mobile</div>
                 )}
               </div>
-              
+
               <div className="flex-grow min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <h4 className="font-label-lg text-on-surface truncate">{category.name}</h4>
+                  {!category.showOnHomepage && <span className="badge badge-neutral shrink-0">Hidden</span>}
                 </div>
                 <p className="font-body-sm text-on-surface-variant truncate">Title: {category.homepageTitle || 'Default'}</p>
                 <p className="font-body-sm text-on-surface-variant text-xs mt-1">Button Text: {category.homepageButtonText || 'Explore Collection'}</p>
@@ -217,19 +233,20 @@ export const CategoriesTab: React.FC = () => {
 
               <div className="flex items-center gap-4 shrink-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-on-surface-variant uppercase">Visible</span>
+                  <span className="font-label-sm text-on-surface-variant uppercase tracking-wide">Visible</span>
                   <button
                     onClick={() => handleToggleVisible(category)}
-                    className={`w-12 h-6 rounded-full transition-colors relative shadow-inner ${category.showOnHomepage ? 'bg-primary' : 'bg-surface-container-high border border-outline'}`}
+                    className={`w-12 h-6 rounded-full transition-colors relative shadow-inner focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${category.showOnHomepage ? 'bg-primary' : 'bg-surface-container-high border border-outline'}`}
+                    title={category.showOnHomepage ? 'Visible on homepage' : 'Hidden from homepage'}
                   >
-                    <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform shadow ${category.showOnHomepage ? 'translate-x-6' : ''}`}></span>
+                    <span className={`absolute top-1 left-1 bg-surface-container-lowest w-4 h-4 rounded-full transition-transform shadow ${category.showOnHomepage ? 'translate-x-6' : ''}`}></span>
                   </button>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => openEditModal(category)}
-                    className="p-2 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
+                    className="p-2 text-on-surface-variant hover:text-accent transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
                     title="Edit Homepage Content"
                   >
                     <span className="material-symbols-outlined text-[20px]">edit</span>
@@ -256,9 +273,9 @@ export const CategoriesTab: React.FC = () => {
             placeholder="e.g. Discover authentic blends"
           />
           
-          <div className="grid grid-cols-2 gap-4">
-            <Input 
-              label="Button Text" 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Button Text"
               value={homepageButtonText} 
               onChange={(e: any) => setHomepageButtonText(e.target.value)} 
               placeholder="e.g. Explore Collection"
@@ -285,7 +302,7 @@ export const CategoriesTab: React.FC = () => {
           <div className="pt-4 mt-2 border-t border-outline-variant space-y-4">
             <h4 className="font-label-md text-on-surface">Images</h4>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-surface-container-lowest border border-outline-variant rounded p-4 text-center">
                 <p className="font-label-sm mb-2">Desktop Image (3:4 Ratio)</p>
                 {editingCategory?.desktopImageUrl && (

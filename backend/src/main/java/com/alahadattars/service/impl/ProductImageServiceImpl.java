@@ -9,7 +9,7 @@ import com.alahadattars.mapper.ProductImageMapper;
 import com.alahadattars.repository.ProductImageRepository;
 import com.alahadattars.repository.ProductRepository;
 import com.alahadattars.service.ProductImageService;
-import com.alahadattars.service.UploadService;
+import com.alahadattars.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,7 +28,7 @@ public class ProductImageServiceImpl implements ProductImageService {
     private final ProductImageRepository productImageRepository;
     private final ProductRepository productRepository;
     private final ProductImageMapper productImageMapper;
-    private final UploadService uploadService;
+    private final StorageService storageService;
 
     @Override
     @Transactional
@@ -46,7 +46,7 @@ public class ProductImageServiceImpl implements ProductImageService {
         }
 
         try {
-            String storedPath = uploadService.uploadFile(file, "products");
+            String storedPath = storageService.uploadFile(file, "products/" + productId);
 
             String originalFilename = file.getOriginalFilename();
             String format = "jpeg";
@@ -98,7 +98,7 @@ public class ProductImageServiceImpl implements ProductImageService {
         
         // Remove physical file
         try {
-            uploadService.deleteFile(image.getImageUrl());
+            storageService.deleteFile(image.getImageUrl());
         } catch (Exception e) {
             log.warn("Could not delete physical file for image {}: {}", imageId, e.getMessage());
         }
@@ -165,11 +165,5 @@ public class ProductImageServiceImpl implements ProductImageService {
         ProductImage savedImage = productImageRepository.save(newPrimary);
         
         return productImageMapper.toResponse(savedImage);
-    }
-
-    @Override
-    @Transactional
-    public void migrateVariantImages() {
-        // This is a stub for the migration logic if needed to run from within service
     }
 }

@@ -14,4 +14,7 @@ public interface AddressRepository extends JpaRepository<Address, Long> {
     Optional<Address> findByIdAndUserAndActiveTrue(Long id, User user);
     Optional<Address> findByUserAndDefaultAddressTrueAndActiveTrue(User user);
     Optional<Address> findFirstByUserAndActiveTrueOrderByCreatedAtDesc(User user);
+
+    /** Rows created before the phoneCountryCode/phoneNationalNumber columns existed. */
+    List<Address> findByPhoneCountryCodeIsNull();
 }

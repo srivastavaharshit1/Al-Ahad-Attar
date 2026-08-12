@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { productService } from '../../services/productService';
 import { categoryService } from '../../services/categoryService';
 import { apiClient } from '../../api/axios';
@@ -150,7 +151,7 @@ export const EditProduct: React.FC = () => {
         await apiClient.patch(`/products/${id}/images/reorder`, orderedIds);
       }
 
-      alert('Product updated successfully!');
+      toast.success('Product updated successfully!');
       await fetchProduct(id as string);
     } catch (err: any) {
       console.error("Failed to update product", err);
@@ -165,23 +166,27 @@ export const EditProduct: React.FC = () => {
 
   return (
     <>
-      <div className="flex items-center gap-2 mb-8">
-        <Link to="/admin/products" className="text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1">
+      <div className="flex items-center gap-2 mb-6">
+        <Link
+          to="/admin/products"
+          className="text-on-surface-variant hover:text-accent-hover transition-colors flex items-center gap-1 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+        >
           <span className="material-symbols-outlined text-sm">arrow_back</span>
           <span className="font-label-md text-label-md">Back to Products</span>
         </Link>
       </div>
-      
+
       <div className="flex justify-between items-end mb-8">
         <div>
           <h2 className="font-headline-lg text-headline-lg font-semibold text-primary">Edit Fragrance</h2>
           <p className="font-body-md text-body-md text-on-surface-variant mt-2">Update product details and inventory.</p>
         </div>
       </div>
-      
+
       {error && (
-        <div className="bg-error-container text-on-error-container p-4 rounded-lg mb-8 shadow-sm border border-error/20">
-          {error}
+        <div className="flex items-start gap-3 bg-error-container text-on-error-container p-4 rounded-lg mb-8 shadow-sm border border-error/20">
+          <span className="material-symbols-outlined text-[20px] shrink-0" aria-hidden="true">error</span>
+          <span className="font-body-sm">{error}</span>
         </div>
       )}
 

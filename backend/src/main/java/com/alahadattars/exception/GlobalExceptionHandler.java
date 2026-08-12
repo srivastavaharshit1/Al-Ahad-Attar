@@ -12,7 +12,9 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.data.mapping.PropertyReferenceException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,6 +74,21 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
     }
 
+    // Thrown by @PreAuthorize (method-level security) when an authenticated-but-insufficiently-
+    // privileged caller hits an admin-only endpoint (e.g. GET /api/categories, which is
+    // intentionally admin-only — customer-facing category browsing uses /api/categories/active).
+    // Without this handler it fell through to the generic Exception handler below and returned a
+    // misleading 500 instead of the correct 403.
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccessDeniedException(AccessDeniedException ex) {
+        log.warn("AccessDeniedException: {}", ex.getMessage());
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(false)
+                .message("You do not have permission to perform this action.")
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationExceptions(MethodArgumentNotValidException ex) {
         log.warn("MethodArgumentNotValidException occurred");
@@ -106,6 +123,16 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingServletRequestParameterException(MissingServletRequestParameterException ex) {
+        log.warn("MissingServletRequestParameterException: {}", ex.getMessage());
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(false)
+                .message("Missing required parameter: " + ex.getParameterName())
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException ex) {
         log.warn("MaxUploadSizeExceededException: {}", ex.getMessage());
@@ -118,10 +145,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGlobalException(Exception ex) {
+        // Full exception (including ex.getMessage(), which can contain SQL/constraint text or
+        // internal class/field names) is logged server-side only — never echoed back to the
+        // client, which would leak internals useful for reconnaissance.
         log.error("An unexpected error occurred: ", ex);
         ApiResponse<Void> response = ApiResponse.<Void>builder()
                 .success(false)
-                .message("An unexpected error occurred: " + ex.getMessage())
+                .message("An unexpected error occurred. Please try again or contact support.")
                 .build();
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }

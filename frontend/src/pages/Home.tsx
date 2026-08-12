@@ -154,12 +154,6 @@ const HeroSection = ({ heroes, section }: { heroes: any[], section?: any }) => {
           )}
         </div>
       </div>
-      
-      {/* Scroll indicator */}
-      <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-3 opacity-60 animate-bounce">
-        <span className="text-white text-[9px] uppercase tracking-[0.3em]">Scroll</span>
-        <div className="w-[1px] h-12 bg-gradient-to-b from-white to-transparent"></div>
-      </div>
     </section>
   );
 };

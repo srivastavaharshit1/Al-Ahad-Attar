@@ -92,7 +92,7 @@ export const ReportReviewDialog: React.FC<ReportReviewDialogProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
       role="presentation"
       aria-hidden="false"
       onClick={(e) => e.target === e.currentTarget && handleClose()}
@@ -102,15 +102,15 @@ export const ReportReviewDialog: React.FC<ReportReviewDialogProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="report-dialog-title"
-        className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200"
+        className="modal-panel w-full max-w-md overflow-hidden border border-outline-variant/40"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/40">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-50 rounded-full">
-              <AlertTriangle size={18} className="text-orange-500" />
+            <div className="p-2 rounded-full" style={{ background: 'var(--warning-bg)' }}>
+              <AlertTriangle size={18} style={{ color: 'var(--warning)' }} />
             </div>
-            <h2 id="report-dialog-title" className="font-semibold text-gray-900 text-lg">
+            <h2 id="report-dialog-title" className="font-headline-md text-lg text-on-surface">
               Report Review
             </h2>
           </div>
@@ -118,7 +118,7 @@ export const ReportReviewDialog: React.FC<ReportReviewDialogProps> = ({
             onClick={handleClose}
             disabled={loading}
             aria-label="Close dialog"
-            className="p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
+            className="p-2 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <X size={18} />
           </button>
@@ -128,18 +128,15 @@ export const ReportReviewDialog: React.FC<ReportReviewDialogProps> = ({
         <form onSubmit={handleSubmit}>
           <div className="px-6 py-5 space-y-5">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg" role="alert">
+              <div className="bg-error/5 border border-error/20 text-error text-sm px-4 py-3 rounded-lg leading-relaxed" role="alert">
                 {error}
               </div>
             )}
 
             {/* Reason */}
             <div>
-              <label
-                htmlFor="report-reason"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
-              >
-                Reason <span className="text-red-500" aria-hidden="true">*</span>
+              <label htmlFor="report-reason" className="field-label">
+                Reason <span style={{ color: 'var(--error)' }} aria-hidden="true">*</span>
               </label>
               <select
                 id="report-reason"
@@ -147,7 +144,7 @@ export const ReportReviewDialog: React.FC<ReportReviewDialogProps> = ({
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 required
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-colors"
+                className="field-input"
                 aria-required="true"
               >
                 <option value="" disabled>Select a reason…</option>
@@ -159,12 +156,9 @@ export const ReportReviewDialog: React.FC<ReportReviewDialogProps> = ({
 
             {/* Additional Comments */}
             <div>
-              <label
-                htmlFor="report-comments"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
-              >
+              <label htmlFor="report-comments" className="field-label">
                 Additional Comments{' '}
-                <span className="text-gray-400 font-normal">(Optional)</span>
+                <span className="text-on-surface-variant/70 normal-case tracking-normal font-normal">(Optional)</span>
               </label>
               <textarea
                 id="report-comments"
@@ -173,14 +167,14 @@ export const ReportReviewDialog: React.FC<ReportReviewDialogProps> = ({
                 rows={3}
                 maxLength={500}
                 placeholder="Provide any additional details…"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 resize-none focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-colors"
+                className="field-input resize-none"
               />
-              <p className="text-xs text-gray-400 mt-1 text-right">{comments.length}/500</p>
+              <p className="text-xs text-on-surface-variant/70 mt-1 text-right">{comments.length}/500</p>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+          <div className="px-6 py-4 bg-surface-container-lowest border-t border-outline-variant/40 flex justify-end gap-3">
             <Button
               type="button"
               variant="outline"

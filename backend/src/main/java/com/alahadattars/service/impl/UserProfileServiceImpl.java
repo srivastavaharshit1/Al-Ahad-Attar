@@ -10,6 +10,7 @@ import com.alahadattars.exception.ResourceNotFoundException;
 import com.alahadattars.mapper.UserProfileMapper;
 import com.alahadattars.repository.UserRepository;
 import com.alahadattars.service.UserProfileService;
+import com.alahadattars.util.PhoneNumberHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -36,11 +37,21 @@ public class UserProfileServiceImpl implements UserProfileService {
     public UserProfileResponse updateProfile(String email, ProfileUpdateRequest request) {
         User user = getUserByEmail(email);
 
-        if (!user.getPhone().equals(request.getPhone())) {
-            if (userRepository.existsByPhone(request.getPhone())) {
+        // @ValidPhoneNumber on ProfileUpdateRequest already rejected malformed input; parsing
+        // again here gives the canonical E.164 form, so re-submitting the same number in a
+        // different format (e.g. with spaces) isn't treated as a change.
+        PhoneNumberHelper.ParsedPhone parsedPhone = PhoneNumberHelper.parse(request.getPhone());
+        if (parsedPhone == null) {
+            throw new BadRequestException("Invalid phone number.");
+        }
+
+        if (!parsedPhone.e164().equals(user.getPhone())) {
+            if (userRepository.existsByPhone(parsedPhone.e164())) {
                 throw new ConflictException("Phone number already exists");
             }
-            user.setPhone(request.getPhone());
+            user.setPhone(parsedPhone.e164());
+            user.setPhoneCountryCode(parsedPhone.regionCode());
+            user.setPhoneNationalNumber(parsedPhone.nationalNumber());
             user.setPhoneVerified(false); // Reset verification if phone changes
         }
 

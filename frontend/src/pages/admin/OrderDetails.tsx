@@ -29,12 +29,12 @@ export const AdminOrderDetails: React.FC = () => {
   const fetchOrder = async (orderId: string) => {
     try {
       setIsLoading(true);
-      // Wait, admin needs an admin endpoint to get an order by ID. 
-      // Right now the only getOrder is for the customer.
-      // But we can just use the customer one if the admin is also technically a user or if the endpoint doesn't strictly check the email matches the order user.
-      // Actually, we should use getOrder. If it fails, we handle it.
-      // Wait, there is a missing admin endpoint for getting order details. Let's assume there is one or we'll fetch all and find it.
-      const res = await orderService.getAllOrders();
+      // There is no admin "get single order by ID" endpoint — GET /api/orders/{id} looks up
+      // by (id, requesting user's email), so it only ever resolves the admin's own orders, never
+      // an arbitrary customer's. Work around it via the admin list endpoint, but request a large
+      // page size so an order isn't missed just because it's outside the default 10-item page
+      // (matches the same size:10000 "fetch everything" pattern already used for CSV export).
+      const res = await orderService.getAllOrders({ size: 10000 });
       const foundOrder = res.content?.find((o: Order) => o.id.toString() === orderId) || (res as any).data?.content?.find((o: Order) => o.id.toString() === orderId);
       if (foundOrder) {
         setOrder(foundOrder);
@@ -72,8 +72,8 @@ export const AdminOrderDetails: React.FC = () => {
       setIsUpdating(true);
       const res = await orderService.initiateRefund(order.id.toString());
       setOrder(res.data);
-      if (res.data.refundStatus === 'COMPLETED') {
-        toast.success(`Refund initiated successfully. Refund ID: ${res.data.refundId}`);
+      if (res.data.refundStatus === 'REFUNDED') {
+        toast.success(`Refund processed successfully. Refund ID: ${res.data.refundId}`);
       } else if (res.data.refundStatus === 'FAILED') {
         toast.error(`Refund failed: ${res.data.refundFailureReason}`);
       } else {
@@ -113,12 +113,12 @@ export const AdminOrderDetails: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     switch(status) {
-      case 'CONFIRMED': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'PACKED': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case 'SHIPPED': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'DELIVERED': return 'bg-green-100 text-green-800 border-green-200';
-      case 'CANCELLED': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'CONFIRMED': return 'badge-gold';
+      case 'PACKED': return 'badge-neutral';
+      case 'SHIPPED': return 'badge-neutral';
+      case 'DELIVERED': return 'badge-success';
+      case 'CANCELLED': return 'badge-error';
+      default: return 'badge-neutral';
     }
   };
 
@@ -126,13 +126,13 @@ export const AdminOrderDetails: React.FC = () => {
     <>
       <header className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link to="/admin/orders" className="text-on-surface-variant hover:text-primary">
+          <Link to="/admin/orders" className="text-on-surface-variant hover:text-primary rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">
             <span className="material-symbols-outlined">arrow_back</span>
           </Link>
           <h2 className="font-headline-lg text-headline-lg text-on-surface">
             Order #{order.orderNumber}
           </h2>
-          <span className={`px-3 py-1 rounded-full text-xs font-label-md uppercase tracking-wider border ${getStatusBadge(order.status)}`}>
+          <span className={`badge ${getStatusBadge(order.status)}`}>
             {formatOrderStatus(order.status)}
           </span>
         </div>
@@ -144,31 +144,31 @@ export const AdminOrderDetails: React.FC = () => {
           <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6">
             <h3 className="font-headline-sm mb-4">Order Actions</h3>
             <div className="flex flex-wrap gap-4">
-              <button onClick={() => handleStatusUpdate('PACKED')} disabled={isUpdating || order.status !== 'CONFIRMED'} className="btn-primary px-4 py-2 rounded text-sm disabled:opacity-50 bg-indigo-600 hover:bg-indigo-700">Mark Packed</button>
-              <button onClick={() => handleStatusUpdate('SHIPPED')} disabled={isUpdating || order.status !== 'PACKED'} className="btn-primary px-4 py-2 rounded text-sm disabled:opacity-50 bg-purple-600 hover:bg-purple-700">Mark Shipped</button>
-              <button onClick={() => handleStatusUpdate('DELIVERED')} disabled={isUpdating || order.status !== 'SHIPPED'} className="btn-primary px-4 py-2 rounded text-sm disabled:opacity-50 bg-green-600 hover:bg-green-700">Mark Delivered</button>
-              <button onClick={() => handleStatusUpdate('CANCELLED')} disabled={isUpdating || order.status === 'DELIVERED' || order.status === 'CANCELLED'} className="btn-outline text-error border-error hover:bg-error hover:text-on-error px-4 py-2 rounded text-sm disabled:opacity-50">Cancel Order</button>
+              <button onClick={() => handleStatusUpdate('PACKED')} disabled={isUpdating || order.status !== 'CONFIRMED'} className="btn-primary px-4 py-2 rounded text-sm disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">Mark Packed</button>
+              <button onClick={() => handleStatusUpdate('SHIPPED')} disabled={isUpdating || order.status !== 'PACKED'} className="btn-primary px-4 py-2 rounded text-sm disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">Mark Shipped</button>
+              <button onClick={() => handleStatusUpdate('DELIVERED')} disabled={isUpdating || order.status !== 'SHIPPED'} className="btn-gold px-4 py-2 rounded text-sm disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">Mark Delivered</button>
+              <button onClick={() => handleStatusUpdate('CANCELLED')} disabled={isUpdating || order.status !== 'CONFIRMED'} title={order.status !== 'CONFIRMED' ? 'Only orders that are still CONFIRMED (not yet packed) can be cancelled' : undefined} className="btn-outline text-error border-error hover:bg-error hover:text-on-error px-4 py-2 rounded text-sm disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">Cancel Order</button>
             </div>
           </div>
 
           {/* Gift Service - Packing Team Info */}
           {order.giftServiceName && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+            <div className="bg-accent-soft border border-accent/30 rounded-xl p-6">
               <div className="flex items-center gap-2 mb-3">
-                <span className="material-symbols-outlined text-amber-600 text-[20px]">redeem</span>
-                <h3 className="font-headline-sm text-amber-800">Gift Service — Packing Note</h3>
+                <span className="material-symbols-outlined text-accent-hover text-[20px]">redeem</span>
+                <h3 className="font-headline-sm text-on-secondary-container">Gift Service — Packing Note</h3>
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-label-lg text-amber-900">{order.giftServiceName}</p>
+                  <p className="font-label-lg text-on-secondary-container">{order.giftServiceName}</p>
                   {order.giftMessage && (
                     <div className="mt-2">
-                      <p className="text-xs text-amber-700 uppercase tracking-wider mb-1">Gift Message</p>
-                      <p className="font-body-md text-amber-900 italic bg-white/60 p-3 rounded border border-amber-200">"{order.giftMessage}"</p>
+                      <p className="text-xs text-on-secondary-container/80 uppercase tracking-wider mb-1">Gift Message</p>
+                      <p className="font-body-md text-on-secondary-container italic bg-surface-container-lowest/60 p-3 rounded border border-accent/20">"{order.giftMessage}"</p>
                     </div>
                   )}
                 </div>
-                <span className="font-headline-sm text-amber-800">{formatPrice(order.giftServicePrice || 0)}</span>
+                <span className="font-headline-sm text-on-secondary-container">{formatPrice(order.giftServicePrice || 0)}</span>
               </div>
             </div>
           )}
@@ -201,14 +201,14 @@ export const AdminOrderDetails: React.FC = () => {
             <div className="mt-4 text-right space-y-2">
               <p className="text-on-surface-variant">Subtotal: {formatPrice(order.items.reduce((acc, item) => acc + ((item.originalPrice || 0) * item.quantity), 0))}</p>
               {order.offerDiscountAmount > 0 && (
-                <p className="text-green-600">Offer Discount: -{formatPrice(order.offerDiscountAmount)}</p>
+                <p className="text-tertiary">Offer Discount: -{formatPrice(order.offerDiscountAmount)}</p>
               )}
               {order.couponDiscountAmount > 0 && (
                 <p className="text-primary">Coupon Discount: -{formatPrice(order.couponDiscountAmount)}</p>
               )}
-              <p className="text-on-surface-variant">Shipping: {order.shippingCost === 0 ? <span className="text-green-600">Free</span> : formatPrice(order.shippingCost)}</p>
+              <p className="text-on-surface-variant">Shipping: {order.shippingCost === 0 ? <span className="text-tertiary">Free</span> : formatPrice(order.shippingCost)}</p>
               {order.giftServiceName && order.giftServicePrice != null && order.giftServicePrice > 0 && (
-                <p className="text-amber-700">Gift Wrapping ({order.giftServiceName}): {formatPrice(order.giftServicePrice)}</p>
+                <p className="text-on-secondary-container">Gift Wrapping ({order.giftServiceName}): {formatPrice(order.giftServicePrice)}</p>
               )}
               <p className="font-headline-md mt-2 pt-2 border-t border-outline-variant/50">Total: {formatPrice(order.totalAmount)}</p>
             </div>
@@ -235,7 +235,7 @@ export const AdminOrderDetails: React.FC = () => {
                 <textarea value={shipmentNotes} onChange={e => setShipmentNotes(e.target.value)} className="w-full bg-transparent border border-outline-variant rounded p-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-on-surface" rows={2}></textarea>
               </div>
               <div className="md:col-span-2 text-right mt-2">
-                <button type="submit" disabled={isUpdating} className="btn-primary px-6 py-2 rounded">Save Shipping Details</button>
+                <button type="submit" disabled={isUpdating} className="btn-primary px-6 py-2 rounded disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">Save Shipping Details</button>
               </div>
             </form>
           </div>
@@ -262,7 +262,7 @@ export const AdminOrderDetails: React.FC = () => {
                   href={`https://wa.me/${order.shippingAddress.phone.replace(/[^0-9]/g, '')}`} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white py-3 px-4 rounded font-medium transition-colors"
+                  className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white py-3 px-4 rounded font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
                 >
                   <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448-.002 9.884-4.436 9.886-9.884.002-5.449-4.434-9.885-9.883-9.886-5.45.002-9.884 4.436-9.886 9.885-.001 2.203.58 4.092 1.684 5.861l-1.144 4.182 4.269-1.15zm8.815-6.852c-.482-.241-2.85-1.407-3.292-1.569-.44-.162-.76-.242-1.083.241-.321.482-1.242 1.569-1.522 1.891-.281.32-.562.361-1.042.12-.482-.241-2.037-.751-3.88-2.399-1.433-1.285-2.399-2.87-2.68-3.352-.28-.482-.03-.742.21-.983.218-.218.482-.562.723-.842.241-.281.322-.482.482-.803.161-.321.082-.602-.04-.842-.121-.242-1.083-2.61-1.483-3.573-.388-.934-.783-.807-1.083-.822-.28-.014-.6-.014-.922-.014-.321 0-.842.121-1.283.602-.44.482-1.684 1.646-1.684 4.014s1.724 4.656 1.964 4.977c.241.322 3.393 5.178 8.219 7.259 4.826 2.08 4.826 1.385 5.669 1.265.842-.121 2.85-1.164 3.251-2.288.401-1.124.401-2.088.28-2.289-.121-.201-.441-.321-.922-.562z"/></svg>
                   Contact Customer on WhatsApp
@@ -281,10 +281,10 @@ export const AdminOrderDetails: React.FC = () => {
               </div>
               <div>
                 <p className="font-label-md text-on-surface-variant uppercase tracking-wider mb-1">Payment Status</p>
-                <span className={`px-2 py-1 rounded text-xs font-label-md uppercase tracking-wider ${
-                  order.paymentStatus === 'PAID' ? 'bg-green-100 text-green-800' : 
-                  order.paymentStatus === 'FAILED' ? 'bg-red-100 text-red-800' : 
-                  'bg-yellow-100 text-yellow-800'
+                <span className={`badge ${
+                  order.paymentStatus === 'PAID' ? 'badge-success' :
+                  order.paymentStatus === 'FAILED' ? 'badge-error' :
+                  'badge-warning'
                 }`}>
                   {order.paymentStatus}
                 </span>
@@ -302,32 +302,35 @@ export const AdminOrderDetails: React.FC = () => {
               <div className="mt-6 pt-6 border-t border-outline-variant/50">
                 <h4 className="font-label-lg text-on-surface mb-4">Refund Management</h4>
                 
-                {order.refundStatus === 'PENDING' && (
-                  <div className="bg-amber-50 rounded p-4 border border-amber-200">
-                    <p className="text-amber-800 text-sm mb-3">Customer has cancelled this order. A refund of {formatPrice(order.refundAmount || order.totalAmount)} is pending your approval.</p>
-                    <button onClick={handleIssueRefund} disabled={isUpdating} className="w-full btn-primary bg-green-600 hover:bg-green-700 py-2 rounded flex items-center justify-center gap-2">
+                {order.refundStatus === 'REFUND_REQUIRED' && (
+                  <div className="bg-[var(--warning-bg)] rounded p-4 border border-[var(--warning)]/30">
+                    <p className="text-[var(--warning)] text-sm mb-3">Customer has cancelled this order. A full refund of {formatPrice(order.refundAmount || order.totalAmount)} is required and awaiting your approval.</p>
+                    <button onClick={handleIssueRefund} disabled={isUpdating} className="w-full btn-gold py-2 rounded flex items-center justify-center gap-2 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">
                       <span className="material-symbols-outlined text-[18px]">payments</span>
-                      Issue Refund
+                      {isUpdating ? 'Processing Refund...' : 'Process Refund'}
                     </button>
                   </div>
                 )}
 
                 {order.refundStatus === 'PROCESSING' && (
-                  <div className="bg-blue-50 rounded p-4 border border-blue-200 text-center">
-                    <p className="text-blue-800 font-medium flex items-center justify-center gap-2">
+                  <div className="bg-surface-container rounded p-4 border border-outline-variant text-center">
+                    <p className="text-on-surface-variant font-medium flex items-center justify-center gap-2 mb-3">
                       <span className="material-symbols-outlined animate-spin text-[18px]">sync</span>
                       Refund is being processed...
                     </p>
+                    <button onClick={handleIssueRefund} disabled={isUpdating} className="w-full btn-outline py-2 rounded text-sm disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">
+                      {isUpdating ? 'Checking...' : 'Check Status / Reconcile'}
+                    </button>
                   </div>
                 )}
 
-                {order.refundStatus === 'COMPLETED' && (
-                  <div className="bg-green-50 rounded p-4 border border-green-200">
-                    <p className="text-green-800 font-medium flex items-center gap-2 mb-2">
+                {order.refundStatus === 'REFUNDED' && (
+                  <div className="bg-tertiary-container rounded p-4 border border-tertiary/30">
+                    <p className="text-on-tertiary-container font-medium flex items-center gap-2 mb-2">
                       <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                      Refund Completed
+                      Refund Processed
                     </p>
-                    <div className="text-sm text-green-900 space-y-1">
+                    <div className="text-sm text-on-tertiary-container space-y-1">
                       <p><span className="font-medium">Amount:</span> {formatPrice(order.refundAmount || 0)}</p>
                       {order.refundId && <p><span className="font-medium">Refund ID:</span> {order.refundId}</p>}
                       {order.refundCompletedAt && <p><span className="font-medium">Date:</span> {new Date(order.refundCompletedAt).toLocaleDateString()}</p>}
@@ -336,15 +339,15 @@ export const AdminOrderDetails: React.FC = () => {
                 )}
 
                 {order.refundStatus === 'FAILED' && (
-                  <div className="bg-red-50 rounded p-4 border border-red-200">
-                    <p className="text-red-800 font-medium flex items-center gap-2 mb-2">
+                  <div className="bg-error-container rounded p-4 border border-error/30">
+                    <p className="text-on-error-container font-medium flex items-center gap-2 mb-2">
                       <span className="material-symbols-outlined text-[18px]">error</span>
                       Refund Failed
                     </p>
                     {order.refundFailureReason && (
-                      <p className="text-sm text-red-700 mb-3 bg-white/50 p-2 rounded">{order.refundFailureReason}</p>
+                      <p className="text-sm text-on-error-container mb-3 bg-surface-container-lowest/50 p-2 rounded">{order.refundFailureReason}</p>
                     )}
-                    <button onClick={handleIssueRefund} disabled={isUpdating} className="w-full btn-primary bg-red-600 hover:bg-red-700 py-2 rounded flex items-center justify-center gap-2">
+                    <button onClick={handleIssueRefund} disabled={isUpdating} className="w-full btn-outline text-error border-error hover:bg-error hover:text-on-error py-2 rounded flex items-center justify-center gap-2 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">
                       <span className="material-symbols-outlined text-[18px]">refresh</span>
                       Retry Refund
                     </button>

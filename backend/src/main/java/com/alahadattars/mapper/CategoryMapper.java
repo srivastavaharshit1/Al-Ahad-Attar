@@ -3,10 +3,15 @@ package com.alahadattars.mapper;
 import com.alahadattars.dto.category.CategoryRequest;
 import com.alahadattars.dto.category.CategoryResponse;
 import com.alahadattars.entity.Category;
+import com.alahadattars.service.StorageService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class CategoryMapper {
+
+    private final StorageService storageService;
 
     public CategoryResponse toResponse(Category category) {
         if (category == null) {
@@ -20,9 +25,9 @@ public class CategoryMapper {
                 .image(category.getImage())
                 .type(category.getType())
                 .active(category.isActive())
-                .desktopImageUrl(category.getDesktopImageUrl() != null ? "/api/categories/" + category.getId() + "/desktop-image" : null)
-                .mobileImageUrl(category.getMobileImageUrl() != null ? "/api/categories/" + category.getId() + "/mobile-image" : null)
-                .hoverImageUrl(category.getHoverImageUrl() != null ? "/api/categories/" + category.getId() + "/hover-image" : null)
+                .desktopImageUrl(storageService.resolveUrl(category.getDesktopImageUrl(), "/api/categories/" + category.getId() + "/desktop-image"))
+                .mobileImageUrl(storageService.resolveUrl(category.getMobileImageUrl(), "/api/categories/" + category.getId() + "/mobile-image"))
+                .hoverImageUrl(storageService.resolveUrl(category.getHoverImageUrl(), "/api/categories/" + category.getId() + "/hover-image"))
                 .homepageTitle(category.getHomepageTitle())
                 .homepageSubtitle(category.getHomepageSubtitle())
                 .homepageButtonText(category.getHomepageButtonText())

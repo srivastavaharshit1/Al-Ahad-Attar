@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Breadcrumb } from '../components/ui/Breadcrumb';
+import { Loader } from '../components/ui/Loader';
 import { productService } from '../services/productService';
 import { useCart } from '../hooks/useCart';
 import { useWishlist } from '../hooks/useWishlist';
@@ -12,6 +13,7 @@ import { getPromoIcon, getDaysRemaining } from '../utils/promotionHelpers';
 import { ReviewList } from '../components/reviews/ReviewList';
 import { RelatedProducts } from '../components/reviews/RelatedProducts';
 import { StarRating } from '../components/common/StarRating';
+import { useInView } from '../hooks/useInView';
 
 export const ProductPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +28,10 @@ export const ProductPage: React.FC = () => {
 
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
   const [mainImage, setMainImage] = useState<string>('');
+
+  // Scroll-reveal refs for below-the-fold sections (must be called unconditionally, before any early returns)
+  const { ref: reviewsRef, inView: reviewsInView } = useInView<HTMLElement>();
+  const { ref: relatedRef, inView: relatedInView } = useInView<HTMLElement>();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -56,18 +62,22 @@ export const ProductPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <Loader />
       </div>
     );
   }
 
   if (error || !product) {
     return (
-      <div className="flex flex-col justify-center items-center min-h-[60vh] text-center">
-        <span className="material-symbols-outlined text-6xl text-error mb-4">error</span>
-        <h2 className="font-headline-md text-2xl mb-2">Product Not Found</h2>
-        <p className="text-on-surface-variant mb-6">The product you are looking for does not exist or an error occurred.</p>
-        <button onClick={() => navigate('/collection')} className="bg-primary text-on-primary px-6 py-2 rounded-DEFAULT hover:bg-surface-tint">
+      <div className="flex flex-col justify-center items-center min-h-[60vh] text-center px-4">
+        <div className="w-16 h-16 border border-accent rounded-full flex items-center justify-center mb-6">
+          <span className="material-symbols-outlined text-accent text-2xl">search_off</span>
+        </div>
+        <h2 className="font-headline-md text-on-surface mb-2 tracking-widest uppercase">Product Not Found</h2>
+        <p className="font-body-md text-on-surface-variant mb-8 leading-relaxed max-w-sm">
+          {error || 'The product you are looking for does not exist or an error occurred.'}
+        </p>
+        <button onClick={() => navigate('/collection')} className="btn btn-primary">
           Back to Collection
         </button>
       </div>
@@ -94,6 +104,8 @@ export const ProductPage: React.FC = () => {
         name: product!.name,
         image: mainImage,
         size: selectedVariant.size,
+        originalPrice: selectedVariant.price,
+        finalPrice: selectedVariant.price,
       });
   };
 
@@ -132,7 +144,7 @@ export const ProductPage: React.FC = () => {
 
           if (promo.promotionType === 'FREE_PRODUCT') {
             title = `Free Gift Included`;
-            subtitle = `Buy this product to unlock a free gift in your cart`;
+            subtitle = promo.generatedDescription || `Buy this product to unlock a free gift in your cart`;
           } else if (promo.discountType === 'PERCENTAGE') {
             title = `${promo.discountValue}% Off This Product`;
             subtitle = promo.description || 'Discount applied automatically at checkout';
@@ -203,10 +215,12 @@ export const ProductPage: React.FC = () => {
           {allImages.length > 1 && (
             <div className="order-2 md:order-1 flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto pb-2 md:pb-0 md:pr-2 hide-scrollbar w-full md:w-[76px] flex-shrink-0">
               {allImages.map((img, idx) => (
-                <button 
-                  key={idx} 
-                  className={`flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden border-2 bg-[#FCFBF8] transition-all duration-200 hover:-translate-y-[1px] md:hover:-translate-y-0 md:hover:-translate-x-[2px] ${mainImage === img ? 'border-[#D4AF37] shadow-sm' : 'border-transparent hover:border-[#D4AF37]/50'}`}
+                <button
+                  key={idx}
+                  className={`flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden border-2 bg-surface transition-all duration-200 hover:-translate-y-[1px] md:hover:-translate-y-0 md:hover:-translate-x-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${mainImage === img ? 'border-accent shadow-sm' : 'border-transparent hover:border-accent/50'}`}
                   onClick={() => setMainImage(img)}
+                  aria-label={`View image ${idx + 1}`}
+                  aria-current={mainImage === img}
                 >
                   <img src={getImageUrl(img)} alt={`Thumbnail ${idx+1}`} className="w-full h-full object-cover" />
                 </button>
@@ -215,7 +229,7 @@ export const ProductPage: React.FC = () => {
           )}
 
           {/* Main Image */}
-          <div className="order-1 md:order-2 w-full h-auto aspect-[4/5] max-h-[560px] rounded-2xl overflow-hidden bg-[#FCFBF8] border border-black/5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] relative group cursor-zoom-in flex items-center justify-center">
+          <div className="order-1 md:order-2 w-full h-auto aspect-[4/5] max-h-[560px] rounded-2xl overflow-hidden bg-surface border border-outline-variant/50 shadow-[0_10px_30px_rgba(18,28,42,0.05)] relative group cursor-zoom-in flex items-center justify-center">
             {mainImage ? (
               <img 
                 src={getImageUrl(mainImage)} 
@@ -243,7 +257,7 @@ export const ProductPage: React.FC = () => {
             </div>
             
             <div className="flex items-baseline space-x-4 mb-7">
-              <span className="font-display-lg-mobile text-display-lg-mobile text-on-surface">{selectedVariant ? formatPrice(selectedVariant.price) : 'N/A'}</span>
+              <span className="font-display-lg-mobile text-display-lg-mobile text-primary">{selectedVariant ? formatPrice(selectedVariant.price) : 'N/A'}</span>
             </div>
             
             <p className="font-body-lg text-body-lg text-on-surface-variant mb-8 max-w-[85%] leading-relaxed">
@@ -264,14 +278,14 @@ export const ProductPage: React.FC = () => {
                   <div className="flex flex-wrap gap-4">
                     {product.variants.map((variant) => (
                       <label key={variant.id} className="cursor-pointer">
-                        <input 
-                          type="radio" 
-                          name="size" 
-                          className="peer sr-only variant-radio" 
+                        <input
+                          type="radio"
+                          name="size"
+                          className="peer sr-only variant-radio"
                           checked={selectedVariant?.id === variant.id}
                           onChange={() => handleVariantChange(variant)}
                         />
-                        <div className="px-6 py-3 border border-outline-variant rounded-md font-label-md text-label-md text-on-surface hover:border-[#D4AF37] peer-checked:bg-[#D4AF37] peer-checked:text-white peer-checked:border-[#D4AF37] transition-all duration-200 shadow-sm">
+                        <div className="px-6 py-3 border border-outline-variant rounded-md font-label-md text-label-md text-on-surface hover:border-accent peer-checked:bg-accent peer-checked:text-ink peer-checked:border-accent peer-focus-visible:ring-2 peer-focus-visible:ring-accent peer-focus-visible:ring-offset-2 transition-all duration-200 shadow-sm">
                           {variant.size}
                         </div>
                       </label>
@@ -285,21 +299,21 @@ export const ProductPage: React.FC = () => {
               {renderPromoBanner()}
               
               <div className="flex gap-4 pt-7">
-                <button 
+                <button
                   onClick={handleAddToCart}
                   disabled={!selectedVariant || selectedVariant.stock === 0}
-                  className="w-[85%] h-[56px] bg-primary text-on-primary rounded-md font-label-md uppercase tracking-widest hover:bg-surface-tint transition-all duration-200 flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-[1px] hover:shadow-lg"
+                  className="w-[85%] h-[56px] bg-primary text-on-primary rounded-md font-label-md uppercase tracking-widest hover:bg-surface-tint transition-all duration-200 flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-[1px] hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   <span className="material-symbols-outlined text-[20px]">shopping_bag</span>
                   {selectedVariant && selectedVariant.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
                 </button>
-                <button 
+                <button
                   onClick={handleToggleWishlist}
                   disabled={!selectedVariant}
-                  className={`w-[15%] min-w-[56px] h-[56px] border rounded-md flex justify-center items-center transition-all duration-200 hover:-translate-y-[1px] ${
-                    selectedVariant && isInWishlist(selectedVariant.id.toString()) 
-                      ? 'border-[#D4AF37] text-[#D4AF37] bg-[#D4AF37]/10' 
-                      : 'border-outline-variant text-on-surface hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                  className={`w-[15%] min-w-[56px] h-[56px] border rounded-md flex justify-center items-center transition-all duration-200 hover:-translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+                    selectedVariant && isInWishlist(selectedVariant.id.toString())
+                      ? 'border-accent text-accent bg-accent-soft'
+                      : 'border-outline-variant text-on-surface hover:border-accent hover:text-accent'
                   }`}
                   aria-label={selectedVariant && isInWishlist(selectedVariant.id.toString()) ? 'Remove from wishlist' : 'Add to wishlist'}
                 >
@@ -336,17 +350,22 @@ export const ProductPage: React.FC = () => {
       
       {/* SECTION 3: Customer Reviews (1100px) */}
       {product && (
-        <section className="max-w-[1100px] mx-auto w-full px-4 md:px-8">
+        <section ref={reviewsRef} className={`max-w-[1100px] mx-auto w-full px-4 md:px-8 reveal ${reviewsInView ? 'in-view' : ''}`}>
           <ReviewList productId={product.id} />
         </section>
       )}
 
       {/* SECTION 4: Similar Fragrances (1280px) */}
       {product && (
-        <section className="max-w-[1280px] mx-auto w-full px-4 sm:px-6 md:px-8 lg:px-10">
+        <section ref={relatedRef} className={`max-w-[1280px] mx-auto w-full px-4 sm:px-6 md:px-8 lg:px-10 reveal ${relatedInView ? 'in-view' : ''}`}>
           <RelatedProducts productId={product.id} />
         </section>
       )}
+
+      <style dangerouslySetInnerHTML={{__html: `
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}} />
     </main>
   );
 };

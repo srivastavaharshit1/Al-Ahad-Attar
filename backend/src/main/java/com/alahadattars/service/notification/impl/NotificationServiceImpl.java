@@ -5,6 +5,7 @@ import com.alahadattars.service.notification.NotificationProvider;
 import com.alahadattars.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,6 +18,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final List<NotificationProvider> providers;
 
     @Override
+    @Async("emailTaskExecutor")
     public void sendOrderNotification(Order order) {
         log.info("Sending order notifications for Order #{}", order.getOrderNumber());
         for (NotificationProvider provider : providers) {
@@ -29,18 +31,7 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public void sendRefundPendingNotification(Order order) {
-        log.info("Sending refund-pending notifications for Order #{}", order.getOrderNumber());
-        for (NotificationProvider provider : providers) {
-            try {
-                provider.sendRefundPendingNotification(order);
-            } catch (Exception e) {
-                log.error("Failed to send refund-pending notification using provider {}", provider.getClass().getSimpleName(), e);
-            }
-        }
-    }
-
-    @Override
+    @Async("emailTaskExecutor")
     public void sendRefundCompletedNotification(Order order) {
         log.info("Sending refund-completed notifications for Order #{}", order.getOrderNumber());
         for (NotificationProvider provider : providers) {

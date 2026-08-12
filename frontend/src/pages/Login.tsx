@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { Input } from '../components/ui/Input';
+import { Button } from '../components/ui/Button';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -29,74 +31,74 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <main className="flex-grow flex items-center justify-center py-section-gap px-margin-mobile md:px-margin-desktop">
-      <div className="bg-surface-container-lowest border border-outline-variant/30 shadow-[0_10px_30px_rgba(31,41,55,0.04)] rounded-lg w-full max-w-md p-10 md:p-12 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full pointer-events-none"></div>
-        
-        <div className="text-center mb-8 relative z-10">
-          <h1 className="font-headline-lg text-headline-lg text-on-background mb-2">Welcome Back</h1>
-          <p className="font-body-md text-body-md text-on-surface-variant">Sign in to continue your olfactory journey.</p>
-        </div>
-        
-        {error && (
-          <div className="mb-6 p-4 bg-error-container text-on-error-container rounded-md text-sm">
-            {error}
+    <main className="flex-grow flex items-center justify-center py-16 md:py-24 px-margin-mobile md:px-margin-desktop bg-background">
+      <div className="w-full max-w-[480px]">
+        <div className="card p-8 md:p-12">
+          <div className="text-center mb-8">
+            <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.3em] mb-3 block">Welcome Back</span>
+            <h1 className="font-headline-lg text-headline-lg text-on-surface mb-2">Sign In</h1>
+            <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">Continue your olfactory journey.</p>
           </div>
-        )}
 
-        <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
-          <div className="space-y-2">
-            <label className="block font-label-sm text-label-sm text-on-background uppercase tracking-widest" htmlFor="email">Email Address</label>
-            <div className="relative">
-              <input 
-                className="w-full bg-transparent border-0 border-b border-outline-variant py-2 focus:ring-0 focus:border-primary transition-colors duration-300 font-body-md text-body-md text-on-background placeholder:text-on-surface-variant/50" 
-                id="email" 
-                name="email" 
-                placeholder="your@email.com" 
-                required 
-                type="email" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+          {error && (
+            <div className="mb-6 p-4 bg-error-container text-on-error-container rounded-md text-sm" role="alert">
+              {error}
             </div>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex justify-between items-baseline">
-              <label className="block font-label-sm text-label-sm text-on-background uppercase tracking-widest" htmlFor="password">Password</label>
-              <button type="button" className="font-label-sm text-label-sm text-primary hover:text-primary-container transition-colors">Forgot Password?</button>
-            </div>
-            <div className="relative">
-              <input 
-                className="w-full bg-transparent border-0 border-b border-outline-variant py-2 focus:ring-0 focus:border-primary transition-colors duration-300 font-body-md text-body-md text-on-background placeholder:text-on-surface-variant/50" 
-                id="password" 
-                name="password" 
-                placeholder="••••••••" 
-                required 
-                type="password" 
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
+            <Input
+              label="Email Address"
+              id="email"
+              name="email"
+              placeholder="your@email.com"
+              required
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+
+            <div>
+              <div className="flex justify-between items-baseline mb-2">
+                <label className="field-label !mb-0" htmlFor="password">Password</label>
+                <Link
+                  to="/forgot-password"
+                  className="font-label-sm text-[11px] uppercase tracking-wider text-on-surface-variant hover:text-accent-hover focus-visible:outline-none focus-visible:text-accent-hover transition-colors duration-300"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
+              <input
+                className="field-input"
+                id="password"
+                name="password"
+                placeholder="••••••••"
+                required
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
+
+            <div className="pt-2">
+              <Button type="submit" variant="primary" size="lg" disabled={isSubmitting} className="w-full">
+                <span>{isSubmitting ? 'Signing in…' : 'Sign In'}</span>
+                {!isSubmitting && <span className="material-symbols-outlined text-[18px]">arrow_forward</span>}
+              </Button>
+            </div>
+          </form>
+
+          <div className="mt-8 text-center relative z-10">
+            <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+              Don't have an account?{' '}
+              <Link
+                to="/register"
+                className="link-underline font-medium text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 rounded-sm"
+              >
+                Register
+              </Link>
+            </p>
           </div>
-          
-          <div className="pt-4">
-            <button 
-              className="w-full bg-primary text-on-primary py-3 px-6 font-label-md text-label-md hover:bg-primary-container transition-colors duration-300 flex justify-center items-center gap-2 disabled:opacity-50" 
-              type="submit"
-              disabled={isSubmitting}
-            >
-              <span>{isSubmitting ? 'Signing in...' : 'Sign In'}</span>
-              {!isSubmitting && <span className="material-symbols-outlined text-[18px]" data-icon="arrow_forward">arrow_forward</span>}
-            </button>
-          </div>
-        </form>
-        
-        <div className="mt-8 text-center relative z-10">
-          <p className="font-body-md text-body-md text-on-surface-variant">
-            Don't have an account? 
-            <Link to="/register" className="text-primary hover:text-primary-container font-label-md text-label-md underline underline-offset-4 decoration-primary/30 hover:decoration-primary transition-colors ml-1">Register</Link>
-          </p>
         </div>
       </div>
     </main>

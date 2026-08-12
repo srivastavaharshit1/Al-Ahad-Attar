@@ -6,6 +6,7 @@ import type { Category } from '../../types';
 import { Pagination } from '../../components/ui/Pagination';
 import { Loader } from '../../components/ui/Loader';
 import { ConfirmationDialog } from '../../components/ui/ConfirmationDialog';
+import toast from 'react-hot-toast';
 
 export const Categories: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -39,6 +40,7 @@ export const Categories: React.FC = () => {
       setTotalElements(response.totalElements || 0);
     } catch (error) {
       console.error("Failed to load categories", error);
+      toast.error('Failed to load categories');
     } finally {
       setIsLoading(false);
     }
@@ -61,13 +63,42 @@ export const Categories: React.FC = () => {
       fetchCategories();
     } catch (error) {
       console.error("Failed to delete category", error);
-      alert("Failed to delete category. It might be associated with products.");
+      toast.error("Failed to delete category. It might be associated with products.");
     } finally {
       setIsDeleting(false);
     }
   };
 
   const handleSave = async () => {
+    // The modal isn't a <form>, so the `required` attributes on its inputs are never
+    // enforced by the browser (no submit event to trigger constraint validation).
+    // Validate explicitly here to match the backend's @NotBlank constraints
+    // (CategoryRequest.name / .description) instead of letting a blank submission
+    // reach the API and fail with a raw 400.
+    if (!currentCategory.name?.trim()) {
+      toast.error('Category name is required.');
+      return;
+    }
+    if (!currentCategory.description?.trim()) {
+      toast.error('Category description is required.');
+      return;
+    }
+
+    // Validate any selected image files client-side before hitting the network —
+    // the backend rejects anything over 5MB (application.yml multipart.max-file-size).
+    const filesToCheck = [desktopInputRef.current?.files?.[0], mobileInputRef.current?.files?.[0]];
+    for (const f of filesToCheck) {
+      if (!f) continue;
+      if (!f.type.startsWith('image/')) {
+        toast.error(`File "${f.name}" is not a supported image type.`);
+        return;
+      }
+      if (f.size > 5 * 1024 * 1024) {
+        toast.error(`File "${f.name}" exceeds the 5MB size limit.`);
+        return;
+      }
+    }
+
     try {
       setIsSaving(true);
       const payload = {
@@ -104,7 +135,7 @@ export const Categories: React.FC = () => {
       fetchCategories();
     } catch (error: any) {
       console.error("Failed to save category", error);
-      alert(error.response?.data?.message || 'Failed to save category');
+      toast.error(error.response?.data?.message || 'Failed to save category');
     } finally {
       setIsSaving(false);
     }
@@ -112,7 +143,7 @@ export const Categories: React.FC = () => {
 
   const openCreateModal = () => {
     setCurrentCategory({
-      type: 'ATTAR',
+      type: 'ATTARS',
       description: '',
       active: true
     });
@@ -139,15 +170,15 @@ export const Categories: React.FC = () => {
           <h1 className="font-headline-lg text-headline-lg text-on-surface mb-2">Categories Management</h1>
           <p className="font-body-md text-body-md text-on-surface-variant">Create and manage product categories.</p>
         </div>
-        <button 
+        <button
           onClick={openCreateModal}
-          className="bg-primary text-on-primary font-label-md text-label-md px-6 py-3 hover:bg-surface-tint transition-colors shadow-[0_4px_14px_rgba(120,86,0,0.2)] flex items-center gap-2 rounded-DEFAULT">
+          className="btn btn-primary px-6 py-3 rounded-lg">
           <span className="material-symbols-outlined text-[20px]">add</span>
           Create Category
         </button>
       </div>
 
-      <div className="bg-surface-container-lowest border border-outline-variant shadow-[0_10px_30px_rgba(31,41,55,0.04)] rounded-xl overflow-hidden">
+      <div className="table-shell">
         <div className="p-6 border-b border-outline-variant flex flex-wrap gap-4 items-center justify-between bg-surface-bright">
           <div className="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
             Showing {categories.length} of {totalElements} categories
@@ -162,34 +193,34 @@ export const Categories: React.FC = () => {
           ) : (
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-surface">
-                  <th className="py-4 px-6 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider border-b border-outline-variant font-semibold">Name</th>
-                  <th className="py-4 px-6 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider border-b border-outline-variant font-semibold">Type</th>
-                  <th className="py-4 px-6 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider border-b border-outline-variant font-semibold">Status</th>
-                  <th className="py-4 px-6 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider border-b border-outline-variant font-semibold text-right">Actions</th>
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-outline-variant">
+              <tbody>
                 {categories.map(category => (
-                  <tr key={category.id} className="hover:bg-surface-container-low transition-colors group">
-                    <td className="py-4 px-6 font-headline-md text-headline-md text-on-surface text-[18px] leading-tight mb-1">
+                  <tr key={category.id} className="group">
+                    <td data-label="Name" className="font-headline-md text-headline-md text-on-surface text-[18px] leading-tight">
                       {category.name}
                     </td>
-                    <td className="py-4 px-6 font-label-sm text-label-sm text-on-surface-variant uppercase">
-                      {(category as any).type || 'ATTAR'}
+                    <td data-label="Type" className="font-label-sm text-label-sm text-on-surface-variant uppercase">
+                      {(category as any).type || 'ATTARS'}
                     </td>
-                    <td className="py-4 px-6">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border font-label-sm text-label-sm uppercase tracking-wider transition-colors hover:brightness-95 ${category.active ? 'bg-[#f0fdf4] text-[#166534] border-[#bbf7d0]' : 'bg-surface-variant text-on-surface border-outline'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${category.active ? 'bg-[#166534]' : 'bg-on-surface-variant'}`}></span>
+                    <td data-label="Status">
+                      <span className={`badge ${category.active ? 'badge-success' : 'badge-neutral'}`}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                         {category.active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => openEditModal(category)} className="p-2 text-on-surface-variant hover:text-primary transition-colors" title="Edit">
+                    <td data-label="Actions" className="text-right">
+                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                        <button onClick={() => openEditModal(category)} className="p-2 rounded-md text-on-surface-variant hover:text-primary hover:bg-surface-container-low focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-colors" title="Edit">
                           <span className="material-symbols-outlined text-[20px]">edit</span>
                         </button>
-                        <button onClick={() => handleDelete(category.id!)} className="p-2 text-on-surface-variant hover:text-error transition-colors" title="Delete">
+                        <button onClick={() => handleDelete(category.id!)} className="p-2 rounded-md text-on-surface-variant hover:text-error hover:bg-surface-container-low focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-colors" title="Delete">
                           <span className="material-symbols-outlined text-[20px]">delete</span>
                         </button>
                       </div>
@@ -213,11 +244,11 @@ export const Categories: React.FC = () => {
       </div>
       
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-surface-container-lowest rounded-xl max-w-5xl w-full p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <button 
+        <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="modal-panel max-w-5xl w-full p-8 relative max-h-[90vh] overflow-y-auto">
+            <button
               onClick={() => setIsModalOpen(false)}
-              className="absolute top-6 right-6 text-on-surface-variant hover:text-on-surface transition-colors">
+              className="absolute top-6 right-6 p-1.5 rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-colors">
               <span className="material-symbols-outlined text-2xl">close</span>
             </button>
             <h2 className="font-headline-lg mb-6">{currentCategory.id ? 'Edit Category' : 'Create New Category'}</h2>
@@ -228,27 +259,26 @@ export const Categories: React.FC = () => {
                 <h3 className="font-headline-md text-primary border-b border-outline-variant pb-2">General Info</h3>
                 
                 <div>
-                  <label className="block text-label-md font-label-md text-on-surface-variant uppercase tracking-wider mb-2">Category Name</label>
-                  <input type="text" className="w-full bg-surface border border-outline-variant rounded-md px-4 py-2" value={currentCategory.name || ''} onChange={handleNameChange} placeholder="e.g. Premium Attars" />
-                </div>
-                
-                <div>
-                  <label className="block text-label-md font-label-md text-on-surface-variant uppercase tracking-wider mb-2">Description</label>
-                  <textarea className="input-field min-h-[100px] w-full bg-surface border border-outline-variant rounded-md px-4 py-2" value={currentCategory.description || ''} onChange={e => setCurrentCategory({...currentCategory, description: e.target.value})} placeholder="Describe the category..."></textarea>
+                  <label className="field-label">Category Name <span className="text-error">*</span></label>
+                  <input type="text" required className="field-input" value={currentCategory.name || ''} onChange={handleNameChange} placeholder="e.g. Premium Attars" />
                 </div>
 
                 <div>
-                  <label className="block text-label-md font-label-md text-on-surface-variant uppercase tracking-wider mb-2">Category Type</label>
-                  <select className="input-field w-full bg-surface border border-outline-variant rounded-md px-4 py-2" value={(currentCategory as any).type || 'ATTAR'} onChange={e => setCurrentCategory({...currentCategory, type: e.target.value})}>
-                    <option value="ATTAR">Attar</option>
+                  <label className="field-label">Description</label>
+                  <textarea className="field-input min-h-[100px]" value={currentCategory.description || ''} onChange={e => setCurrentCategory({...currentCategory, description: e.target.value})} placeholder="Describe the category..."></textarea>
+                </div>
+
+                <div>
+                  <label className="field-label">Category Type</label>
+                  <select className="field-input cursor-pointer" value={(currentCategory as any).type || 'ATTARS'} onChange={e => setCurrentCategory({...currentCategory, type: e.target.value})}>
+                    <option value="ATTARS">Attars</option>
                     <option value="BAKHOOR">Bakhoor</option>
-                    <option value="CAR_PERFUME">Car Perfume</option>
-                    <option value="ACCESSORY">Accessory</option>
+                    <option value="PERFUMES">Perfumes</option>
                   </select>
                 </div>
                 
                 <div className="flex items-center gap-3 mt-2">
-                  <input type="checkbox" id="activeToggle" className="w-5 h-5 accent-primary" checked={currentCategory.active !== false} onChange={e => setCurrentCategory({...currentCategory, active: e.target.checked})} />
+                  <input type="checkbox" id="activeToggle" className="w-5 h-5 rounded accent-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2" checked={currentCategory.active !== false} onChange={e => setCurrentCategory({...currentCategory, active: e.target.checked})} />
                   <label htmlFor="activeToggle" className="font-body-lg cursor-pointer select-none">Category is Active</label>
                 </div>
               </div>
@@ -256,50 +286,50 @@ export const Categories: React.FC = () => {
               {/* Right Column: Homepage Display */}
               <div className="space-y-6">
                 <h3 className="font-headline-md text-primary border-b border-outline-variant pb-2">Homepage Display</h3>
-                
+
                 <div className="flex items-center gap-3">
-                  <input type="checkbox" id="showOnHomepageToggle" className="w-5 h-5 accent-primary" checked={currentCategory.showOnHomepage === true} onChange={e => setCurrentCategory({...currentCategory, showOnHomepage: e.target.checked})} />
+                  <input type="checkbox" id="showOnHomepageToggle" className="w-5 h-5 rounded accent-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2" checked={currentCategory.showOnHomepage === true} onChange={e => setCurrentCategory({...currentCategory, showOnHomepage: e.target.checked})} />
                   <label htmlFor="showOnHomepageToggle" className="font-body-lg cursor-pointer select-none">Show on Homepage</label>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-label-md font-label-md text-on-surface-variant uppercase tracking-wider mb-2">Display Order</label>
-                    <input type="number" className="w-full bg-surface border border-outline-variant rounded-md px-4 py-2" value={currentCategory.homepageDisplayOrder || 0} onChange={e => setCurrentCategory({...currentCategory, homepageDisplayOrder: parseInt(e.target.value) || 0})} />
+                    <label className="field-label">Display Order</label>
+                    <input type="number" className="field-input" value={currentCategory.homepageDisplayOrder || 0} onChange={e => setCurrentCategory({...currentCategory, homepageDisplayOrder: parseInt(e.target.value) || 0})} />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-label-md font-label-md text-on-surface-variant uppercase tracking-wider mb-2">Homepage Title (Optional)</label>
-                  <input type="text" className="w-full bg-surface border border-outline-variant rounded-md px-4 py-2" value={currentCategory.homepageTitle || ''} onChange={e => setCurrentCategory({...currentCategory, homepageTitle: e.target.value})} placeholder="Leave blank to use category name" />
+                  <label className="field-label">Homepage Title (Optional)</label>
+                  <input type="text" className="field-input" value={currentCategory.homepageTitle || ''} onChange={e => setCurrentCategory({...currentCategory, homepageTitle: e.target.value})} placeholder="Leave blank to use category name" />
                 </div>
 
                 <div>
-                  <label className="block text-label-md font-label-md text-on-surface-variant uppercase tracking-wider mb-2">Homepage Subtitle (Optional)</label>
-                  <input type="text" className="w-full bg-surface border border-outline-variant rounded-md px-4 py-2" value={currentCategory.homepageSubtitle || ''} onChange={e => setCurrentCategory({...currentCategory, homepageSubtitle: e.target.value})} placeholder="e.g. Discover authentic blends" />
+                  <label className="field-label">Homepage Subtitle (Optional)</label>
+                  <input type="text" className="field-input" value={currentCategory.homepageSubtitle || ''} onChange={e => setCurrentCategory({...currentCategory, homepageSubtitle: e.target.value})} placeholder="e.g. Discover authentic blends" />
                 </div>
 
-                <div className="bg-surface-container-low p-4 rounded border border-outline-variant">
-                  <label className="block text-label-md font-label-md text-on-surface-variant uppercase tracking-wider mb-2">Desktop Image (16:9)</label>
+                <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
+                  <label className="field-label">Desktop Image (16:9)</label>
                   {currentCategory.desktopImageUrl && (
                     <img src={getImageUrl(currentCategory.desktopImageUrl)} alt="" className="w-full h-24 object-cover mb-2 rounded" />
                   )}
-                  <input type="file" accept="image/*" ref={desktopInputRef} className="block w-full text-xs text-on-surface-variant file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" />
+                  <input type="file" accept="image/*" ref={desktopInputRef} className="block w-full text-xs text-on-surface-variant file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2" />
                 </div>
 
-                <div className="bg-surface-container-low p-4 rounded border border-outline-variant">
-                  <label className="block text-label-md font-label-md text-on-surface-variant uppercase tracking-wider mb-2">Mobile Image (4:5)</label>
+                <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
+                  <label className="field-label">Mobile Image (4:5)</label>
                   {currentCategory.mobileImageUrl && (
                     <img src={getImageUrl(currentCategory.mobileImageUrl)} alt="" className="w-24 h-32 object-cover mb-2 rounded" />
                   )}
-                  <input type="file" accept="image/*" ref={mobileInputRef} className="block w-full text-xs text-on-surface-variant file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" />
+                  <input type="file" accept="image/*" ref={mobileInputRef} className="block w-full text-xs text-on-surface-variant file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2" />
                 </div>
               </div>
             </div>
-            
+
             <div className="flex justify-end gap-4 border-t border-outline-variant pt-6">
-              <button onClick={() => setIsModalOpen(false)} disabled={isSaving} className="px-6 py-2.5 font-label-lg text-on-surface-variant hover:bg-surface rounded transition-colors">Cancel</button>
-              <button onClick={handleSave} disabled={isSaving} className="bg-primary text-on-primary px-8 py-2.5 rounded font-label-lg hover:bg-primary-container transition-colors disabled:opacity-70">
+              <button onClick={() => setIsModalOpen(false)} disabled={isSaving} className="btn btn-outline px-6 py-2.5 rounded-lg">Cancel</button>
+              <button onClick={handleSave} disabled={isSaving} className="btn btn-primary px-8 py-2.5 rounded-lg">
                 {isSaving ? 'Saving...' : 'Save Category'}
               </button>
             </div>

@@ -81,7 +81,21 @@ export const PromoTab: React.FC = () => {
       toast.error("Title is required");
       return;
     }
-    
+
+    // Validate any selected image file client-side before hitting the network —
+    // the backend rejects anything over 5MB (application.yml multipart.max-file-size).
+    const selectedFile = fileInputRef.current?.files?.[0];
+    if (selectedFile) {
+      if (!selectedFile.type.startsWith('image/')) {
+        toast.error(`File "${selectedFile.name}" is not a supported image type.`);
+        return;
+      }
+      if (selectedFile.size > 5 * 1024 * 1024) {
+        toast.error(`File "${selectedFile.name}" exceeds the 5MB size limit.`);
+        return;
+      }
+    }
+
     setIsSaving(true);
     // Note: startDate and endDate can be added later if needed, passing nulls for now.
     const request = {
@@ -203,19 +217,19 @@ export const PromoTab: React.FC = () => {
       ) : (
         <div className="space-y-4">
           {promos.map((promo, idx) => (
-            <div key={promo.id} className="flex gap-4 p-4 border border-outline-variant rounded-lg bg-surface hover:bg-surface-container-low transition-colors shadow-sm items-center">
+            <div key={promo.id} className="card flex gap-4 p-4 items-center">
               <div className="flex flex-col gap-1 shrink-0">
-                <button 
-                  onClick={() => handleMoveUp(idx)} 
+                <button
+                  onClick={() => handleMoveUp(idx)}
                   disabled={idx === 0}
-                  className={`p-1 rounded bg-surface-container text-on-surface-variant ${idx === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
+                  className={`p-1 rounded bg-surface-container text-on-surface-variant transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${idx === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
                 >
                   <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
                 </button>
-                <button 
-                  onClick={() => handleMoveDown(idx)} 
+                <button
+                  onClick={() => handleMoveDown(idx)}
                   disabled={idx === promos.length - 1}
-                  className={`p-1 rounded bg-surface-container text-on-surface-variant ${idx === promos.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
+                  className={`p-1 rounded bg-surface-container text-on-surface-variant transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${idx === promos.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
                 >
                   <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
                 </button>
@@ -244,7 +258,7 @@ export const PromoTab: React.FC = () => {
               <div className="flex items-center gap-4 shrink-0">
                 <button
                   onClick={() => handleToggleActive(promo)}
-                  className={`w-12 h-6 rounded-full transition-colors relative shadow-inner ${promo.active ? 'bg-primary' : 'bg-surface-container-high border border-outline'}`}
+                  className={`w-12 h-6 rounded-full transition-colors relative shadow-inner focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${promo.active ? 'bg-primary' : 'bg-surface-container-high border border-outline'}`}
                 >
                   <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform shadow ${promo.active ? 'translate-x-6' : ''}`}></span>
                 </button>
@@ -252,14 +266,14 @@ export const PromoTab: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => openEditModal(promo)}
-                    className="p-2 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
+                    className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
                     title="Edit"
                   >
                     <span className="material-symbols-outlined text-[20px]">edit</span>
                   </button>
                   <button
                     onClick={() => setDeleteId(promo.id)}
-                    className="p-2 text-on-surface-variant hover:text-error transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
+                    className="p-2 text-error hover:bg-error/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
                     title="Delete"
                   >
                     <span className="material-symbols-outlined text-[20px]">delete</span>
@@ -287,33 +301,33 @@ export const PromoTab: React.FC = () => {
             placeholder="e.g. Use code ATTAR20 at checkout"
           />
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input 
-              label="Button Text" 
-              value={buttonText} 
-              onChange={(e: any) => setButtonText(e.target.value)} 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Button Text"
+              value={buttonText}
+              onChange={(e: any) => setButtonText(e.target.value)}
               placeholder="e.g. Shop Now"
             />
-            <Input 
-              label="Button URL" 
-              value={buttonUrl} 
-              onChange={(e: any) => setButtonUrl(e.target.value)} 
+            <Input
+              label="Button URL"
+              value={buttonUrl}
+              onChange={(e: any) => setButtonUrl(e.target.value)}
               placeholder="e.g. /offers"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Background Color</label>
+            <label className="field-label">Background Color</label>
             <div className="flex gap-2 items-center">
-              <input 
-                type="color" 
-                value={backgroundColor} 
+              <input
+                type="color"
+                value={backgroundColor}
                 onChange={(e: any) => setBackgroundColor(e.target.value)}
-                className="w-12 h-10 border-0 p-0 rounded cursor-pointer"
+                className="w-12 h-10 border border-outline-variant rounded-md cursor-pointer p-0 hover:border-accent transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
               />
-              <Input 
-                value={backgroundColor} 
-                onChange={(e: any) => setBackgroundColor(e.target.value)} 
+              <Input
+                value={backgroundColor}
+                onChange={(e: any) => setBackgroundColor(e.target.value)}
                 placeholder="#000000"
                 className="flex-grow"
               />
@@ -321,28 +335,28 @@ export const PromoTab: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 pt-2">
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               id="activeCheckbox"
               checked={active}
               onChange={(e: any) => setActive(e.target.checked)}
-              className="w-4 h-4 text-primary rounded border-outline-variant focus:ring-primary"
+              className="w-4 h-4 text-accent rounded border-outline-variant focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
             />
             <label htmlFor="activeCheckbox" className="text-sm text-on-surface">Active on storefront</label>
           </div>
 
           <div className="pt-4 mt-2 border-t border-outline-variant space-y-4">
             <h4 className="font-label-md text-on-surface">Background Image (Optional)</h4>
-            
-            <div className="bg-surface-container-lowest border border-outline-variant rounded p-4 text-center">
+
+            <div className="border-2 border-dashed border-outline-variant hover:border-accent transition-colors rounded-lg p-4 text-center bg-surface-container-lowest">
               {editingPromo?.imageUrl && (
                 <img src={getImageUrl(editingPromo.imageUrl)} alt="" className="h-24 object-cover mb-4 rounded mx-auto" />
               )}
-              <input 
-                type="file" 
-                accept="image/*" 
+              <input
+                type="file"
+                accept="image/*"
                 ref={fileInputRef}
-                className="block w-full text-xs text-on-surface-variant file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                className="block w-full text-xs text-on-surface-variant file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 rounded"
               />
             </div>
           </div>

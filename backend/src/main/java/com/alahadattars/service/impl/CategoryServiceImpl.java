@@ -9,7 +9,7 @@ import com.alahadattars.mapper.CategoryMapper;
 import com.alahadattars.repository.CategoryRepository;
 import com.alahadattars.repository.ProductRepository;
 import com.alahadattars.service.CategoryService;
-import com.alahadattars.service.UploadService;
+import com.alahadattars.service.StorageService;
 import com.alahadattars.util.AppConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +27,7 @@ public class CategoryServiceImpl implements CategoryService {
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
     private final CategoryMapper categoryMapper;
-    private final UploadService uploadService;
+    private final StorageService storageService;
 
     @Override
     @Transactional
@@ -145,7 +145,7 @@ public class CategoryServiceImpl implements CategoryService {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(AppConstants.CATEGORY_NOT_FOUND_MSG + id));
 
-        String fileUrl = uploadService.uploadFile(file, "categories");
+        String fileUrl = storageService.uploadFile(file, "categories/" + id);
         category.setDesktopImageUrl(fileUrl);
         category = categoryRepository.save(category);
         log.info("Desktop image uploaded successfully for category ID: {}", id);
@@ -159,7 +159,7 @@ public class CategoryServiceImpl implements CategoryService {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(AppConstants.CATEGORY_NOT_FOUND_MSG + id));
 
-        String fileUrl = uploadService.uploadFile(file, "categories");
+        String fileUrl = storageService.uploadFile(file, "categories/" + id);
         category.setMobileImageUrl(fileUrl);
         category = categoryRepository.save(category);
         log.info("Mobile image uploaded successfully for category ID: {}", id);
@@ -173,7 +173,7 @@ public class CategoryServiceImpl implements CategoryService {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(AppConstants.CATEGORY_NOT_FOUND_MSG + id));
 
-        String fileUrl = uploadService.uploadFile(file, "categories");
+        String fileUrl = storageService.uploadFile(file, "categories/" + id);
         category.setHoverImageUrl(fileUrl);
         category = categoryRepository.save(category);
         log.info("Hover image uploaded successfully for category ID: {}", id);

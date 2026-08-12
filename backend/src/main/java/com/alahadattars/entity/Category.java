@@ -1,7 +1,6 @@
 package com.alahadattars.entity;
 
 import com.alahadattars.enums.CategoryType;
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -40,6 +39,9 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @ToString(callSuper = true)
+// Batches lazy-loading of Category proxies (e.g. Product.category across a paged product list)
+// into one IN-clause query per page instead of one per product.
+@org.hibernate.annotations.BatchSize(size = 20)
 public class Category extends BaseEntity {
 
     @NotBlank
@@ -94,8 +96,13 @@ public class Category extends BaseEntity {
     @Builder.Default
     private Integer homepageDisplayOrder = 0;
 
+    // No cascade: CategoryServiceImpl.deleteCategory already rejects deleting a category that
+    // still has products (ConflictException) — that explicit guard is the real protection.
+    // CascadeType.ALL here would additionally cascade-delete every Product (and in turn their
+    // variants/reviews/images) if a category were ever removed via repository.delete() directly,
+    // bypassing the service guard.
     @ToString.Exclude
-    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "category", fetch = FetchType.LAZY)
     @Builder.Default
     private List<Product> products = new ArrayList<>();
 

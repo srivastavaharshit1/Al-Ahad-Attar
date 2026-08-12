@@ -5,6 +5,7 @@ import { orderService } from '../../services/orderService';
 import { formatPrice } from '../../utils/formatPrice';
 import { formatOrderStatus } from '../../utils/formatOrderStatus';
 import { useWishlist } from '../../hooks/useWishlist';
+import { Loader } from '../../components/ui/Loader';
 import type { User, Address, Order } from '../../types';
 
 export const Dashboard: React.FC = () => {
@@ -34,35 +35,75 @@ export const Dashboard: React.FC = () => {
     fetchDashboardData();
   }, []);
 
-  const getStatusColor = (status: string) => {
-    switch(status?.toUpperCase()) {
-      case 'CONFIRMED': return 'text-blue-600 bg-blue-50 border-blue-200';
-      case 'PACKED': return 'text-indigo-600 bg-indigo-50 border-indigo-200';
-      case 'SHIPPED': return 'text-purple-600 bg-purple-50 border-purple-200';
-      case 'DELIVERED': return 'text-green-600 bg-green-50 border-green-200';
-      case 'CANCELLED': return 'text-red-600 bg-red-50 border-red-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+  const getStatusBadgeClass = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case 'CONFIRMED': return 'badge-warning';
+      case 'PACKED': return 'badge-neutral';
+      case 'SHIPPED': return 'badge-gold';
+      case 'DELIVERED': return 'badge-success';
+      case 'CANCELLED': return 'badge-error';
+      default: return 'badge-neutral';
     }
   };
 
-  if (isLoading) return <div className="text-center p-8">Loading dashboard...</div>;
-  if (!profile) return <div className="text-center p-8 text-error">Failed to load profile. Please login again.</div>;
+  if (isLoading) return <Loader />;
+
+  if (!profile) {
+    return (
+      <div className="flex flex-col items-center text-center py-20 px-6">
+        <div className="w-16 h-16 border border-accent rounded-full flex items-center justify-center mb-6">
+          <span className="material-symbols-outlined text-accent text-2xl">error_outline</span>
+        </div>
+        <h2 className="font-headline-md text-on-surface mb-2 tracking-widest uppercase">Session Expired</h2>
+        <p className="font-body-md text-on-surface-variant mb-8 leading-relaxed max-w-md">
+          We couldn't load your profile. Please sign in again to view your account.
+        </p>
+        <Link to="/login" className="btn btn-primary inline-flex items-center">
+          Back to Login
+        </Link>
+      </div>
+    );
+  }
 
   const defaultAddress = addresses.find(a => a.defaultAddress) || addresses[0];
   const recentOrder = orders[0];
 
   return (
     <div>
+      <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.3em] mb-2 block">My Account</span>
       <h1 className="font-display-sm text-display-sm text-on-surface mb-8">Account Dashboard</h1>
-      
+
+      {/* KPI Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+        <div className="kpi-card flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined">shopping_bag</span>
+          </div>
+          <div>
+            <p className="font-label-md text-on-surface-variant uppercase tracking-wider">Total Orders</p>
+            <p className="font-headline-md text-headline-md text-on-surface">{orders.length}</p>
+          </div>
+        </div>
+
+        <div className="kpi-card flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined">favorite</span>
+          </div>
+          <div>
+            <p className="font-label-md text-on-surface-variant uppercase tracking-wider">Wishlist Items</p>
+            <p className="font-headline-md text-headline-md text-on-surface">{wishlistIds.length}</p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {/* Profile Summary */}
-        <div className="bg-surface-container-lowest border border-outline-variant p-6 rounded-DEFAULT">
+        <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-headline-sm text-headline-sm">Profile Details</h3>
-            <Link to="/account/profile" className="text-primary font-label-md hover:underline">Edit</Link>
+            <h3 className="font-headline-sm text-headline-sm text-on-surface">Profile Details</h3>
+            <Link to="/account/profile" className="link-underline font-label-md text-primary rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">Edit</Link>
           </div>
-          <div className="space-y-2 text-on-surface-variant font-body-md">
+          <div className="space-y-2 text-on-surface-variant font-body-md leading-relaxed">
             <p className="font-medium text-on-surface">{profile.firstName} {profile.lastName}</p>
             <p>{profile.email}</p>
             <p>{profile.phone}</p>
@@ -70,13 +111,13 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Default Address */}
-        <div className="bg-surface-container-lowest border border-outline-variant p-6 rounded-DEFAULT">
+        <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-headline-sm text-headline-sm">Default Address</h3>
-            <Link to="/account/addresses" className="text-primary font-label-md hover:underline">Manage</Link>
+            <h3 className="font-headline-sm text-headline-sm text-on-surface">Default Address</h3>
+            <Link to="/account/addresses" className="link-underline font-label-md text-primary rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">Manage</Link>
           </div>
           {defaultAddress ? (
-            <div className="space-y-1 text-on-surface-variant font-body-md">
+            <div className="space-y-1 text-on-surface-variant font-body-md leading-relaxed">
               <p className="font-medium text-on-surface">{defaultAddress.fullName}</p>
               <p>{defaultAddress.addressLine1}</p>
               {defaultAddress.addressLine2 && <p>{defaultAddress.addressLine2}</p>}
@@ -84,61 +125,48 @@ export const Dashboard: React.FC = () => {
               <p>Phone: {defaultAddress.phone}</p>
             </div>
           ) : (
-            <p className="text-on-surface-variant italic">No default address set.</p>
+            <p className="text-on-surface-variant font-body-md leading-relaxed italic">No default address set.</p>
           )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* Stats Cards */}
-        <div className="bg-surface-container-lowest border border-outline-variant p-6 rounded-DEFAULT flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center">
-            <span className="material-symbols-outlined">shopping_bag</span>
-          </div>
-          <div>
-            <p className="font-label-md text-on-surface-variant uppercase tracking-wider">Total Orders</p>
-            <p className="font-headline-md text-headline-md">{orders.length}</p>
-          </div>
-        </div>
-        
-        <div className="bg-surface-container-lowest border border-outline-variant p-6 rounded-DEFAULT flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center">
-            <span className="material-symbols-outlined">favorite</span>
-          </div>
-          <div>
-            <p className="font-label-md text-on-surface-variant uppercase tracking-wider">Wishlist Items</p>
-            <p className="font-headline-md text-headline-md">{wishlistIds.length}</p>
-          </div>
         </div>
       </div>
 
       {/* Recent Order */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-headline-md text-headline-md">Recent Order</h2>
-          <Link to="/account/orders" className="text-primary font-label-md hover:underline">View All</Link>
+          <h2 className="font-headline-md text-headline-md text-on-surface">Recent Order</h2>
+          <Link to="/account/orders" className="link-underline font-label-md text-primary rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">View All</Link>
         </div>
-        
+
         {recentOrder ? (
-          <div className="bg-surface-container-lowest border border-outline-variant p-6 rounded-DEFAULT flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="card p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <p className="font-label-lg font-medium">Order #{recentOrder.orderNumber}</p>
-              <p className="text-on-surface-variant font-body-sm mt-1">
+              <p className="font-mono text-sm font-medium tracking-wide text-on-surface">Order #{recentOrder.orderNumber}</p>
+              <p className="text-on-surface-variant font-body-sm leading-relaxed mt-1">
                 Placed on {new Date(recentOrder.createdAt).toLocaleDateString()}
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <span className={`px-3 py-1 rounded-full text-xs font-label-md uppercase tracking-wider border ${getStatusColor(recentOrder.status)}`}>
+              <span className={`badge ${getStatusBadgeClass(recentOrder.status)}`}>
                 {formatOrderStatus(recentOrder.status)}
               </span>
-              <p className="font-headline-sm">{formatPrice(recentOrder.totalAmount)}</p>
+              <p className="font-headline-sm text-on-surface">{formatPrice(recentOrder.totalAmount)}</p>
             </div>
-            <Link to={`/account/orders/${recentOrder.id}`} className="btn-outline px-4 py-2 text-sm whitespace-nowrap">
+            <Link to={`/account/orders/${recentOrder.id}`} className="btn btn-outline whitespace-nowrap">
               View Details
             </Link>
           </div>
         ) : (
-          <p className="text-on-surface-variant italic">No recent orders found.</p>
+          <div className="card p-10 text-center">
+            <div className="w-12 h-12 mx-auto mb-4 rounded-full border border-accent flex items-center justify-center">
+              <span className="material-symbols-outlined text-accent">inventory_2</span>
+            </div>
+            <p className="text-on-surface-variant font-body-md leading-relaxed mb-6">
+              No orders yet — your first fragrance journey awaits.
+            </p>
+            <Link to="/collection" className="btn btn-primary inline-flex items-center">
+              Start Shopping
+            </Link>
+          </div>
         )}
       </div>
     </div>

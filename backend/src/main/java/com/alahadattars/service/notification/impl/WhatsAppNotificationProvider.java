@@ -29,28 +29,6 @@ public class WhatsAppNotificationProvider implements NotificationProvider {
     }
 
     @Override
-    public void sendRefundPendingNotification(Order order) {
-        String customerPhone = order.getShippingAddress() != null ? order.getShippingAddress().getPhone() : null;
-        String customerName = order.getShippingAddress() != null
-                ? order.getShippingAddress().getFullName()
-                : order.getUser().getFirstName() + " " + order.getUser().getLastName();
-
-        String message = String.format(
-                "Dear %s,\n\nYour order #%s has been successfully cancelled.\n\n" +
-                "Your refund of ₹%s is now pending admin approval and will be initiated shortly.\n\n" +
-                "You will receive another notification once the refund is processed.\n\n" +
-                "Thank you for your patience.",
-                customerName, order.getOrderNumber(),
-                order.getRefundAmount() != null ? order.getRefundAmount() : order.getTotalAmount()
-        );
-
-        log.info("--- WHATSAPP REFUND PENDING NOTIFICATION (SIMULATION) ---");
-        log.info("To Customer: {}", customerPhone);
-        log.info("Message:\n{}", message);
-        log.info("---------------------------------------------------------");
-    }
-
-    @Override
     public void sendRefundCompletedNotification(Order order) {
         String customerPhone = order.getShippingAddress() != null ? order.getShippingAddress().getPhone() : null;
         String customerName = order.getShippingAddress() != null

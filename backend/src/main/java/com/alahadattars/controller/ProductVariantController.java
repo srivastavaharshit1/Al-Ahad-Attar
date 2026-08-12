@@ -15,6 +15,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -41,6 +42,7 @@ public class ProductVariantController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Variant SKU already exists")
     })
     @PostMapping("/api/products/{productId}/variants")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<VariantResponse>> createVariant(
             @PathVariable Long productId,
             @Valid @RequestBody CreateVariantRequest request) {
@@ -92,6 +94,7 @@ public class ProductVariantController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Variant not found")
     })
     @PutMapping("/api/variants/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<VariantResponse>> updateVariant(
             @PathVariable Long id,
             @Valid @RequestBody UpdateVariantRequest request) {
@@ -111,6 +114,7 @@ public class ProductVariantController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Variant not found")
     })
     @DeleteMapping("/api/variants/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteVariant(@PathVariable Long id) {
         log.info("Received request to delete variant with ID: {}", id);
         variantService.deleteVariant(id);
@@ -127,6 +131,7 @@ public class ProductVariantController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Variant not found")
     })
     @PatchMapping("/api/variants/{id}/stock")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> updateStock(
             @PathVariable Long id,
             @Valid @RequestBody UpdateStockRequest request) {
@@ -145,6 +150,7 @@ public class ProductVariantController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Variant not found")
     })
     @PatchMapping("/api/variants/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateStatusRequest request) {

@@ -1,14 +1,22 @@
+export type PromotionScope = 'ANY_PRODUCT' | 'CATEGORY' | 'SPECIFIC_PRODUCT';
+
 export interface PromotionConfiguration {
   applicableCategoryIds: number[];
   applicableProductIds: number[];
   firstOrderOnly: boolean;
+  buyScope?: PromotionScope | null;
   buyVariantSize?: string;
+  buyVariantSizes?: string[];
   buyCategoryId?: number;
   buyProductId?: number;
+  buyVariantIds?: number[];
   minPurchaseQuantity?: number;
+  freeScope?: PromotionScope | null;
   freeCategoryIds?: number[];
   freeProductIds?: number[];
+  freeVariantIds?: number[];
   allowedFreeVariantSize?: string;
+  freeVariantSizes?: string[];
   maxFreeQuantity?: number;
   allowCustomerSelection?: boolean;
   autoAddFreeProduct?: boolean;
@@ -33,4 +41,5 @@ export interface PromotionResponse {
   active: boolean;
   stackable: boolean;
   configuration: PromotionConfiguration | null;
+  generatedDescription?: string | null;
 }

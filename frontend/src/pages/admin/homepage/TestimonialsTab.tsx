@@ -79,7 +79,21 @@ export const TestimonialsTab: React.FC = () => {
       toast.error("Rating must be between 1 and 5");
       return;
     }
-    
+
+    // Validate any selected photo client-side before hitting the network —
+    // the backend rejects anything over 5MB (application.yml multipart.max-file-size).
+    const selectedFile = fileInputRef.current?.files?.[0];
+    if (selectedFile) {
+      if (!selectedFile.type.startsWith('image/')) {
+        toast.error(`File "${selectedFile.name}" is not a supported image type.`);
+        return;
+      }
+      if (selectedFile.size > 5 * 1024 * 1024) {
+        toast.error(`File "${selectedFile.name}" exceeds the 5MB size limit.`);
+        return;
+      }
+    }
+
     setIsSaving(true);
     const request = {
       customerName: customerName.trim(),
@@ -175,7 +189,7 @@ export const TestimonialsTab: React.FC = () => {
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }).map((_, i) => (
-      <span key={i} className={`material-symbols-outlined text-[14px] ${i < rating ? 'text-yellow-400 fill-yellow-400' : 'text-outline-variant'}`}>
+      <span key={i} className={`material-symbols-outlined text-[14px] ${i < rating ? 'text-accent' : 'text-outline-variant'}`} style={{ fontVariationSettings: i < rating ? "'FILL' 1" : "'FILL' 0" }}>
         star
       </span>
     ));
@@ -200,7 +214,7 @@ export const TestimonialsTab: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {testimonials.map((testimonial, idx) => (
-            <div key={testimonial.id} className="flex flex-col p-4 border border-outline-variant rounded-lg bg-surface hover:bg-surface-container-low transition-colors shadow-sm relative">
+            <div key={testimonial.id} className="card flex flex-col p-4 relative">
               <div className="flex items-start gap-4 mb-3">
                 <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 border border-outline bg-surface-container-high">
                   {testimonial.photoUrl ? (
@@ -221,7 +235,7 @@ export const TestimonialsTab: React.FC = () => {
 
                 <button
                   onClick={() => handleToggleActive(testimonial)}
-                  className={`w-10 h-5 rounded-full transition-colors relative shadow-inner ${testimonial.active ? 'bg-primary' : 'bg-surface-container-high border border-outline'}`}
+                  className={`w-10 h-5 rounded-full transition-colors relative shadow-inner focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${testimonial.active ? 'bg-primary' : 'bg-surface-container-high border border-outline'}`}
                   title={testimonial.active ? 'Disable' : 'Enable'}
                 >
                   <span className={`absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform shadow ${testimonial.active ? 'translate-x-5' : ''}`}></span>
@@ -232,17 +246,17 @@ export const TestimonialsTab: React.FC = () => {
 
               <div className="flex justify-between items-center pt-3 border-t border-outline-variant">
                 <div className="flex items-center gap-1">
-                  <button 
-                    onClick={() => handleMoveUp(idx)} 
+                  <button
+                    onClick={() => handleMoveUp(idx)}
                     disabled={idx === 0}
-                    className={`p-1 rounded bg-surface-container text-on-surface-variant ${idx === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
+                    className={`p-1 rounded bg-surface-container text-on-surface-variant transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${idx === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
                   >
                     <span className="material-symbols-outlined text-[16px]">arrow_back</span>
                   </button>
-                  <button 
-                    onClick={() => handleMoveDown(idx)} 
+                  <button
+                    onClick={() => handleMoveDown(idx)}
                     disabled={idx === testimonials.length - 1}
-                    className={`p-1 rounded bg-surface-container text-on-surface-variant ${idx === testimonials.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
+                    className={`p-1 rounded bg-surface-container text-on-surface-variant transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${idx === testimonials.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
                   >
                     <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                   </button>
@@ -251,14 +265,14 @@ export const TestimonialsTab: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => openEditModal(testimonial)}
-                    className="p-1.5 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
+                    className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
                     title="Edit"
                   >
                     <span className="material-symbols-outlined text-[18px]">edit</span>
                   </button>
                   <button
                     onClick={() => setDeleteId(testimonial.id)}
-                    className="p-1.5 text-on-surface-variant hover:text-error transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
+                    className="p-1.5 text-error hover:bg-error/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
                     title="Delete"
                   >
                     <span className="material-symbols-outlined text-[18px]">delete</span>
@@ -281,27 +295,27 @@ export const TestimonialsTab: React.FC = () => {
           />
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Rating (1-5) *</label>
+            <label className="field-label">Rating (1-5) *</label>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map((star) => (
                 <button
                   key={star}
                   type="button"
                   onClick={() => setRating(star)}
-                  className="p-1"
+                  className="p-1 rounded transition-colors hover:bg-accent-soft/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
                 >
-                  <span className={`material-symbols-outlined text-2xl ${rating >= star ? 'text-yellow-400' : 'text-outline-variant'}`}>
+                  <span className={`material-symbols-outlined text-2xl ${rating >= star ? 'text-accent' : 'text-outline-variant'}`} style={{ fontVariationSettings: rating >= star ? "'FILL' 1" : "'FILL' 0" }}>
                     star
                   </span>
                 </button>
               ))}
             </div>
           </div>
-          
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Review *</label>
-            <textarea 
-              className="w-full bg-surface border border-outline-variant rounded-md py-2.5 px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none min-h-[100px]"
+            <label className="field-label">Review *</label>
+            <textarea
+              className="field-input min-h-[100px]"
               value={review}
               onChange={(e: any) => setReview(e.target.value)}
               placeholder="e.g. Absolutely love the fragrances! The quality is amazing."
@@ -310,20 +324,20 @@ export const TestimonialsTab: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 pt-2">
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               id="activeCheckbox"
               checked={active}
               onChange={(e: any) => setActive(e.target.checked)}
-              className="w-4 h-4 text-primary rounded border-outline-variant focus:ring-primary"
+              className="w-4 h-4 text-accent rounded border-outline-variant focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
             />
             <label htmlFor="activeCheckbox" className="text-sm text-on-surface">Active on storefront</label>
           </div>
 
           <div className="pt-4 mt-2 border-t border-outline-variant space-y-4">
             <h4 className="font-label-md text-on-surface">Customer Photo (Optional)</h4>
-            
-            <div className="bg-surface-container-lowest border border-outline-variant rounded p-4 flex flex-col items-center">
+
+            <div className="border-2 border-dashed border-outline-variant hover:border-accent transition-colors rounded-lg p-4 flex flex-col items-center bg-surface-container-lowest">
               {editingTestimonial?.photoUrl ? (
                 <img src={getImageUrl(editingTestimonial.photoUrl)} alt="" className="w-16 h-16 rounded-full object-cover mb-4 border border-outline" />
               ) : (
@@ -331,11 +345,11 @@ export const TestimonialsTab: React.FC = () => {
                   <span className="material-symbols-outlined text-on-surface-variant">person</span>
                 </div>
               )}
-              <input 
-                type="file" 
-                accept="image/*" 
+              <input
+                type="file"
+                accept="image/*"
                 ref={fileInputRef}
-                className="block w-full text-xs text-on-surface-variant file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                className="block w-full text-xs text-on-surface-variant file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 rounded"
               />
             </div>
           </div>

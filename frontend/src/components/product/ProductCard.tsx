@@ -59,6 +59,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       name: product.name,
       image: image,
       size: size,
+      originalPrice: price,
+      finalPrice: price,
     });
   };
 
@@ -79,18 +81,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   };
 
   return (
-    <div className="group flex flex-col bg-white overflow-hidden transition-all duration-700 hover:-translate-y-1 hover:shadow-[0_15px_40px_-10px_rgba(0,0,0,0.08)]">
+    <div className="card group flex flex-col overflow-hidden">
       {/* 1:1 Image Container */}
-      <div className="relative aspect-square overflow-hidden bg-[#faf9f8]">
+      <div className="product-media relative aspect-square bg-surface-container">
         {/* Badges */}
         <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
           {badgeText && (
-            <span className="bg-[#d4af37] text-white text-[9px] font-label-md uppercase tracking-[0.2em] px-3 py-1.5 shadow-sm">
+            <span className="bg-accent text-ink text-[9px] font-label-md uppercase tracking-[0.2em] px-3 py-1.5 shadow-sm">
               {badgeText}
             </span>
           )}
           {product.featured && !badgeText && (
-            <span className="bg-[#121c2a] text-[#d4af37] text-[9px] font-label-md uppercase tracking-[0.2em] px-3 py-1.5 shadow-sm">
+            <span className="bg-ink text-accent text-[9px] font-label-md uppercase tracking-[0.2em] px-3 py-1.5 shadow-sm">
               Featured
             </span>
           )}
@@ -99,14 +101,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         {/* Wishlist Icon */}
         <button
           onClick={handleToggleWishlist}
-          className="absolute top-4 right-4 z-10 w-9 h-9 bg-white/90 backdrop-blur rounded-full flex items-center justify-center transition-all duration-300 hover:bg-[#d4af37] hover:text-white shadow-sm"
+          className="absolute top-4 right-4 z-10 w-9 h-9 bg-white/90 backdrop-blur rounded-full flex items-center justify-center transition-all duration-300 hover:bg-accent hover:text-ink shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+          aria-pressed={inWishlist}
           title={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+          aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
         >
           <span
             className="material-symbols-outlined text-[18px]"
-            style={{ 
+            style={{
               fontVariationSettings: inWishlist ? "'FILL' 1" : "'FILL' 0",
-              color: inWishlist ? (inWishlist ? '#d4af37' : 'inherit') : 'inherit'
+              color: inWishlist ? 'var(--accent)' : 'inherit'
             }}
           >
             favorite
@@ -116,21 +120,26 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         {/* Out of stock overlay */}
         {stock === 0 && (
           <div className="absolute inset-0 z-[5] bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
-            <span className="bg-black/90 text-white text-[10px] font-label-md uppercase tracking-[0.2em] px-5 py-2">
+            <span className="bg-ink/90 text-white text-[10px] font-label-md uppercase tracking-[0.2em] px-5 py-2">
               Sold Out
             </span>
           </div>
         )}
 
-        <Link to={`/product/${product.id}`} className="block w-full h-full">
+        <Link
+          to={`/product/${product.id}`}
+          className="block w-full h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
+        >
           {image ? (
             <img
               src={getImageUrl(image)}
               alt={product.name}
-              className="w-full h-full object-cover transition-transform duration-[1200ms] group-hover:scale-110"
+              className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-on-surface-variant bg-[#faf9f8]">
+            <div className="w-full h-full flex items-center justify-center text-on-surface-variant bg-surface-container">
               <span className="material-symbols-outlined text-4xl opacity-20">inventory_2</span>
             </div>
           )}
@@ -140,14 +149,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <div className="absolute bottom-0 left-0 w-full p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-500 flex gap-2 z-10">
           <button
             onClick={handleQuickView}
-            className="flex-1 bg-white/95 backdrop-blur py-3 text-[10px] font-label-md uppercase tracking-[0.15em] text-[#121c2a] hover:bg-[#121c2a] hover:text-[#d4af37] transition-colors border border-[#121c2a]/10"
+            className="flex-1 bg-white/95 backdrop-blur py-3 text-[10px] font-label-md uppercase tracking-[0.15em] text-ink hover:bg-ink hover:text-accent transition-colors border border-ink/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             Quick View
           </button>
           <button
             onClick={handleAddToCart}
             disabled={!variantId || stock === 0}
-            className="flex-1 bg-[#121c2a] py-3 text-[10px] font-label-md uppercase tracking-[0.15em] text-white hover:bg-[#d4af37] transition-colors disabled:opacity-50 disabled:hover:bg-[#121c2a]"
+            className="flex-1 bg-ink py-3 text-[10px] font-label-md uppercase tracking-[0.15em] text-white hover:bg-accent hover:text-ink transition-colors disabled:opacity-50 disabled:hover:bg-ink disabled:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             Add to Cart
           </button>
@@ -155,13 +164,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       </div>
 
       {/* Elegant Details */}
-      <div className="p-6 flex flex-col items-center text-center bg-white">
+      <div className="p-6 flex flex-col items-center text-center bg-surface">
         <span className="text-[9px] font-body-md text-on-surface-variant uppercase tracking-[0.25em] mb-2">
           {product.category?.name || 'Fragrance'}
         </span>
-        
-        <Link to={`/product/${product.id}`} className="mb-2">
-          <h3 className="font-headline-md text-lg text-[#121c2a] group-hover:text-[#d4af37] transition-colors line-clamp-1 font-normal tracking-wide">
+
+        <Link
+          to={`/product/${product.id}`}
+          className="mb-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <h3 className="font-headline-md text-lg text-ink group-hover:text-accent transition-colors line-clamp-1 font-normal tracking-wide">
             {product.name}
           </h3>
         </Link>
@@ -188,7 +200,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               {formatPrice(Number(oldPrice))}
             </span>
           )}
-          <span className="font-body-md text-[#121c2a] tracking-wider">
+          <span className="font-body-md text-ink tracking-wider">
             {formatPrice(Number(price))}
           </span>
         </div>

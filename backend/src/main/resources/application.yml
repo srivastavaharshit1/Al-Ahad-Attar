@@ -11,10 +11,38 @@ spring:
       max-request-size: 5MB
   
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/alahadattars?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:root}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    # Supabase Postgres. Grab the connection string from Project Settings > Database
+    # (use the "Session pooler" / port 5432 string for a JDBC-friendly host, or the
+    # "Transaction pooler" on 6543 if the app scales across many instances) and set:
+    #   DB_URL=jdbc:postgresql://<host>:<port>/postgres?sslmode=require
+    #   DB_USERNAME=postgres.<project-ref>
+    #   DB_PASSWORD=<your-db-password>
+    # No defaults on purpose — until these are set the app fails fast instead of
+    # silently trying to reach a local database that doesn't exist.
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # Supabase's free/small-tier direct connection has a very low max_connections ceiling
+      # (shared with Supabase's own internal services). Explicit, conservative sizing here
+      # instead of Hikari's default (10) keeps one app instance from eating most of it.
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      # Proactively pings idle pooled connections every 4 minutes so a dead one is caught and
+      # replaced before Hikari hands it out. Without this, a connection silently killed by
+      # Supabase's pooler (or an intermediate network hop) sits in the pool looking fine until a
+      # transaction starts on it and the server logs "unexpected EOF ... with an open
+      # transaction" when that stale socket is used.
+      keepalive-time: 240000
+      # Logs a stack trace for any connection held > 30s instead of silently leaking it — the
+      # class of bug that let a blocking external HTTP call (Razorpay refund) hold a pooled
+      # connection for the duration of the call. See RefundTransactionSupport.
+      leak-detection-threshold: 30000
+      pool-name: AlAhadHikariPool
 
   jpa:
     hibernate:
@@ -23,14 +51,88 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # SMTP for transactional email (EmailService). Deliberately defaults to blank/disabled
+  # rather than failing fast like the datasource — a missing/misconfigured mail server must
+  # never stop the app from booting or block an order/registration. EmailServiceImpl checks
+  # app.mail.enabled and no-ops (with a log line) when SMTP isn't configured.
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 app:
   admin:
-    email: ${ADMIN_EMAIL:admin@alahadattars.com}
-    password: ${ADMIN_PASSWORD:Admin@123}
+    # No defaults on purpose: a committed fallback would create a live admin account with a
+    # publicly known password. Leave these unset and the bootstrap admin is simply not seeded.
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+  security:
+    # Comma-separated IP(s) of a reverse proxy/load balancer actually in front of this app.
+    # Empty by default — AuthRateLimitFilter only trusts the X-Forwarded-For header when the
+    # direct TCP peer is in this list; otherwise a client could set that header to any value and
+    # dodge the rate limit entirely. Leave unset until a real reverse proxy is deployed.
+    trusted-proxies: ${TRUSTED_PROXIES:}
   upload:
     dir: ${UPLOAD_DIR:uploads}
+  storage:
+    # "local" (dev-only disk storage, default here since it needs no credentials), "r2" (Cloudflare
+    # R2 — the production provider; set STORAGE_PROVIDER=r2 in every deployed environment), or
+    # "supabase" (kept available as a fallback/alternative, but must not be the configured
+    # production provider — Supabase is production-only for Postgres, not storage; see
+    # STORAGE_MIGRATION.md). Never referenced outside the storage layer itself: ProductImageService,
+    # ReviewService, CategoryService, HomepageService etc. depend only on the StorageService
+    # interface, never on a specific provider.
+    provider: ${STORAGE_PROVIDER:local}
+    r2:
+      account-id: ${R2_ACCOUNT_ID:}
+      access-key-id: ${R2_ACCESS_KEY_ID:}
+      # Server-side only — never sent to the frontend. All uploads/deletes go through Spring Boot;
+      # React never talks to R2 directly.
+      secret-access-key: ${R2_SECRET_ACCESS_KEY:}
+      bucket: ${R2_BUCKET:}
+      # R2's public bucket domain or a custom domain fronted by Cloudflare's CDN — publicUrl()
+      # returns this + the objectKey directly, so browsers fetch images from Cloudflare, never
+      # proxied through this backend.
+      public-url: ${R2_PUBLIC_URL:}
+    supabase:
+      url: ${SUPABASE_URL:}
+      # Service-role key: server-side only, bypasses Row Level Security. Never sent to the
+      # frontend — only SUPABASE_ANON_KEY (unused by this backend) would ever be safe there.
+      service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
+      bucket: ${SUPABASE_STORAGE_BUCKET:media}
+  mail:
+    # Sender identity for all transactional email. MAIL_HOST/USERNAME/PASSWORD above must also
+    # be set for sending to actually work — see .env.example.
+    from: ${MAIL_FROM:noreply@alahadattars.com}
+    enabled: ${MAIL_ENABLED:true}
+    # Who receives the "New Order Received" admin notification. Falls back to app.admin.email
+    # (blank if unset) when ADMIN_NOTIFICATION_EMAIL isn't set — deliberately separate from the
+    # admin login email since they're different concerns (a shared inbox may want the alerts).
+    admin-notification-email: ${ADMIN_NOTIFICATION_EMAIL:${ADMIN_EMAIL:}}
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  support-email: ${SUPPORT_EMAIL:contact@alahadattars.com}
+  payment:
+    # Bypasses the real Razorpay API (order creation + signature verification) so checkout can be
+    # tested end-to-end without real merchant keys. Defaults off; PaymentServiceImpl refuses to
+    # boot if this is left on alongside SPRING_PROFILES_ACTIVE=prod.
+    dev-mode: ${PAYMENT_DEV_MODE:false}
+  cors:
+    # Comma-separated allowed origins for browser requests. Defaults to app.frontend-url so local
+    # dev is unaffected; production MUST set CORS_ALLOWED_ORIGINS to its real domain(s) — never a
+    # wildcard, since allowCredentials(true) + "*" is a credential-theft vulnerability.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:${app.frontend-url:http://localhost:5173}}
 
 logging:
   level:
@@ -38,16 +140,27 @@ logging:
     com.alahadattars: DEBUG
     org.springframework.web: INFO
     org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    # TRACE here logs every bound parameter value for every query — the single biggest source of
+    # dev-mode slowness (reflection + string formatting + synchronous log I/O on every JDBC call).
+    # Keep SQL text visible via org.hibernate.SQL above; only bump this back to TRACE temporarily
+    # when you actually need to see bound values while debugging one specific query.
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
 
 jwt:
-  secret: ${JWT_SECRET:8a9b3c5d7e6f1a2b4c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b}
+  # Required. Deliberately has no default — a committed signing key lets anyone with repository
+  # access forge an admin token. Generate one with: openssl rand -base64 48
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
 
 razorpay:
   key:
     id: ${RAZORPAY_KEY_ID}
     secret: ${RAZORPAY_KEY_SECRET}
+  webhook:
+    # Separate from key.secret — set from Razorpay Dashboard > Settings > Webhooks when
+    # registering the endpoint. Blank on purpose: an unset secret must fail closed (reject every
+    # webhook call) rather than silently accept unverified payloads.
+    secret: ${RAZORPAY_WEBHOOK_SECRET:}
 
 # (Removed Cloudinary)
   

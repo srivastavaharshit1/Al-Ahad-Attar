@@ -161,22 +161,22 @@ export const ReviewList: React.FC<ReviewListProps> = ({ productId }) => {
 
   return (
     <>
-      <section className="border-t border-gray-100 pt-8" aria-label="Customer reviews">
+      <section className="border-t border-outline-variant/60 pt-8" aria-label="Customer reviews">
         <div className="flex flex-col">
-          
+
           {/* Review Header */}
           <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-10 gap-6">
             <div>
-              <h2 className="text-4xl font-bold text-gray-900 font-headline-lg tracking-tight mb-2">
+              <h2 className="font-headline-lg text-3xl md:text-4xl text-ink tracking-wide mb-2">
                 Customer Reviews
               </h2>
               {totalElements > 0 && !loading && (
-                <p className="text-gray-500 font-body-md">
+                <p className="text-on-surface-variant font-body-md leading-relaxed">
                   Based on {totalElements.toLocaleString()} {totalElements === 1 ? 'Review' : 'Reviews'}
                 </p>
               )}
             </div>
-            
+
             {/* Write Review Button */}
             {user ? (
               <Button
@@ -184,14 +184,15 @@ export const ReviewList: React.FC<ReviewListProps> = ({ productId }) => {
                   setReviewToEdit(null);
                   setShowReviewModal(true);
                 }}
-                className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl shadow-[0_4px_14px_0_rgba(184,134,11,0.39)] hover:shadow-[0_6px_20px_rgba(184,134,11,0.23)] hover:-translate-y-0.5 transition-all w-full lg:w-auto"
+                variant="secondary"
+                className="flex items-center justify-center gap-2 w-full lg:w-auto"
                 aria-label="Write a review for this product"
               >
                 <PenLine size={18} />
                 Write Review
               </Button>
             ) : (
-              <div className="text-sm text-gray-500 bg-gray-50 px-6 py-3 rounded-xl border border-gray-100 text-center lg:text-left">
+              <div className="text-sm text-on-surface-variant bg-surface-container-lowest px-6 py-3 rounded-xl border border-outline-variant/60 text-center lg:text-left">
                 Please log in to write a review.
               </div>
             )}
@@ -204,30 +205,30 @@ export const ReviewList: React.FC<ReviewListProps> = ({ productId }) => {
 
           {/* Sort Bar */}
           {(reviews.length > 0 || loading) && (
-            <div className="flex flex-col lg:flex-row items-center justify-between mb-10 gap-4 border-b border-gray-100 pb-4">
-              
+            <div className="flex flex-col lg:flex-row items-center justify-between mb-10 gap-4 border-b border-outline-variant/60 pb-4">
+
               {/* Left: Sort */}
               <div className="w-full lg:w-1/3 flex items-center gap-3">
-                <span className="text-sm font-semibold text-gray-700">Sort</span>
+                <span className="text-sm font-medium text-on-surface">Sort</span>
                 <div className="relative">
                   <select
                     value={sort}
                     onChange={(e) => handleSort(e.target.value as SortOption)}
                     aria-label="Sort reviews"
-                    className="appearance-none text-sm border-none bg-gray-50 text-gray-800 font-medium rounded-lg pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+                    className="appearance-none text-sm border-none bg-surface-container-lowest text-on-surface font-medium rounded-lg pl-4 pr-10 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer"
                   >
                     {SORT_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
                   </select>
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant">
                     <SlidersHorizontal size={14} />
                   </span>
                 </div>
               </div>
-              
+
               {/* Center: Showing Count */}
-              <div className="w-full lg:w-1/3 text-center text-sm font-medium text-gray-500">
+              <div className="w-full lg:w-1/3 text-center text-sm font-medium text-on-surface-variant">
                 {totalElements > 0 && !loading ? (
                   <>Showing {page * 5 + 1}–{Math.min((page + 1) * 5, totalElements)} of {totalElements.toLocaleString()} Reviews</>
                 ) : (
@@ -253,18 +254,18 @@ export const ReviewList: React.FC<ReviewListProps> = ({ productId }) => {
           {loading ? (
             <div className="space-y-4">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="bg-white p-8 rounded-[20px] border border-gray-100 animate-pulse">
+                <div key={i} className="card p-8 animate-pulse">
                   <div className="flex items-center gap-4 mb-6">
-                    <div className="w-12 h-12 bg-gray-100 rounded-full" />
+                    <div className="w-12 h-12 bg-surface-container rounded-full" />
                     <div className="space-y-2 flex-1">
-                      <div className="h-4 bg-gray-100 rounded w-32" />
-                      <div className="h-3 bg-gray-100 rounded w-20" />
+                      <div className="h-4 bg-surface-container rounded w-32" />
+                      <div className="h-3 bg-surface-container rounded w-20" />
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <div className="h-4 bg-gray-100 rounded w-full" />
-                    <div className="h-4 bg-gray-100 rounded w-4/5" />
-                    <div className="h-4 bg-gray-100 rounded w-3/5" />
+                    <div className="h-4 bg-surface-container rounded w-full" />
+                    <div className="h-4 bg-surface-container rounded w-4/5" />
+                    <div className="h-4 bg-surface-container rounded w-3/5" />
                   </div>
                 </div>
               ))}
@@ -288,12 +289,12 @@ export const ReviewList: React.FC<ReviewListProps> = ({ productId }) => {
               </div>
             </>
           ) : (
-            <div className="text-center py-24 bg-gray-50 rounded-[20px] border border-dashed border-gray-200">
-              <div className="text-6xl mb-6">⭐</div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3 font-headline-sm">
+            <div className="text-center py-24 bg-surface-container-lowest rounded-xl border border-dashed border-outline-variant">
+              <div className="text-5xl mb-6 text-accent" aria-hidden="true">✦</div>
+              <h3 className="font-headline-sm text-xl text-on-surface mb-3">
                 No Reviews Yet
               </h3>
-              <p className="text-gray-500 mb-8 max-w-sm mx-auto">
+              <p className="text-on-surface-variant mb-8 max-w-sm mx-auto leading-relaxed">
                 Be the first to share your experience with this product and help others make a decision.
               </p>
               {user && (
@@ -302,7 +303,8 @@ export const ReviewList: React.FC<ReviewListProps> = ({ productId }) => {
                     setReviewToEdit(null);
                     setShowReviewModal(true);
                   }}
-                  className="flex items-center gap-2 mx-auto px-8 py-3 rounded-xl shadow-[0_4px_14px_0_rgba(184,134,11,0.39)] hover:shadow-[0_6px_20px_rgba(184,134,11,0.23)] hover:-translate-y-0.5 transition-all"
+                  variant="secondary"
+                  className="flex items-center gap-2 mx-auto"
                 >
                   <PenLine size={18} />
                   Write a Review

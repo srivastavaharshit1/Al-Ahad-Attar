@@ -1,7 +1,6 @@
 package com.alahadattars.entity;
 
 import com.alahadattars.enums.RoleType;
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -54,8 +53,12 @@ public class Role extends BaseEntity {
     @Builder.Default
     private boolean active = true;
 
+    // No cascade/orphanRemoval here deliberately: Role is a fixed lookup table (USER/ADMIN) and must
+    // never own User's lifecycle. User.role (the owning side, via @JoinColumn) is what persists the
+    // association; cascading from here would mean deleting a Role cascade-deletes every user with it,
+    // and previously forced a full table load of every user on each new registration for no benefit.
     @ToString.Exclude
-    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @OneToMany(mappedBy = "role", fetch = FetchType.LAZY)
     @Builder.Default
     private List<User> users = new ArrayList<>();
 

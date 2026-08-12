@@ -17,16 +17,16 @@ export const Input: React.FC<InputProps> = ({
   return (
     <div className={`flex flex-col ${className}`}>
       {label && (
-        <label htmlFor={inputId} className="font-label-sm text-label-sm text-on-surface mb-2">
+        <label htmlFor={inputId} className="field-label">
           {label}
         </label>
       )}
       <input
         id={inputId}
-        className={`w-full bg-surface-container-lowest border ${error ? 'border-error' : 'border-outline-variant'} text-on-surface font-body-md py-3 px-4 focus:ring-1 focus:ring-primary focus:border-primary transition-colors placeholder:text-on-surface-variant/50`}
+        className={`field-input ${error ? 'is-error' : ''}`}
         {...props}
       />
-      {error && <span className="text-error text-xs mt-1">{error}</span>}
+      {error && <span className="text-error text-xs mt-1.5">{error}</span>}
     </div>
   );
 };

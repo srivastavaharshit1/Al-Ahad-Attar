@@ -13,4 +13,5 @@ public class PaymentResponse {
     private String razorpayOrderId;
     private String status;
     private String message;
+    private boolean devMode;
 }

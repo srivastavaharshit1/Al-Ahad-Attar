@@ -1,4 +1,8 @@
-export type RefundStatus = 'NOT_REQUIRED' | 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type OrderStatus = 'CONFIRMED' | 'PACKED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+
+// REFUND_REQUIRED: cancellation accepted, awaiting admin action (admin controls the actual
+// Razorpay call — cancelling never auto-refunds). REFUNDED: Razorpay confirmed completion.
+export type RefundStatus = 'NOT_REQUIRED' | 'REFUND_REQUIRED' | 'PROCESSING' | 'REFUNDED' | 'FAILED';
 
 export interface OrderItem {
   id: number;
@@ -18,10 +22,12 @@ export interface Order {
   id: number;
   orderNumber: string;
   totalAmount: number;
-  status: string;
+  status: OrderStatus;
   paymentMethod: string;
   paymentStatus: string;
   createdAt: string;
+  cancelledAt?: string | null;
+  cancelledBy?: string | null;
   transactionId?: string;
   shippingCost: number;
   offerDiscountAmount: number;
@@ -66,4 +72,5 @@ export interface PaymentOrderResponse {
   razorpayOrderId: string;
   status: string;
   message: string;
+  devMode?: boolean;
 }

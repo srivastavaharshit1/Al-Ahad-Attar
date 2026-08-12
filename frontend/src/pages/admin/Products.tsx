@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { productService } from '../../services/productService';
-import type { Product } from '../../types';
+import { categoryService } from '../../services/categoryService';
+import type { Product, Category } from '../../types';
 import { formatPrice } from '../../utils/formatPrice';
 import { getImageUrl } from '../../utils/getImageUrl';
 import { Pagination } from '../../components/ui/Pagination';
@@ -18,22 +19,31 @@ export const Products: React.FC = () => {
   const [totalElements, setTotalElements] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
-  
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryId, setCategoryId] = useState('');
+
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const currentPage = parseInt(searchParams.get('page') || '0', 10);
 
   useEffect(() => {
-    fetchProducts();
-  }, [currentPage]);
+    categoryService.getActiveCategories().then(res => setCategories(res.data || [])).catch(console.error);
+  }, []);
 
-  const fetchProducts = async () => {
+  useEffect(() => {
+    fetchProducts();
+  }, [currentPage, categoryId]);
+
+  const fetchProducts = async (pageOverride?: number) => {
     try {
       setIsLoading(true);
-      const params: any = { page: currentPage, size: 10 };
+      const params: any = { page: pageOverride ?? currentPage, size: 10 };
       if (searchQuery.trim()) {
         params.search = searchQuery.trim();
+      }
+      if (categoryId) {
+        params.categoryId = categoryId;
       }
       const response = await productService.getProducts(params);
       setProducts(response.content || []);
@@ -41,9 +51,16 @@ export const Products: React.FC = () => {
       setTotalElements(response.totalElements || 0);
     } catch (error) {
       console.error("Failed to load products", error);
+      toast.error('Failed to load products');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setCategoryId(e.target.value);
+    searchParams.set('page', '0');
+    setSearchParams(searchParams);
   };
 
   const handlePageChange = (page: number) => {
@@ -55,7 +72,7 @@ export const Products: React.FC = () => {
     e.preventDefault();
     searchParams.set('page', '0');
     setSearchParams(searchParams);
-    fetchProducts();
+    fetchProducts(0);
   };
 
   const handleExportCSV = async () => {
@@ -65,8 +82,11 @@ export const Products: React.FC = () => {
       if (searchQuery.trim()) {
         params.search = searchQuery.trim();
       }
+      if (categoryId) {
+        params.categoryId = categoryId;
+      }
       const response = await productService.getProducts(params);
-      
+
       const exportData = (response.content || []).map((p: any) => ({
         'ID': p.id,
         'Name': p.name,
@@ -130,35 +150,40 @@ export const Products: React.FC = () => {
           <p className="font-body-md text-body-md text-on-surface-variant">Manage your luxury fragrance catalog and stock inventory.</p>
         </div>
         <div className="flex gap-4">
-          <button onClick={handleExportCSV} type="button" className="bg-surface border border-outline text-on-surface font-label-md text-label-md px-6 py-3 hover:bg-surface-container-low hover:text-primary hover:border-primary transition-colors flex items-center gap-2 rounded-DEFAULT">
+          <button onClick={handleExportCSV} type="button" className="btn btn-outline px-6 py-3 rounded-lg">
             <span className="material-symbols-outlined text-[20px]">download</span>
             Export CSV
           </button>
-          <Link to="/admin/products/new" className="bg-primary text-on-primary font-label-md text-label-md px-6 py-3 hover:bg-surface-tint transition-colors shadow-[0_4px_14px_rgba(120,86,0,0.2)] flex items-center gap-2 rounded-DEFAULT">
+          <Link to="/admin/products/new" className="btn btn-primary px-6 py-3 rounded-lg">
             <span className="material-symbols-outlined text-[20px]">add</span>
             Add Product
           </Link>
         </div>
       </div>
 
-      <div className="bg-surface-container-lowest border border-outline-variant shadow-[0_10px_30px_rgba(31,41,55,0.04)] rounded-xl overflow-hidden">
+      <div className="table-shell">
         <div className="p-6 border-b border-outline-variant flex flex-wrap gap-4 items-center justify-between bg-surface-bright">
           <div className="flex gap-4">
             <form onSubmit={handleSearch} className="relative">
-              <input 
-                type="text" 
-                placeholder="Search products..." 
-                className="bg-surface border border-outline-variant rounded-md py-2.5 pl-4 pr-10 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none min-w-[200px]"
+              <input
+                type="text"
+                placeholder="Search products..."
+                className="field-input py-2.5 pl-4 pr-10 text-sm min-w-[200px]"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-              <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary transition-colors">
+              <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded text-on-surface-variant hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-colors">
                 <span className="material-symbols-outlined text-[18px]">search</span>
               </button>
             </form>
             <div className="relative">
-              <select className="appearance-none bg-transparent border border-outline-variant rounded-md py-2.5 pl-4 pr-10 font-label-sm text-label-sm text-on-surface uppercase tracking-wide focus:border-primary focus:ring-0 cursor-pointer min-w-[160px]">
-                <option>All Categories</option>
+              <select
+                value={categoryId}
+                onChange={handleCategoryChange}
+                className="field-input appearance-none py-2.5 pl-4 pr-10 font-label-sm text-label-sm uppercase tracking-wide cursor-pointer min-w-[160px]"
+              >
+                <option value="">All Categories</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-[20px]">expand_more</span>
             </div>
@@ -176,21 +201,21 @@ export const Products: React.FC = () => {
           ) : (
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-surface">
-                  <th className="py-4 px-6 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider border-b border-outline-variant font-semibold">Product</th>
-                  <th className="py-4 px-6 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider border-b border-outline-variant font-semibold">Category</th>
-                  <th className="py-4 px-6 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider border-b border-outline-variant font-semibold">Gender</th>
-                  <th className="py-4 px-6 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider border-b border-outline-variant font-semibold">Price</th>
-                  <th className="py-4 px-6 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider border-b border-outline-variant font-semibold">Stock Status</th>
-                  <th className="py-4 px-6 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider border-b border-outline-variant font-semibold text-right">Actions</th>
+                <tr>
+                  <th>Product</th>
+                  <th>Category</th>
+                  <th>Gender</th>
+                  <th>Price</th>
+                  <th>Stock Status</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-outline-variant">
+              <tbody>
                 {products.map(product => {
                   const stock = getProductStock(product);
                   return (
-                    <tr key={product.id} className="hover:bg-surface-container-low transition-colors group">
-                      <td className="py-4 px-6">
+                    <tr key={product.id} className="group">
+                      <td data-label="Product">
                         <div className="flex items-center gap-4">
                           <div className="w-16 h-16 bg-surface-variant rounded-md overflow-hidden border border-outline-variant flex-shrink-0 flex items-center justify-center">
                             {getProductImage(product) ? (
@@ -205,44 +230,38 @@ export const Products: React.FC = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-6 font-body-md text-body-md text-on-surface">
+                      <td data-label="Category">
                         {product.categoryName || 'Uncategorized'}
                         {product.subcategory && <span className="text-on-surface-variant text-sm ml-1">({product.subcategory})</span>}
                       </td>
-                      <td className="py-4 px-6">
-                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium uppercase tracking-wider ${
-                          product.gender === 'MALE' ? 'bg-blue-100 text-blue-800' :
-                          product.gender === 'FEMALE' ? 'bg-pink-100 text-pink-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {product.gender || 'UNISEX'}
-                        </span>
+                      <td data-label="Gender">
+                        <span className="badge badge-neutral">{product.gender || 'UNISEX'}</span>
                       </td>
-                      <td className="py-4 px-6 font-body-md text-body-md text-on-surface font-medium">{formatPrice(product.minimumPrice || 0)}</td>
-                      <td className="py-4 px-6">
+                      <td className="font-medium" data-label="Price">{formatPrice(product.minimumPrice || 0)}</td>
+                      <td data-label="Stock Status">
                         {stock > 10 ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f0fdf4] text-[#166534] border border-[#bbf7d0] font-label-sm text-label-sm uppercase tracking-wider">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#166534]"></span>
+                          <span className="badge badge-success">
+                            <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                             In Stock ({stock})
                           </span>
                         ) : stock > 0 ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#fefce8] text-[#854d0e] border border-[#fef08a] font-label-sm text-label-sm uppercase tracking-wider">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#854d0e]"></span>
+                          <span className="badge badge-warning">
+                            <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                             Low Stock ({stock})
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-error-container text-on-error-container border border-[#fecaca] font-label-sm text-label-sm uppercase tracking-wider">
-                            <span className="w-1.5 h-1.5 rounded-full bg-error"></span>
+                          <span className="badge badge-error">
+                            <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                             Out of Stock
                           </span>
                         )}
                       </td>
-                      <td className="py-4 px-6 text-right">
-                        <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Link to={`/admin/products/${product.id}/edit`} className="p-2 text-on-surface-variant hover:text-primary transition-colors" title="Edit">
+                      <td className="text-right" data-label="Actions">
+                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                          <Link to={`/admin/products/${product.id}/edit`} className="p-2 rounded-md text-on-surface-variant hover:text-primary hover:bg-surface-container-low focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-colors" title="Edit">
                             <span className="material-symbols-outlined text-[20px]">edit</span>
                           </Link>
-                          <button onClick={() => handleDelete(product.id.toString())} className="p-2 text-on-surface-variant hover:text-error transition-colors" title="Delete">
+                          <button onClick={() => handleDelete(product.id.toString())} className="p-2 rounded-md text-on-surface-variant hover:text-error hover:bg-surface-container-low focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-colors" title="Delete">
                             <span className="material-symbols-outlined text-[20px]">delete</span>
                           </button>
                         </div>

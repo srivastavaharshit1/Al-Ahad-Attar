@@ -26,25 +26,25 @@ export const CustomerLayout: React.FC = () => {
       <AnnouncementBar />
       <Navbar />
       
-      <main className="flex-grow max-w-container-max mx-auto w-full px-margin-mobile md:px-margin-desktop py-section-gap">
+      <main className="flex-grow max-w-container-max mx-auto w-full px-margin-mobile md:px-margin-desktop py-10 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          
+
           {/* Sidebar Navigation */}
           <aside className="md:col-span-1">
-            <div className="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-6 sticky top-24">
+            <div className="card p-6 md:sticky md:top-24">
               <h2 className="font-headline-md text-headline-md text-on-surface mb-6 border-b border-outline-variant pb-4">
                 My Account
               </h2>
-              <nav className="flex flex-col gap-2">
+              <nav className="flex flex-col gap-1.5">
                 {navItems.map((item) => (
                   <NavLink
                     key={item.name}
                     to={item.path}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-3 rounded-DEFAULT font-label-md transition-colors ${
-                        isActive 
-                          ? 'bg-primary-container text-on-primary-container font-medium' 
-                          : 'text-on-surface hover:bg-surface-container-low'
+                      `flex items-center gap-3 px-4 py-3 rounded-lg font-label-md text-sm tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                        isActive
+                          ? 'bg-accent-soft text-accent-hover font-semibold'
+                          : 'text-on-surface hover:bg-surface-container-low hover:text-accent'
                       }`
                     }
                   >
@@ -52,8 +52,8 @@ export const CustomerLayout: React.FC = () => {
                     {item.name}
                   </NavLink>
                 ))}
-                
-                <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 rounded-DEFAULT font-label-md text-error hover:bg-error-container/20 transition-colors mt-4 text-left w-full">
+
+                <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 rounded-lg font-label-md text-sm tracking-wide text-error hover:bg-error-container/20 transition-colors mt-4 text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error">
                   <span className="material-symbols-outlined text-lg">logout</span>
                   Sign Out
                 </button>

@@ -3,7 +3,8 @@ import { reviewService } from '../../services/reviewService';
 import type { Review } from '../../types';
 import { Button } from '../../components/ui/Button';
 import { Pagination } from '../../components/ui/Pagination';
-import { Search, EyeOff, Eye, MessageSquare, Trash2, ShieldCheck, Loader2 } from 'lucide-react';
+import { Modal } from '../../components/ui/Modal';
+import { Search, EyeOff, Eye, MessageSquare, Trash2, ShieldCheck, Loader2, Star } from 'lucide-react';
 import { ConfirmationDialog } from '../../components/ui/ConfirmationDialog';
 import toast from 'react-hot-toast';
 
@@ -86,21 +87,21 @@ export const Reviews: React.FC = () => {
     <div className="p-8 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Reviews Management</h1>
-          <p className="text-gray-500 mt-1">Moderate customer reviews and respond to feedback.</p>
+          <h1 className="font-headline-lg text-headline-lg text-on-surface">Reviews Management</h1>
+          <p className="text-on-surface-variant mt-1">Moderate customer reviews and respond to feedback.</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 bg-gray-50 flex items-center gap-4">
+      <div className="table-shell shadow-[0_10px_30px_rgba(18,28,42,.04)]">
+        <div className="p-4 border-b border-outline-variant bg-surface-container-low flex items-center gap-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-            <input 
-              type="text" 
-              placeholder="Search reviews..." 
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-outline" size={20} />
+            <input
+              type="text"
+              placeholder="Search reviews..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+              className="w-full pl-10 pr-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-DEFAULT text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
             />
           </div>
         </div>
@@ -108,74 +109,76 @@ export const Reviews: React.FC = () => {
         {loading ? (
           <div className="p-12 flex justify-center"><Loader2 className="animate-spin text-primary" size={32} /></div>
         ) : reviews.length === 0 ? (
-          <div className="p-12 text-center text-gray-500">No reviews found.</div>
+          <div className="p-12 text-center text-on-surface-variant">No reviews found.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 text-gray-500 text-sm border-b border-gray-100">
-                  <th className="p-4 font-medium">Customer</th>
-                  <th className="p-4 font-medium">Product ID</th>
-                  <th className="p-4 font-medium">Rating</th>
-                  <th className="p-4 font-medium">Review</th>
-                  <th className="p-4 font-medium">Status</th>
-                  <th className="p-4 font-medium text-right">Actions</th>
+                <tr>
+                  <th>Customer</th>
+                  <th>Product ID</th>
+                  <th>Rating</th>
+                  <th>Review</th>
+                  <th>Status</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody>
                 {reviews.map(review => (
-                  <tr key={review.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="p-4 align-top">
-                      <div className="font-medium text-gray-900">{review.userName}</div>
-                      <div className="text-sm text-gray-500">ID: {review.userId}</div>
+                  <tr key={review.id}>
+                    <td className="align-top" data-label="Customer">
+                      <div className="font-medium text-on-surface">{review.userName}</div>
+                      <div className="text-sm text-on-surface-variant">ID: {review.userId}</div>
                       {review.isVerifiedPurchase && (
-                        <div className="flex items-center gap-1 text-green-600 text-xs mt-1">
+                        <span className="badge badge-success mt-1.5">
                           <ShieldCheck size={12} /> Verified
-                        </div>
+                        </span>
                       )}
                     </td>
-                    <td className="p-4 align-top text-gray-900">#{review.productId}</td>
-                    <td className="p-4 align-top">
-                      <div className="flex text-yellow-400">
+                    <td className="align-top text-on-surface" data-label="Product ID">#{review.productId}</td>
+                    <td className="align-top" data-label="Rating">
+                      <div className="flex gap-0.5">
                         {Array.from({ length: 5 }).map((_, i) => (
-                          <span key={i} className={`material-symbols-outlined text-[16px] ${i < review.rating ? 'text-yellow-400' : 'text-gray-300'}`} style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                          <Star
+                            key={i}
+                            size={14}
+                            className={i < review.rating ? 'text-accent fill-current' : 'text-outline-variant'}
+                          />
                         ))}
                       </div>
                     </td>
-                    <td className="p-4 align-top max-w-xs">
-                      <div className="font-medium text-gray-900 mb-1">{review.title}</div>
-                      <div className="text-sm text-gray-600 line-clamp-2">{review.description}</div>
+                    <td className="align-top max-w-xs" data-label="Review">
+                      <div className="font-medium text-on-surface mb-1">{review.title}</div>
+                      <div className="text-sm text-on-surface-variant line-clamp-2">{review.description}</div>
                       {review.adminReply && (
                         <div className="mt-2 text-xs bg-primary/10 text-primary p-2 rounded border-l-2 border-primary">
                           Replied: {review.adminReply}
                         </div>
                       )}
                     </td>
-                    <td className="p-4 align-top">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                        review.isHidden ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                      }`}>
+                    <td className="align-top" data-label="Status">
+                      <span className={`badge ${review.isHidden ? 'badge-error' : 'badge-success'}`}>
                         {review.isHidden ? 'Hidden' : 'Visible'}
                       </span>
                     </td>
-                    <td className="p-4 align-top text-right space-x-2 whitespace-nowrap">
-                      <button 
+                    <td className="align-top text-right space-x-2 whitespace-nowrap" data-label="Actions">
+                      <button
                         onClick={() => handleToggleVisibility(review.id, review.isHidden)}
-                        className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
                         title={review.isHidden ? "Unhide" : "Hide"}
                       >
                         {review.isHidden ? <Eye size={18} /> : <EyeOff size={18} />}
                       </button>
-                      <button 
+                      <button
                         onClick={() => openReplyModal(review)}
-                        className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                        className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
                         title="Reply"
                       >
                         <MessageSquare size={18} />
                       </button>
-                      <button 
+                      <button
                         onClick={() => setReviewToDelete(review.id)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-2 text-error hover:bg-error/10 rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
                         title="Delete Permanently"
                       >
                         <Trash2 size={18} />
@@ -187,33 +190,33 @@ export const Reviews: React.FC = () => {
             </table>
           </div>
         )}
-        
+
         {totalPages > 1 && (
-          <div className="p-4 border-t border-gray-100 flex justify-center">
+          <div className="p-4 border-t border-outline-variant flex justify-center">
             <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
           </div>
         )}
       </div>
 
       {/* Reply Modal */}
-      {replyReviewId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Reply to Review</h3>
-            <textarea
-              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-primary focus:border-primary mb-4"
-              rows={4}
-              placeholder="Write your official response..."
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-            />
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setReplyReviewId(null)}>Cancel</Button>
-              <Button onClick={submitReply}>Save Reply</Button>
-            </div>
-          </div>
+      <Modal
+        isOpen={replyReviewId !== null}
+        onClose={() => setReplyReviewId(null)}
+        title="Reply to Review"
+        maxWidth="md"
+      >
+        <textarea
+          className="field-input text-sm mb-4"
+          rows={4}
+          placeholder="Write your official response..."
+          value={replyText}
+          onChange={(e) => setReplyText(e.target.value)}
+        />
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={() => setReplyReviewId(null)}>Cancel</Button>
+          <Button onClick={submitReply}>Save Reply</Button>
         </div>
-      )}
+      </Modal>
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog

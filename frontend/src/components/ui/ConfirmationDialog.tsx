@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Button } from './Button';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface ConfirmationDialogProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   actionType = 'DELETE',
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, isOpen);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -63,10 +65,11 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div 
+    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
         ref={dialogRef}
-        className="bg-surface rounded-2xl w-full max-w-md shadow-xl overflow-hidden border border-outline-variant/30 transform transition-all"
+        tabIndex={-1}
+        className="modal-panel w-full max-w-md overflow-hidden border border-outline-variant/40"
         role="dialog"
         aria-modal="true"
         aria-labelledby="dialog-title"
@@ -79,7 +82,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
               </span>
             </div>
             <div className="flex-1 space-y-1 mt-1">
-              <h2 id="dialog-title" className="font-headline-sm text-on-surface">
+              <h2 id="dialog-title" className="font-headline-md text-lg text-on-surface">
                 {title}
               </h2>
               {entityName && (

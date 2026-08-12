@@ -46,6 +46,9 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @ToString(callSuper = true)
+// Batches lazy-loading of ProductVariant proxies (e.g. OrderItem.variant across a paged order
+// list) into one IN-clause query per page instead of one per item.
+@org.hibernate.annotations.BatchSize(size = 20)
 public class ProductVariant extends BaseEntity {
 
     @NotNull

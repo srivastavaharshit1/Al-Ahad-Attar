@@ -29,8 +29,8 @@ export const RelatedProducts: React.FC<RelatedProductsProps> = ({ productId }) =
 
   if (loading) {
     return (
-      <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex items-center justify-center min-h-[300px]">
-        <Loader2 className="animate-spin text-primary" size={24} />
+      <div className="bg-surface p-8 rounded-xl border border-outline-variant shadow-[0_10px_30px_rgba(18,28,42,.04)] flex items-center justify-center min-h-[300px]">
+        <Loader2 className="animate-spin text-accent" size={24} />
       </div>
     );
   }
@@ -41,22 +41,22 @@ export const RelatedProducts: React.FC<RelatedProductsProps> = ({ productId }) =
     <div className="w-full">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-8 gap-4">
         <div>
-          <h3 className="text-2xl font-bold text-gray-900 font-headline-lg tracking-tight mb-1">
+          <h3 className="font-headline-lg text-2xl md:text-3xl text-ink tracking-wide mb-2">
             Similar Fragrances
           </h3>
-          <p className="text-sm text-gray-500 font-body-md">
+          <p className="text-sm text-on-surface-variant font-body-md leading-relaxed">
             Customers also bought these fragrances.
           </p>
         </div>
-        <a 
-          href="/collection" 
-          className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary-700 transition-colors group mt-1"
+        <a
+          href="/collection"
+          className="inline-flex items-center gap-1.5 text-[11px] font-label-md uppercase tracking-[0.2em] text-ink hover:text-accent transition-colors group mt-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
-          View All 
-          <span className="transform transition-transform group-hover:translate-x-1">→</span>
+          View All
+          <span className="transform transition-transform group-hover:translate-x-1" aria-hidden="true">→</span>
         </a>
       </div>
-      
+
       {/* Mobile: horizontal carousel, Tablet/Desktop: fixed responsive grid */}
       <div className="flex sm:grid gap-6 overflow-x-auto sm:overflow-x-visible pb-4 sm:pb-0 snap-x hide-scrollbar w-full sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {products.map((product) => (

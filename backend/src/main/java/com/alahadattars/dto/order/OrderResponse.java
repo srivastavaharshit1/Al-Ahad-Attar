@@ -42,6 +42,8 @@ public class OrderResponse {
     private List<OrderItemResponse> items;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private LocalDateTime cancelledAt;
+    private String cancelledBy;
 
     // Refund fields
     private RefundStatus refundStatus;

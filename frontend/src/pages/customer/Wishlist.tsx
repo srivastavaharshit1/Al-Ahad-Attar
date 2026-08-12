@@ -6,6 +6,8 @@ import { formatPrice } from '../../utils/formatPrice';
 import { type WishlistItem } from '../../services/wishlistService';
 import { apiClient } from '../../api/axios';
 import { getImageUrl } from '../../utils/getImageUrl';
+import { Loader } from '../../components/ui/Loader';
+import { useInView } from '../../hooks/useInView';
 
 
 export const Wishlist: React.FC = () => {
@@ -13,6 +15,7 @@ export const Wishlist: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { addItem } = useCart();
   const { productIds, removeFromWishlist } = useWishlist();
+  const { ref, inView } = useInView<HTMLDivElement>();
 
   useEffect(() => {
     const fetchWishlistItems = async () => {
@@ -58,38 +61,47 @@ export const Wishlist: React.FC = () => {
       quantity: 1,
       image: item.variant.image,
       variantId: item.variant.id,
-      size: item.variant.size
+      size: item.variant.size,
+      originalPrice: item.variant.price,
+      finalPrice: item.variant.price
     });
     // Optional: remove from wishlist after adding to cart
     handleRemove(item.variant.id);
   };
 
   if (isLoading) {
-    return <div className="p-12 text-center">Loading your wishlist...</div>;
+    return (
+      <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-10 md:py-16 min-h-screen">
+        <Loader />
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-section-gap min-h-screen">
+    <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-10 md:py-16 min-h-screen">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="font-display-sm text-display-sm text-on-surface">My Wishlist</h1>
+        <div>
+          <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.3em] mb-2 block">Saved Items</span>
+          <h1 className="font-display-sm text-display-sm text-on-surface">My Wishlist</h1>
+        </div>
         <p className="text-on-surface-variant font-label-md">{wishlist.length} Items</p>
       </div>
 
       {wishlist.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {wishlist.map(item => (
-            <div key={item.id} className="group flex flex-col bg-surface-container-lowest border border-outline-variant rounded-DEFAULT overflow-hidden hover:shadow-[0_8px_24px_rgba(31,41,55,0.08)] transition-all duration-300">
-              <div className="relative aspect-square bg-surface-variant overflow-hidden">
+        <div ref={ref} className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 reveal ${inView ? 'in-view' : ''}`}>
+          {wishlist.map((item, idx) => (
+            <div key={item.id} className={`card flex flex-col overflow-hidden stagger-${(idx % 3) + 1}`}>
+              <div className="product-media aspect-square bg-surface-variant">
                 {item.variant.image ? (
-                  <img src={getImageUrl(item.variant.image)} alt={item.variant.productName || 'Product'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                  <img src={getImageUrl(item.variant.image)} alt={item.variant.productName || 'Product'} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-outline">
                     <span className="material-symbols-outlined text-4xl">image</span>
                   </div>
                 )}
-                <button 
+                <button
                   onClick={() => handleRemove(item.variant.id)}
-                  className="absolute top-4 right-4 w-10 h-10 rounded-full bg-surface/80 backdrop-blur-md flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-surface transition-colors shadow-sm"
+                  className="absolute top-4 right-4 w-10 h-10 rounded-full bg-surface/80 backdrop-blur-md flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-surface transition-colors shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   aria-label="Remove from wishlist"
                 >
                   <span className="material-symbols-outlined text-[20px]">close</span>
@@ -100,19 +112,24 @@ export const Wishlist: React.FC = () => {
                   <div className="text-on-surface-variant font-label-sm text-label-sm tracking-wider uppercase mb-1">
                     Al Ahad
                   </div>
-                  <h3 className="font-headline-sm text-headline-sm text-on-surface mb-2 line-clamp-1 group-hover:text-primary transition-colors">
-                    <Link to={`/product/${item.variant.productId}`}>{item.variant.productName || 'Unknown Product'}</Link>
+                  <h3 className="font-headline-sm text-headline-sm text-on-surface mb-2 line-clamp-1">
+                    <Link
+                      to={`/product/${item.variant.productId}`}
+                      className="link-underline rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    >
+                      {item.variant.productName || 'Unknown Product'}
+                    </Link>
                   </h3>
-                  <div className="text-on-surface-variant font-body-sm text-body-sm mb-3">
+                  <div className="text-on-surface-variant font-body-sm text-body-sm leading-relaxed mb-3">
                     Size: {item.variant.size}
                   </div>
                   <div className="font-headline-sm text-headline-sm font-medium text-on-surface">
                     {formatPrice(item.variant.price)}
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => handleAddToCart(item)}
-                  className="mt-5 w-full py-2.5 px-4 bg-primary text-on-primary font-label-md text-label-md rounded-DEFAULT hover:bg-primary-container transition-colors shadow-[0_2px_8px_rgba(120,86,0,0.15)] flex items-center justify-center gap-2"
+                  className="btn btn-primary mt-5 w-full !px-4 !py-2.5 gap-2"
                 >
                   <span className="material-symbols-outlined text-[18px]">shopping_bag</span>
                   Move to Cart
@@ -122,15 +139,15 @@ export const Wishlist: React.FC = () => {
           ))}
         </div>
       ) : (
-        <div className="bg-surface-container-lowest border border-outline-variant p-12 rounded-DEFAULT text-center max-w-2xl mx-auto mt-12">
-          <div className="w-20 h-20 bg-surface-container rounded-full flex items-center justify-center mx-auto mb-6 text-on-surface-variant">
-            <span className="material-symbols-outlined text-4xl">favorite_border</span>
+        <div className="flex flex-col items-center text-center py-20 px-6 border border-outline-variant rounded-DEFAULT bg-surface-container-lowest max-w-2xl mx-auto mt-12">
+          <div className="w-16 h-16 border border-accent rounded-full flex items-center justify-center mb-6">
+            <span className="material-symbols-outlined text-accent text-2xl">favorite_border</span>
           </div>
-          <h2 className="font-headline-lg mb-4">Your Wishlist is Empty</h2>
-          <p className="text-on-surface-variant font-body-md mb-8">
+          <h2 className="font-headline-md text-on-surface mb-2 tracking-widest uppercase">Your Wishlist Is Empty</h2>
+          <p className="font-body-md text-on-surface-variant mb-8 leading-relaxed max-w-md">
             Save your favorite perfumes and attars here to find them quickly later. Browse our collection to start curating your perfect scent wardrobe.
           </p>
-          <Link to="/collection" className="btn-primary px-8 py-3 inline-block rounded">
+          <Link to="/collection" className="btn btn-primary inline-flex items-center">
             Explore Collection
           </Link>
         </div>

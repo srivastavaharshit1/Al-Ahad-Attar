@@ -42,14 +42,20 @@ public class PublicGiftServiceController {
 
     @Operation(summary = "Get image for a gift service")
     @GetMapping("/{id}/image")
-    public ResponseEntity<Resource> serveImage(@PathVariable Long id) {
+    public ResponseEntity<?> serveImage(@PathVariable Long id) {
         GiftService service = giftServiceRepository.findById(id).orElse(null);
         if (service == null || service.getImageUrl() == null || service.getImageUrl().isEmpty()) {
             return ResponseEntity.notFound().build();
         }
+        String url = service.getImageUrl();
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            // Already on external storage (e.g. Supabase Storage, seed-data placeholders) —
+            // redirect rather than trying to resolve it as a local upload path.
+            return ResponseEntity.status(302).location(java.net.URI.create(url)).build();
+        }
 
         try {
-            Path path = Paths.get(service.getImageUrl());
+            Path path = Paths.get(url);
             Resource resource = new UrlResource(path.toUri());
 
             if (resource.exists() || resource.isReadable()) {

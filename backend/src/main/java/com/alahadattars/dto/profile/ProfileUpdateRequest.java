@@ -1,8 +1,8 @@
 package com.alahadattars.dto.profile;
 
+import com.alahadattars.validation.ValidPhoneNumber;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -23,7 +23,7 @@ public class ProfileUpdateRequest {
     private String lastName;
 
     @NotBlank(message = "Phone number is required")
-    @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Phone number must be valid")
-    @Schema(description = "Phone number", example = "+1234567890")
+    @ValidPhoneNumber
+    @Schema(description = "Phone number in E.164 format", example = "+919876543210")
     private String phone;
 }

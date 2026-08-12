@@ -25,7 +25,7 @@ public class UserProfileResponse {
     @Schema(description = "User's email", example = "john@example.com")
     private String email;
 
-    @Schema(description = "User's phone number", example = "+1234567890")
+    @Schema(description = "User's phone number in E.164 format", example = "+919876543210")
     private String phone;
 
     @Schema(description = "Is email verified", example = "true")

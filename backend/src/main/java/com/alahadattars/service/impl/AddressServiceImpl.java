@@ -9,6 +9,8 @@ import com.alahadattars.mapper.AddressMapper;
 import com.alahadattars.repository.AddressRepository;
 import com.alahadattars.repository.UserRepository;
 import com.alahadattars.service.AddressService;
+import com.alahadattars.exception.BadRequestException;
+import com.alahadattars.util.PhoneNumberHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -55,8 +57,15 @@ public class AddressServiceImpl implements AddressService {
         User user = getUserByEmail(email);
         Address address = getAddressEntity(id, user);
 
+        PhoneNumberHelper.ParsedPhone parsedPhone = PhoneNumberHelper.parse(request.getPhone());
+        if (parsedPhone == null) {
+            throw new BadRequestException("Invalid phone number.");
+        }
+
         address.setFullName(request.getFullName());
-        address.setPhone(request.getPhone());
+        address.setPhone(parsedPhone.e164());
+        address.setPhoneCountryCode(parsedPhone.regionCode());
+        address.setPhoneNationalNumber(parsedPhone.nationalNumber());
         address.setAddressLine1(request.getAddressLine1());
         address.setAddressLine2(request.getAddressLine2());
         address.setLandmark(request.getLandmark());

@@ -48,6 +48,8 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
         await wishlistService.addToWishlist(Number(variantId));
       } catch (err) {
         console.error("Failed to add to remote wishlist", err);
+        toast.error('Failed to add to wishlist');
+        return;
       }
     }
     setProductIds(prev => {
@@ -63,6 +65,8 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
         await wishlistService.removeFromWishlist(Number(variantId));
       } catch (err) {
         console.error("Failed to remove from remote wishlist", err);
+        toast.error('Failed to remove from wishlist');
+        return;
       }
     }
     setProductIds(prev => prev.filter(id => id !== variantId));

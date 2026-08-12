@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import toast from 'react-hot-toast';
 import { imageService, type ProductImage } from '../../services/imageService';
 import { getImageUrl } from '../../utils/getImageUrl';
 import { ConfirmationDialog } from '../ui/ConfirmationDialog';
@@ -15,7 +16,7 @@ export const ImageManagerModal: React.FC<ImageManagerModalProps> = ({ variantId,
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -57,15 +58,15 @@ export const ImageManagerModal: React.FC<ImageManagerModalProps> = ({ variantId,
         const file = files[i];
         // Only allow images
         if (!file.type.startsWith('image/')) {
-          alert(`File ${file.name} is not an image`);
+          toast.error(`File ${file.name} is not an image`);
           continue;
         }
         // Max size 5MB
         if (file.size > 5 * 1024 * 1024) {
-          alert(`File ${file.name} is too large (max 5MB)`);
+          toast.error(`File ${file.name} is too large (max 5MB)`);
           continue;
         }
-        
+
         // If it's the first image ever, make it THUMBNAIL by default, otherwise GALLERY
         const imageType = (images.length === 0 && i === 0) ? 'THUMBNAIL' : 'GALLERY';
         await imageService.uploadImage(variantId, file, imageType);
@@ -73,7 +74,7 @@ export const ImageManagerModal: React.FC<ImageManagerModalProps> = ({ variantId,
       await fetchImages();
     } catch (err: any) {
       console.error('Failed to upload image', err);
-      alert(err.response?.data?.message || 'Failed to upload image');
+      toast.error(err.response?.data?.message || 'Failed to upload image');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -114,11 +115,11 @@ export const ImageManagerModal: React.FC<ImageManagerModalProps> = ({ variantId,
     try {
       const current = images[index];
       const previous = images[index - 1];
-      
+
       // Swap display orders
       await imageService.updateDisplayOrder(current.id, previous.displayOrder);
       await imageService.updateDisplayOrder(previous.id, current.displayOrder);
-      
+
       await fetchImages();
     } catch (err) {
       console.error('Failed to move image', err);
@@ -130,11 +131,11 @@ export const ImageManagerModal: React.FC<ImageManagerModalProps> = ({ variantId,
     try {
       const current = images[index];
       const next = images[index + 1];
-      
+
       // Swap display orders
       await imageService.updateDisplayOrder(current.id, next.displayOrder);
       await imageService.updateDisplayOrder(next.id, current.displayOrder);
-      
+
       await fetchImages();
     } catch (err) {
       console.error('Failed to move image', err);
@@ -142,34 +143,36 @@ export const ImageManagerModal: React.FC<ImageManagerModalProps> = ({ variantId,
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-surface-container-lowest rounded-xl max-w-4xl w-full p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto flex flex-col">
-        <button 
+    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="modal-panel max-w-4xl w-full p-6 md:p-8 relative max-h-[90vh] overflow-y-auto flex flex-col border border-outline-variant/40">
+        <button
           onClick={onClose}
-          className="absolute top-6 right-6 text-on-surface-variant hover:text-on-surface transition-colors bg-surface-container hover:bg-surface-container-high rounded-full p-2">
+          className="absolute top-5 right-5 md:top-6 md:right-6 text-on-surface-variant hover:text-primary transition-colors bg-surface-container hover:bg-surface-container-high rounded-full p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">
           <span className="material-symbols-outlined">close</span>
         </button>
-        
-        <h2 className="font-headline-md mb-2">Image Manager</h2>
+
+        <h2 className="font-headline-md text-xl text-on-surface mb-1 pr-12">Image Manager</h2>
         <p className="text-on-surface-variant font-body-md mb-6">Managing images for variant: <strong className="text-primary">{variantName}</strong></p>
-        
+
         {/* Drag and Drop Zone */}
-        <div 
+        <div
           onDragOver={e => e.preventDefault()}
           onDrop={handleFileDrop}
           onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-primary/50 bg-primary/5 hover:bg-primary/10 transition-colors rounded-xl p-10 flex flex-col items-center justify-center cursor-pointer mb-8 text-center"
+          className="relative border-2 border-dashed border-primary/50 bg-primary/5 hover:bg-primary/10 focus-within:bg-primary/10 focus-within:border-primary transition-colors rounded-xl p-10 flex flex-col items-center justify-center cursor-pointer mb-8 text-center"
         >
           <span className="material-symbols-outlined text-4xl text-primary mb-3">cloud_upload</span>
           <h3 className="font-headline-sm text-primary mb-1">Click to upload or drag and drop</h3>
           <p className="text-on-surface-variant font-body-sm text-sm">PNG, JPG, or WEBP up to 5MB</p>
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileInput} 
-            multiple 
-            accept="image/jpeg,image/png,image/webp" 
-            className="hidden" 
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileInput}
+            multiple
+            accept="image/jpeg,image/png,image/webp"
+            className="sr-only"
+            disabled={isUploading}
+            aria-label="Upload variant images"
           />
         </div>
 
@@ -182,7 +185,7 @@ export const ImageManagerModal: React.FC<ImageManagerModalProps> = ({ variantId,
 
         {/* Gallery */}
         <h3 className="font-label-lg uppercase tracking-wider text-on-surface-variant mb-4">Gallery Images ({images.length})</h3>
-        
+
         {isLoading ? (
           <div className="p-12 text-center text-on-surface-variant">Loading images...</div>
         ) : images.length === 0 ? (
@@ -192,56 +195,56 @@ export const ImageManagerModal: React.FC<ImageManagerModalProps> = ({ variantId,
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-4">
             {images.map((img, idx) => (
-              <div key={img.id} className={`group relative bg-surface-container rounded-lg overflow-hidden border-2 ${img.imageType === 'THUMBNAIL' ? 'border-primary shadow-[0_0_15px_rgba(120,86,0,0.3)]' : 'border-outline-variant'} aspect-square flex items-center justify-center`}>
-                <img 
-                  src={getImageUrl(`/api/images/${img.id}`)} 
-                  alt={img.originalFileName} 
+              <div key={img.id} className={`group relative bg-surface-container rounded-lg overflow-hidden border-2 transition-colors ${img.imageType === 'THUMBNAIL' ? 'border-accent shadow-[0_0_0_3px_rgba(var(--accent-rgb),.2)]' : 'border-outline-variant'} aspect-square flex items-center justify-center`}>
+                <img
+                  src={getImageUrl(`/api/images/${img.id}`)}
+                  alt={img.originalFileName}
                   className="w-full h-full object-cover"
                   onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x400?text=Error'; }}
                 />
-                
+
                 {/* Status Badges */}
                 {img.imageType === 'THUMBNAIL' && (
-                  <div className="absolute top-2 left-2 bg-primary text-on-primary text-[10px] font-bold uppercase px-2 py-1 rounded shadow-sm">
+                  <div className="badge badge-gold absolute top-2 left-2 shadow-sm">
                     Thumbnail
                   </div>
                 )}
-                
+
                 {/* Overlay Actions */}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                <div className="absolute inset-0 bg-ink/60 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex flex-col justify-between p-2">
                   <div className="flex justify-end">
-                    <button 
+                    <button
                       onClick={() => handleDelete(img.id)}
-                      className="bg-error text-on-error rounded-full p-1.5 hover:scale-110 transition-transform shadow-sm"
+                      className="bg-error text-on-error rounded-full p-1.5 hover:scale-110 transition-transform shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error"
                       title="Delete Image"
                     >
                       <span className="material-symbols-outlined text-[16px]">delete</span>
                     </button>
                   </div>
-                  
+
                   <div className="flex flex-col gap-2">
                     {img.imageType !== 'THUMBNAIL' && (
-                      <button 
+                      <button
                         onClick={() => handleSetThumbnail(img.id)}
-                        className="bg-primary text-on-primary text-xs font-semibold py-1.5 px-3 rounded text-center hover:bg-primary-container hover:text-on-primary-container transition-colors shadow-sm"
+                        className="bg-accent text-ink text-xs font-semibold py-1.5 px-3 rounded text-center hover:bg-accent-hover transition-colors shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                       >
                         Set as Thumbnail
                       </button>
                     )}
-                    
+
                     <div className="flex justify-between gap-2">
-                      <button 
+                      <button
                         onClick={() => handleMoveLeft(idx)}
                         disabled={idx === 0}
-                        className={`flex-1 bg-surface-variant text-on-surface-variant p-1 rounded flex justify-center items-center ${idx === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-surface hover:text-on-surface'}`}
+                        className={`flex-1 bg-surface-variant text-on-surface-variant p-1 rounded flex justify-center items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${idx === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-surface-container-lowest hover:text-on-surface'}`}
                         title="Move Left"
                       >
                         <span className="material-symbols-outlined text-[18px]">chevron_left</span>
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleMoveRight(idx)}
                         disabled={idx === images.length - 1}
-                        className={`flex-1 bg-surface-variant text-on-surface-variant p-1 rounded flex justify-center items-center ${idx === images.length - 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-surface hover:text-on-surface'}`}
+                        className={`flex-1 bg-surface-variant text-on-surface-variant p-1 rounded flex justify-center items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${idx === images.length - 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-surface-container-lowest hover:text-on-surface'}`}
                         title="Move Right"
                       >
                         <span className="material-symbols-outlined text-[18px]">chevron_right</span>
@@ -254,7 +257,7 @@ export const ImageManagerModal: React.FC<ImageManagerModalProps> = ({ variantId,
           </div>
         )}
       </div>
-      
+
       <ConfirmationDialog
         isOpen={deleteConfirmId !== null}
         onClose={() => !isDeleting && setDeleteConfirmId(null)}

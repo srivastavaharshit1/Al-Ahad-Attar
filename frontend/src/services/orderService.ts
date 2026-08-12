@@ -1,8 +1,8 @@
 import { apiClient } from '../api/axios';
-import type { Order, ApiResponse, PaymentOrderResponse } from '../types';
+import type { Order, ApiResponse, PaymentOrderResponse, OrderRequest } from '../types';
 
 export const orderService = {
-  createOrder: async (orderData: any): Promise<ApiResponse<Order>> => {
+  createOrder: async (orderData: OrderRequest): Promise<ApiResponse<Order>> => {
     const response = await apiClient.post<ApiResponse<Order>>('/orders', orderData);
     return response.data;
   },
@@ -63,10 +63,21 @@ export const orderService = {
     return response.data;
   },
 
-  /** Admin only: initiates a Razorpay refund for a cancelled, paid order. */
+  /**
+   * Admin only: processes the full Razorpay refund for a cancelled, paid order. The frontend
+   * sends only the order id — the backend derives the refund amount and payment reference itself
+   * from trusted order data, never from anything the client supplies. Also used to "Retry Refund"
+   * (same endpoint, backend distinguishes a fresh attempt from reconciling a stuck one).
+   */
   initiateRefund: async (id: string | number): Promise<ApiResponse<Order>> => {
     const response = await apiClient.post<ApiResponse<Order>>(`/orders/${id}/refund`);
     return response.data;
+  },
+
+  /** Admin refund-management listing: every order that has ever needed a refund. */
+  getRefunds: async (params?: Record<string, any>): Promise<import('../types/api').PaginatedResponse<Order>> => {
+    const response = await apiClient.get<any>('/orders/refunds', { params });
+    return response.data.data;
   },
 };
 

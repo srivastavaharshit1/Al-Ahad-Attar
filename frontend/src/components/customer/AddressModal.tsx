@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { Address } from '../../types';
 import { Input } from '../ui/Input';
+import { PhoneInput } from '../ui/PhoneInput';
 import { Button } from '../ui/Button';
 import { profileService } from '../../services/profileService';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface AddressModalProps {
   isOpen: boolean;
@@ -25,6 +27,18 @@ export const AddressModal: React.FC<AddressModalProps> = ({ isOpen, onClose, onS
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, isOpen);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (editAddress) {
@@ -77,17 +91,28 @@ export const AddressModal: React.FC<AddressModalProps> = ({ isOpen, onClose, onS
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-surface rounded-DEFAULT shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between p-6 border-b border-outline-variant">
-          <h2 className="font-headline-md">{editAddress ? 'Edit Address' : 'Add New Address'}</h2>
-          <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface transition-colors">
+    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="address-modal-title"
+        className="modal-panel border border-outline-variant/40 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
+      >
+        <div className="flex items-center justify-between p-6 border-b border-outline-variant/40">
+          <h2 id="address-modal-title" className="font-headline-md text-lg text-on-surface">{editAddress ? 'Edit Address' : 'Add New Address'}</h2>
+          <button
+            onClick={onClose}
+            aria-label="Close dialog"
+            className="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-full p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
-        
+
         <div className="p-6 overflow-y-auto flex-1">
-          {error && <div className="bg-error-container text-on-error-container p-3 rounded mb-4">{error}</div>}
+          {error && <div className="bg-error/5 border border-error/20 text-error p-3 rounded-lg mb-4 text-sm leading-relaxed">{error}</div>}
           
           <form id="address-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -97,10 +122,10 @@ export const AddressModal: React.FC<AddressModalProps> = ({ isOpen, onClose, onS
                 onChange={e => setFormData({ ...formData, fullName: e.target.value })}
                 required
               />
-              <Input
+              <PhoneInput
                 label="Phone Number"
                 value={formData.phone}
-                onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                onChange={phone => setFormData({ ...formData, phone })}
                 required
               />
             </div>
@@ -154,16 +179,16 @@ export const AddressModal: React.FC<AddressModalProps> = ({ isOpen, onClose, onS
                 id="defaultAddress"
                 checked={formData.defaultAddress}
                 onChange={e => setFormData({ ...formData, defaultAddress: e.target.checked })}
-                className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary"
+                className="w-4 h-4 rounded border-outline-variant text-accent focus:ring-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer"
               />
-              <label htmlFor="defaultAddress" className="font-body-md text-on-surface">
+              <label htmlFor="defaultAddress" className="font-body-md text-on-surface cursor-pointer">
                 Set as default address
               </label>
             </div>
           </form>
         </div>
-        
-        <div className="flex items-center justify-end gap-4 p-6 border-t border-outline-variant bg-surface-container-lowest">
+
+        <div className="flex items-center justify-end gap-4 p-6 border-t border-outline-variant/40 bg-surface-container-lowest">
           <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>

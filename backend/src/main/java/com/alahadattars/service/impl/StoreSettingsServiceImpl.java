@@ -5,7 +5,7 @@ import com.alahadattars.dto.StoreSettingsResponse;
 import com.alahadattars.entity.StoreSettings;
 import com.alahadattars.repository.StoreSettingsRepository;
 import com.alahadattars.service.StoreSettingsService;
-import com.alahadattars.service.UploadService;
+import com.alahadattars.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,7 +20,7 @@ import java.math.BigDecimal;
 public class StoreSettingsServiceImpl implements StoreSettingsService {
 
     private final StoreSettingsRepository storeSettingsRepository;
-    private final UploadService uploadService;
+    private final StorageService storageService;
 
     @Override
     @Transactional
@@ -96,20 +96,20 @@ public class StoreSettingsServiceImpl implements StoreSettingsService {
             throw new com.alahadattars.exception.BadRequestException("Invalid file type. Only PNG, JPG, JPEG, and WEBP are allowed.");
         }
 
-        String filePath = uploadService.uploadFile(file, "uploads/logos");
-        
+        String objectKey = storageService.uploadFile(file, "branding");
+
         StoreSettings settings = getSettingsEntity();
-        
-        // If there was an old logo, we might want to delete it, but uploadService.deleteFile(oldFilePath) could be called here
+
         if (settings.getLogoFilePath() != null) {
-            uploadService.deleteFile(settings.getLogoFilePath());
+            storageService.deleteFile(settings.getLogoFilePath());
         }
-        
-        settings.setLogoFilePath(filePath);
-        settings.setBrandLogoUrl("/api/settings/logo/content");
+
+        String resolvedUrl = storageService.resolveUrl(objectKey, "/api/settings/logo/content");
+        settings.setLogoFilePath(objectKey);
+        settings.setBrandLogoUrl(resolvedUrl);
         storeSettingsRepository.save(settings);
-        
-        return "/api/settings/logo/content";
+
+        return resolvedUrl;
     }
 
     @Override
@@ -120,19 +120,20 @@ public class StoreSettingsServiceImpl implements StoreSettingsService {
             throw new com.alahadattars.exception.BadRequestException("Invalid file type. Only PNG, JPG, JPEG, and WEBP are allowed.");
         }
 
-        String filePath = uploadService.uploadFile(file, "uploads/logos");
-        
+        String objectKey = storageService.uploadFile(file, "branding");
+
         StoreSettings settings = getSettingsEntity();
-        
+
         if (settings.getNavbarLogoFilePath() != null) {
-            uploadService.deleteFile(settings.getNavbarLogoFilePath());
+            storageService.deleteFile(settings.getNavbarLogoFilePath());
         }
-        
-        settings.setNavbarLogoFilePath(filePath);
-        settings.setNavbarLogoUrl("/api/settings/logo/navbar/content");
+
+        String resolvedUrl = storageService.resolveUrl(objectKey, "/api/settings/logo/navbar/content");
+        settings.setNavbarLogoFilePath(objectKey);
+        settings.setNavbarLogoUrl(resolvedUrl);
         storeSettingsRepository.save(settings);
-        
-        return "/api/settings/logo/navbar/content";
+
+        return resolvedUrl;
     }
 
     private StoreSettingsResponse mapToResponse(StoreSettings settings) {
