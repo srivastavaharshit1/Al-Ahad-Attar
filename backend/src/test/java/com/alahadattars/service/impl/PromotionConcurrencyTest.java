@@ -4,6 +4,7 @@ import com.alahadattars.dto.order.OrderItemRequest;
 import com.alahadattars.dto.order.OrderRequest;
 import com.alahadattars.entity.Address;
 import com.alahadattars.entity.Category;
+import com.alahadattars.entity.PaymentIntent;
 import com.alahadattars.entity.Product;
 import com.alahadattars.entity.ProductVariant;
 import com.alahadattars.entity.Promotion;
@@ -13,6 +14,7 @@ import com.alahadattars.enums.PromotionType;
 import com.alahadattars.enums.RoleType;
 import com.alahadattars.repository.AddressRepository;
 import com.alahadattars.repository.CategoryRepository;
+import com.alahadattars.repository.PaymentIntentRepository;
 import com.alahadattars.repository.ProductRepository;
 import com.alahadattars.repository.ProductVariantRepository;
 import com.alahadattars.repository.PromotionRepository;
@@ -64,6 +66,9 @@ public class PromotionConcurrencyTest {
     @Autowired
     private PromotionRepository promotionRepository;
 
+    @Autowired
+    private PaymentIntentRepository paymentIntentRepository;
+
     @MockBean
     private com.alahadattars.service.PaymentService paymentService;
 
@@ -88,8 +93,8 @@ public class PromotionConcurrencyTest {
             return roleRepository.save(r);
         });
 
-        testUser = userRepository.save(User.builder().email("concurrent@example.com").phone("1111111111").password("pwd").firstName("C").lastName("U").role(testRole).build());
-        testAddress = addressRepository.save(Address.builder().user(testUser).fullName("C U").addressLine1("123").city("C").state("S").postalCode("123").phone("123").country("India").build());
+        testUser = userRepository.save(User.builder().email("concurrent@example.com").phone("+919876500001").password("pwd").firstName("C").lastName("U").role(testRole).build());
+        testAddress = addressRepository.save(Address.builder().user(testUser).fullName("C U").addressLine1("123").city("C").state("S").postalCode("123").phone("+919876500001").country("India").build());
         Category category = categoryRepository.save(Category.builder().name("C").description("desc").image("img").type(com.alahadattars.enums.CategoryType.ATTARS).build());
         Product product = productRepository.save(Product.builder().name("P").slug("p-concurrent").brand("B").category(category).description("D").fragranceFamily("F").topNotes("T").middleNotes("M").baseNotes("B").longevity("L").projection("P").gender(com.alahadattars.enums.Gender.UNISEX).shortDescription("short").build());
         
@@ -119,22 +124,37 @@ public class PromotionConcurrencyTest {
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failCount = new AtomicInteger(0);
 
-        OrderItemRequest paidReq = new OrderItemRequest();
-        paidReq.setVariantId(paidVariant.getId());
-        paidReq.setQuantity(1);
-        paidReq.setFreeItem(false);
-
-        OrderItemRequest freeReq = new OrderItemRequest();
-        freeReq.setVariantId(freeVariant.getId());
-        freeReq.setQuantity(1);
-        freeReq.setFreeItem(true);
-        freeReq.setFreePromotionId(freePromotion.getId());
-
-        OrderRequest orderRequest = new OrderRequest();
-        orderRequest.setShippingAddressId(testAddress.getId());
-        orderRequest.setItems(List.of(paidReq, freeReq));
-
+        // Each thread needs its OWN PaymentIntent + OrderRequest (a shared razorpayOrderId would
+        // make this a payment-intent-uniqueness race instead of the freeVariant stock=1 race this
+        // test is actually meant to exercise).
         for (int i = 0; i < threads; i++) {
+            String razorpayOrderId = "order_conc_" + i;
+            PaymentIntent intent = PaymentIntent.builder()
+                    .razorpayOrderId(razorpayOrderId)
+                    .user(testUser)
+                    .amount(new BigDecimal("1000.00"))
+                    .consumed(false)
+                    .build();
+            paymentIntentRepository.save(intent);
+
+            OrderItemRequest paidReq = new OrderItemRequest();
+            paidReq.setVariantId(paidVariant.getId());
+            paidReq.setQuantity(1);
+            paidReq.setFreeItem(false);
+
+            OrderItemRequest freeReq = new OrderItemRequest();
+            freeReq.setVariantId(freeVariant.getId());
+            freeReq.setQuantity(1);
+            freeReq.setFreeItem(true);
+            freeReq.setFreePromotionId(freePromotion.getId());
+
+            OrderRequest orderRequest = new OrderRequest();
+            orderRequest.setShippingAddressId(testAddress.getId());
+            orderRequest.setItems(List.of(paidReq, freeReq));
+            orderRequest.setRazorpayOrderId(razorpayOrderId);
+            orderRequest.setRazorpayPaymentId("pay_" + razorpayOrderId);
+            orderRequest.setRazorpaySignature("sig_" + razorpayOrderId);
+
             executor.submit(() -> {
                 try {
                     orderService.createOrder(testUser.getEmail(), orderRequest);

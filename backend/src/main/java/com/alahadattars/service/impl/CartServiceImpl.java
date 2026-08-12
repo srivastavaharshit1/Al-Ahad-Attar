@@ -6,6 +6,7 @@ import com.alahadattars.entity.Cart;
 import com.alahadattars.entity.CartItem;
 import com.alahadattars.entity.ProductVariant;
 import com.alahadattars.entity.User;
+import com.alahadattars.exception.BadRequestException;
 import com.alahadattars.exception.ResourceNotFoundException;
 import com.alahadattars.repository.CartRepository;
 import com.alahadattars.repository.ProductVariantRepository;
@@ -34,7 +35,19 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional(readOnly = true)
     public CartResponse getCart(String email) {
-        Cart cart = getOrCreateCart(email);
+        // Not getOrCreateCart(): that helper persists a new Cart row the first time it's called for
+        // a user, which this method's readOnly transaction can't do — Postgres correctly rejects
+        // the INSERT ("cannot execute INSERT in a read-only transaction"), 500ing on the very first
+        // time any new user (or existing user browsing before ever adding anything) views their
+        // cart. Viewing an empty cart doesn't need a DB row to exist yet; a transient, unsaved Cart
+        // is enough to evaluate against (available promotions, zero items). The real row still gets
+        // created lazily via getOrCreateCart the first time addToCart (a writable transaction)
+        // actually needs one.
+        Cart cart = cartRepository.findByUserEmail(email).orElseGet(() -> {
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
+            return Cart.builder().user(user).build();
+        });
         return promotionEngineService.evaluateCart(cart, cart.getCouponCode());
     }
 
@@ -45,9 +58,9 @@ public class CartServiceImpl implements CartService {
         ProductVariant variant = productVariantRepository.findById(request.getVariantId())
                 .orElseThrow(() -> new ResourceNotFoundException("Product Variant not found"));
 
-        if (!variant.isActive()) throw new IllegalArgumentException("Product variant is not available");
+        if (!variant.isActive()) throw new BadRequestException("Product variant is not available");
         if (variant.getStock() < request.getQuantity())
-            throw new IllegalArgumentException("Insufficient stock. Available: " + variant.getStock());
+            throw new BadRequestException("Insufficient stock. Available: " + variant.getStock());
 
         // Don't merge with free items of same variant — they must stay separate
         CartItem existing = cart.getItems().stream()
@@ -70,6 +83,7 @@ public class CartServiceImpl implements CartService {
             cart.addItem(newItem);
         }
 
+        pruneStaleFreeItems(cart);
         Cart saved = cartRepository.save(cart);
         return promotionEngineService.evaluateCart(saved, saved.getCouponCode());
     }
@@ -84,16 +98,17 @@ public class CartServiceImpl implements CartService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cart item not found"));
 
         if (item.isFreeItem())
-            throw new IllegalArgumentException("Quantity of free gifts cannot be changed. Remove and re-add instead.");
+            throw new BadRequestException("Quantity of free gifts cannot be changed. Remove and re-add instead.");
 
         if (quantity <= 0) {
             cart.removeItem(item);
         } else {
             if (item.getVariant().getStock() < quantity)
-                throw new IllegalArgumentException("Insufficient stock. Available: " + item.getVariant().getStock());
+                throw new BadRequestException("Insufficient stock. Available: " + item.getVariant().getStock());
             item.setQuantity(quantity);
         }
 
+        pruneStaleFreeItems(cart);
         Cart saved = cartRepository.save(cart);
         return promotionEngineService.evaluateCart(saved, saved.getCouponCode());
     }
@@ -107,6 +122,7 @@ public class CartServiceImpl implements CartService {
                 .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("Cart item not found"));
         cart.removeItem(item);
+        pruneStaleFreeItems(cart);
         cartRepository.save(cart);
     }
 
@@ -115,6 +131,7 @@ public class CartServiceImpl implements CartService {
     public CartResponse applyCoupon(String email, String couponCode) {
         Cart cart = getOrCreateCart(email);
         cart.setCouponCode(couponCode);
+        pruneStaleFreeItems(cart);
         Cart saved = cartRepository.save(cart);
         return promotionEngineService.evaluateCart(saved, couponCode);
     }
@@ -124,6 +141,7 @@ public class CartServiceImpl implements CartService {
     public CartResponse removeCoupon(String email) {
         Cart cart = getOrCreateCart(email);
         cart.setCouponCode(null);
+        pruneStaleFreeItems(cart);
         Cart saved = cartRepository.save(cart);
         return promotionEngineService.evaluateCart(saved, null);
     }
@@ -133,6 +151,7 @@ public class CartServiceImpl implements CartService {
     public CartResponse applyPromotion(String email, Long promotionId) {
         Cart cart = getOrCreateCart(email);
         cart.setManuallySelectedPromotionId(promotionId);
+        pruneStaleFreeItems(cart);
         Cart saved = cartRepository.save(cart);
         return promotionEngineService.evaluateCart(saved, saved.getCouponCode());
     }
@@ -142,6 +161,7 @@ public class CartServiceImpl implements CartService {
     public CartResponse removePromotion(String email) {
         Cart cart = getOrCreateCart(email);
         cart.setManuallySelectedPromotionId(-1L);
+        pruneStaleFreeItems(cart);
         Cart saved = cartRepository.save(cart);
         return promotionEngineService.evaluateCart(saved, saved.getCouponCode());
     }
@@ -180,6 +200,7 @@ public class CartServiceImpl implements CartService {
                 .build();
 
         cart.addItem(freeItem);
+        pruneStaleFreeItems(cart);
         Cart saved = cartRepository.save(cart);
 
         log.info("[FREE_PRODUCT] Free item added: user={}, promotionId={}, variantId={}",
@@ -199,10 +220,11 @@ public class CartServiceImpl implements CartService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cart item not found: " + cartItemId));
 
         if (!item.isFreeItem())
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "This item is not a free gift. Use the standard remove endpoint instead.");
 
         cart.removeItem(item);
+        pruneStaleFreeItems(cart);
         Cart saved = cartRepository.save(cart);
 
         log.info("[FREE_PRODUCT] Free item removed: user={}, cartItemId={}", email, cartItemId);
@@ -211,6 +233,19 @@ public class CartServiceImpl implements CartService {
     }
 
     // ─── Private Helpers ─────────────────────────────────────────────────────
+
+    /**
+     * Removes any free cart item whose promotion no longer covers it (qualifying paid item
+     * removed, promotion expired/deactivated, chosen variant out of stock, etc). Previously the
+     * engine only warned about this (evaluateCart's unlockMessages) and left the stale item sitting
+     * in the cart indefinitely — checkout still correctly rejected it
+     * (PromotionEngineServiceImpl.validateFreeItemEligibility), but the cart view kept showing it as
+     * if it were still valid. orphanRemoval=true on Cart.items means removing from this in-memory
+     * list deletes the row on flush, no extra repository call needed.
+     */
+    private void pruneStaleFreeItems(Cart cart) {
+        cart.getItems().removeIf(item -> item.isFreeItem() && !promotionEngineService.isFreeCartItemStillValid(cart, item));
+    }
 
     private Cart getOrCreateCart(String email) {
         return cartRepository.findByUserEmail(email).orElseGet(() -> {

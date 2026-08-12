@@ -12,16 +12,16 @@ export const Button: React.FC<ButtonProps> = ({
   className = '', 
   ...props 
 }) => {
-  const baseClasses = 'inline-flex items-center justify-center rounded-DEFAULT font-label-md transition-colors';
+  const baseClasses = 'btn';
   const variantClasses = {
-    primary: 'bg-primary text-on-primary hover:bg-surface-tint',
-    secondary: 'bg-secondary text-on-secondary hover:bg-surface-container-low',
-    outline: 'border border-outline-variant text-on-surface hover:border-primary',
+    primary: 'btn-primary',
+    secondary: 'btn-gold',
+    outline: 'btn-outline',
   };
   const sizeClasses = {
-    sm: 'px-4 py-2 text-sm',
-    md: 'px-8 py-3',
-    lg: 'px-10 py-4 text-lg',
+    sm: 'px-4 py-2 text-xs',
+    md: 'px-8 py-3.5',
+    lg: 'px-10 py-4',
   };
 
   return (

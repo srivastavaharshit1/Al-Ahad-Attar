@@ -1,15 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
 import { formatPrice } from '../utils/formatPrice';
 import { getImageUrl } from '../utils/getImageUrl';
 import { useStoreSettings } from '../context/StoreSettingsContext';
 import { getPromoIcon, getPromoHeadline, estimateSavings } from '../utils/promotionHelpers';
+import { useInView } from '../hooks/useInView';
 
 export const Cart: React.FC = () => {
   const { settings } = useStoreSettings();
   const { items, removeItem, updateQuantity, subtotal, offerDiscount, itemCount, appliedPromotions, availablePromotions, lockedPromotions, unlockMessages, cartDiscount, manuallySelectedPromotionId, applyPromotion, removePromotion, removeCoupon, freeProductOptions, addFreeItem, removeFreeItem } = useCart();
-  
+
+  // Scroll-reveal refs (called unconditionally, before any early returns)
+  const { ref: itemsRef, inView: itemsInView } = useInView<HTMLDivElement>();
+  const { ref: summaryRef, inView: summaryInView } = useInView<HTMLDivElement>();
+  const [brokenGiftImages, setBrokenGiftImages] = useState<Set<number>>(new Set());
+
   const shippingThreshold = settings?.freeShippingThreshold !== undefined ? settings.freeShippingThreshold : 500;
   
   const totalAfterOffer = subtotal - offerDiscount;
@@ -25,15 +31,15 @@ export const Cart: React.FC = () => {
   if (items.length === 0) {
     return (
       <main className="flex-grow py-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full text-center">
-        <div className="max-w-md mx-auto">
-          <div className="w-24 h-24 bg-surface-container rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="material-symbols-outlined text-4xl text-on-surface-variant">shopping_bag</span>
+        <div className="max-w-md mx-auto flex flex-col items-center">
+          <div className="w-16 h-16 border border-accent rounded-full flex items-center justify-center mb-6">
+            <span className="material-symbols-outlined text-accent text-2xl">shopping_bag</span>
           </div>
-          <h1 className="font-display-lg text-display-lg text-on-surface mb-4">Your Cart is Empty</h1>
-          <p className="font-body-lg text-body-lg text-on-surface-variant mb-8">
+          <h1 className="font-headline-md text-on-surface mb-4 tracking-widest uppercase">Your Cart is Empty</h1>
+          <p className="font-body-lg text-body-lg text-on-surface-variant mb-8 leading-relaxed">
             Looks like you haven't added anything to your cart yet. Explore our luxury fragrance collection.
           </p>
-          <Link to="/collection" className="bg-primary text-on-primary px-8 py-3 rounded-DEFAULT font-label-md hover:bg-surface-tint inline-block transition-colors">
+          <Link to="/collection" className="btn btn-primary">
             Continue Shopping
           </Link>
         </div>
@@ -110,7 +116,7 @@ export const Cart: React.FC = () => {
                                 removePromotion();
                               }
                             }}
-                            className="text-on-surface-variant hover:text-error transition-colors flex items-center gap-1 font-label-sm uppercase tracking-wider text-xs whitespace-nowrap"
+                            className="text-on-surface-variant hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-1 transition-colors flex items-center gap-1 font-label-sm uppercase tracking-wider text-xs whitespace-nowrap rounded-sm"
                           >
                             <span className="material-symbols-outlined text-[16px]">close</span>
                             Remove
@@ -187,9 +193,9 @@ export const Cart: React.FC = () => {
                             <button
                               onClick={() => applyPromotion(promo.id)}
                               disabled={!isEligible}
-                              className={`px-4 py-1.5 rounded text-xs font-label-md uppercase tracking-wider transition-colors ${
-                                isEligible 
-                                  ? 'bg-primary text-on-primary hover:bg-surface-tint' 
+                              className={`px-4 py-1.5 rounded text-xs font-label-md uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 ${
+                                isEligible
+                                  ? 'bg-primary text-on-primary hover:bg-surface-tint'
                                   : 'bg-surface-variant text-on-surface-variant opacity-50 cursor-not-allowed'
                               }`}
                             >
@@ -277,46 +283,64 @@ export const Cart: React.FC = () => {
   const renderFreeGiftsPanel = () => {
     if (!freeProductOptions || freeProductOptions.length === 0) return null;
 
+    // All options come from the single highest-priority qualifying FREE_PRODUCT promo (the engine
+    // stops at the first match), so looking up the promotion for the first option is sufficient.
+    const matchingPromo = (appliedPromotions || []).concat(availablePromotions || [])
+      .find((p: any) => p.id === freeProductOptions[0].promotionId);
+
     return (
       <div className="mt-10 space-y-6">
         <h3 className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant mb-3 flex items-center gap-2">
           <span className="text-xl">🎁</span> Choose Your Free Gift
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {matchingPromo?.generatedDescription && (
+          <p className="text-sm text-on-surface-variant -mt-3">{matchingPromo.generatedDescription}</p>
+        )}
+        <p className="text-xs text-on-surface-variant">{freeProductOptions.length} eligible {freeProductOptions.length === 1 ? 'product' : 'products'} — pick one</p>
+        <div className="rounded-xl border border-outline-variant divide-y divide-outline-variant overflow-hidden bg-surface-container-lowest">
           {freeProductOptions.map((option, idx) => {
             const isAdded = items.some(item => item.freePromotionId === option.promotionId && Number(item.variantId) === option.variantId);
             return (
-              <div key={`${option.promotionId}-${option.variantId}-${idx}`} className={`relative rounded-xl border p-4 transition-all duration-300 ${isAdded ? 'border-primary bg-primary/5 shadow-sm' : 'border-outline-variant bg-surface-container-lowest hover:border-primary/50'}`}>
-                {isAdded && (
-                   <div className="absolute top-0 right-0 bg-primary text-on-primary text-[9px] font-label-md px-2 py-0.5 rounded-bl-lg uppercase tracking-widest">
-                     Added
-                   </div>
-                )}
-                <div className="flex gap-4 items-center">
-                  <div className="w-16 h-16 bg-surface-container rounded overflow-hidden flex-shrink-0 border border-outline-variant/30">
-                     {option.image ? (
-                       <img src={getImageUrl(option.image)} alt={option.productName} className="w-full h-full object-cover" />
-                     ) : (
-                       <div className="w-full h-full flex items-center justify-center text-on-surface-variant"><span className="material-symbols-outlined text-[20px]">image</span></div>
-                     )}
-                  </div>
-                  <div className="flex-grow min-w-0">
-                    <h4 className="font-label-md text-on-surface truncate">{option.productName}</h4>
-                    <p className="text-xs text-on-surface-variant mt-0.5">{option.size}</p>
-                    <div className="mt-2">
-                      {isAdded ? (
-                        <button disabled className="text-xs font-label-md px-3 py-1 bg-surface-variant text-on-surface-variant rounded opacity-50 cursor-not-allowed">
-                          In Cart
-                        </button>
-                      ) : (
-                        <button onClick={() => addFreeItem(option.promotionId, option.variantId)} className="text-xs font-label-md px-3 py-1 bg-primary text-on-primary hover:bg-surface-tint rounded transition-colors shadow-sm">
-                          Add Gift
-                        </button>
-                      )}
+              <button
+                key={`${option.promotionId}-${option.variantId}-${idx}`}
+                type="button"
+                onClick={() => !isAdded && addFreeItem(option.promotionId, option.variantId)}
+                disabled={isAdded}
+                className={`w-full flex items-center gap-4 p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset ${isAdded ? 'bg-primary/5 cursor-default' : 'hover:bg-surface-container cursor-pointer'}`}
+              >
+                {/* Selection indicator */}
+                <span className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isAdded ? 'border-primary bg-primary' : 'border-outline-variant'}`}>
+                  {isAdded && <span className="material-symbols-outlined text-on-primary text-[14px]">check</span>}
+                </span>
+
+                <div className="w-14 h-14 bg-surface-container rounded overflow-hidden shrink-0 border border-outline-variant/30">
+                  {option.image && !brokenGiftImages.has(option.variantId) ? (
+                    <img
+                      src={getImageUrl(option.image)}
+                      alt={option.productName}
+                      className="w-full h-full object-cover"
+                      onError={() => setBrokenGiftImages(prev => new Set(prev).add(option.variantId))}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-on-surface-variant">
+                      <span className="material-symbols-outlined text-[20px]">image</span>
                     </div>
+                  )}
+                </div>
+
+                <div className="flex-grow min-w-0">
+                  <h4 className="font-label-md text-on-surface truncate">{option.productName}</h4>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="badge badge-neutral text-[10px]">{option.variant}</span>
+                    {option.categoryName && <span className="text-xs text-on-surface-variant">{option.categoryName}</span>}
                   </div>
                 </div>
-              </div>
+
+                <div className="shrink-0 text-right">
+                  <span className="font-label-sm text-success uppercase tracking-wide">Free</span>
+                  {isAdded && <p className="text-[10px] text-on-surface-variant mt-0.5">In cart</p>}
+                </div>
+              </button>
             );
           })}
         </div>
@@ -329,14 +353,14 @@ export const Cart: React.FC = () => {
     <main className="flex-grow py-12 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full">
       <div className="mb-12">
         <h1 className="font-display-lg text-display-lg text-on-surface mb-2">Your Cart</h1>
-        <p className="font-body-lg text-body-lg text-on-surface-variant">
+        <p className="font-body-lg text-body-lg text-on-surface-variant leading-relaxed">
           {itemCount} {itemCount === 1 ? 'item' : 'items'} in your cart
         </p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-16 items-start">
         {/* Cart Items List */}
-        <div className="w-full lg:w-2/3 flex flex-col gap-8">
+        <div ref={itemsRef} className={`w-full lg:w-2/3 flex flex-col gap-8 reveal ${itemsInView ? 'in-view' : ''}`}>
           {items.map((item) => (
             <div key={item.id} className="flex flex-col sm:flex-row items-center gap-6 pb-8 border-b border-outline-variant/50 relative group">
               <div className="w-full sm:w-36 h-36 bg-surface-container-lowest border border-outline-variant flex-shrink-0 overflow-hidden rounded-sm">
@@ -375,7 +399,7 @@ export const Cart: React.FC = () => {
                       onClick={() => updateQuantity(item.id, item.quantity - 1)}
                       disabled={item.freeItem}
                       aria-label="Decrease quantity"
-                      className={`px-3 py-1 text-on-surface transition-colors focus:outline-none focus:ring-1 focus:ring-primary ${item.freeItem ? 'opacity-50 cursor-not-allowed' : 'hover:text-primary'}`}
+                      className={`px-3 py-1 text-on-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 ${item.freeItem ? 'opacity-50 cursor-not-allowed' : 'hover:text-accent'}`}
                     >
                       <span className="material-symbols-outlined text-[18px]">remove</span>
                     </button>
@@ -384,7 +408,7 @@ export const Cart: React.FC = () => {
                       onClick={() => updateQuantity(item.id, item.quantity + 1)}
                       disabled={item.freeItem}
                       aria-label="Increase quantity"
-                      className={`px-3 py-1 text-on-surface transition-colors focus:outline-none focus:ring-1 focus:ring-primary ${item.freeItem ? 'opacity-50 cursor-not-allowed' : 'hover:text-primary'}`}
+                      className={`px-3 py-1 text-on-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 ${item.freeItem ? 'opacity-50 cursor-not-allowed' : 'hover:text-accent'}`}
                     >
                       <span className="material-symbols-outlined text-[18px]">add</span>
                     </button>
@@ -411,7 +435,7 @@ export const Cart: React.FC = () => {
                   <button
                     onClick={() => item.freeItem ? removeFreeItem(item.id) : removeItem(item.id)}
                     aria-label="Remove item"
-                    className="text-on-surface-variant hover:text-error transition-colors mt-4 sm:mt-auto flex items-center gap-1 font-label-md text-label-md uppercase tracking-wider"
+                    className="text-on-surface-variant hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-1 transition-colors mt-4 sm:mt-auto flex items-center gap-1 font-label-md text-label-md uppercase tracking-wider rounded-sm"
                   >
                     <span className="material-symbols-outlined text-[18px]">close</span>
                     Remove
@@ -429,7 +453,7 @@ export const Cart: React.FC = () => {
         </div>
 
         {/* Order Summary */}
-        <div className="w-full lg:w-1/3 bg-surface-container-lowest border border-outline-variant p-8 relative overflow-hidden rounded-sm sticky top-24" style={{ boxShadow: '0 10px 30px rgba(31, 41, 55, 0.04)' }}>
+        <div ref={summaryRef} className={`w-full lg:w-1/3 bg-surface-container-lowest border border-outline-variant p-8 relative overflow-hidden rounded-sm sticky top-24 reveal ${summaryInView ? 'in-view' : ''}`} style={{ boxShadow: '0 10px 30px rgba(31, 41, 55, 0.04)' }}>
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
           <h2 className="font-headline-lg text-headline-lg text-on-surface mb-8 border-b border-outline-variant/30 pb-4">Order Summary</h2>
           <div className="space-y-4 mb-8">
@@ -506,13 +530,13 @@ export const Cart: React.FC = () => {
 
           <Link
             to="/checkout"
-            className="w-full bg-primary hover:bg-surface-tint text-on-primary font-label-md text-label-md uppercase tracking-wider py-4 transition-colors duration-300 flex justify-center items-center gap-2 rounded-sm"
+            className="w-full bg-primary hover:bg-surface-tint text-on-primary font-label-md text-label-md uppercase tracking-wider py-4 transition-colors duration-300 flex justify-center items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
             Proceed to Checkout
             <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
           </Link>
           <p className="font-label-sm text-label-sm text-on-surface-variant/70 text-center mt-4">
-            Secure checkout · COD available
+            Secure checkout
           </p>
         </div>
       </div>

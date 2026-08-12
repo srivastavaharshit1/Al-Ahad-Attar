@@ -5,7 +5,7 @@ import com.alahadattars.entity.*;
 import com.alahadattars.exception.ResourceNotFoundException;
 import com.alahadattars.repository.*;
 import com.alahadattars.service.HomepageService;
-import com.alahadattars.service.UploadService;
+import com.alahadattars.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,7 +24,7 @@ public class HomepageServiceImpl implements HomepageService {
     private final PromoBannerRepository promoRepository;
     private final TestimonialRepository testimonialRepository;
     private final WhyChooseUsItemRepository whyChooseUsRepository;
-    private final UploadService uploadService;
+    private final StorageService storageService;
 
     // --- Homepage Sections ---
 
@@ -124,7 +124,7 @@ public class HomepageServiceImpl implements HomepageService {
     @Transactional
     public HeroBannerResponse uploadHeroImage(Long id, MultipartFile file, boolean isMobile) {
         HeroBanner banner = getHeroBanner(id);
-        String url = uploadService.uploadFile(file, "homepage");
+        String url = storageService.uploadFile(file, "banners");
         if (isMobile) {
             banner.setMobileImageUrl(url);
         } else {
@@ -200,7 +200,7 @@ public class HomepageServiceImpl implements HomepageService {
     @Transactional
     public PromoBannerResponse uploadPromoImage(Long id, MultipartFile file) {
         PromoBanner banner = getPromoBanner(id);
-        String url = uploadService.uploadFile(file, "homepage");
+        String url = storageService.uploadFile(file, "banners");
         banner.setImageUrl(url);
         return mapPromo(promoRepository.save(banner));
     }
@@ -263,7 +263,7 @@ public class HomepageServiceImpl implements HomepageService {
     @Transactional
     public TestimonialResponse uploadTestimonialPhoto(Long id, MultipartFile file) {
         Testimonial testimonial = getTestimonial(id);
-        String url = uploadService.uploadFile(file, "homepage");
+        String url = storageService.uploadFile(file, "testimonials");
         testimonial.setPhotoUrl(url);
         return mapTestimonial(testimonialRepository.save(testimonial));
     }
@@ -350,8 +350,8 @@ public class HomepageServiceImpl implements HomepageService {
                 .buttonText(h.getButtonText())
                 .buttonUrl(h.getButtonUrl())
                 .badge(h.getBadge())
-                .imageUrl(h.getImageUrl() != null ? "/api/homepage/heroes/" + h.getId() + "/image" : null)
-                .mobileImageUrl(h.getMobileImageUrl() != null ? "/api/homepage/heroes/" + h.getId() + "/mobile-image" : null)
+                .imageUrl(storageService.resolveUrl(h.getImageUrl(), "/api/homepage/heroes/" + h.getId() + "/image"))
+                .mobileImageUrl(storageService.resolveUrl(h.getMobileImageUrl(), "/api/homepage/heroes/" + h.getId() + "/mobile-image"))
                 .active(h.isActive())
                 .displayOrder(h.getDisplayOrder())
                 .build();
@@ -362,7 +362,7 @@ public class HomepageServiceImpl implements HomepageService {
                 .id(p.getId())
                 .title(p.getTitle())
                 .subtitle(p.getSubtitle())
-                .imageUrl(p.getImageUrl() != null ? "/api/homepage/banners/" + p.getId() + "/image" : null)
+                .imageUrl(storageService.resolveUrl(p.getImageUrl(), "/api/homepage/banners/" + p.getId() + "/image"))
                 .buttonText(p.getButtonText())
                 .buttonUrl(p.getButtonUrl())
                 .backgroundColor(p.getBackgroundColor())
@@ -377,7 +377,7 @@ public class HomepageServiceImpl implements HomepageService {
         return TestimonialResponse.builder()
                 .id(t.getId())
                 .customerName(t.getCustomerName())
-                .photoUrl(t.getPhotoUrl() != null ? "/api/homepage/testimonials/" + t.getId() + "/photo" : null)
+                .photoUrl(storageService.resolveUrl(t.getPhotoUrl(), "/api/homepage/testimonials/" + t.getId() + "/photo"))
                 .rating(t.getRating())
                 .review(t.getReview())
                 .displayOrder(t.getDisplayOrder())

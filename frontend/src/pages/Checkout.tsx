@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
+import { useAuth } from '../hooks/useAuth';
 import { formatPrice } from '../utils/formatPrice';
 import { profileService } from '../services/profileService';
 import { orderService } from '../services/orderService';
@@ -8,6 +9,7 @@ import { giftServiceService } from '../services/giftServiceService';
 import type { GiftServiceItem } from '../services/giftServiceService';
 import type { Address } from '../types';
 import { AddressModal } from '../components/customer/AddressModal';
+import { Modal } from '../components/ui/Modal';
 import { getImageUrl } from '../utils/getImageUrl';
 
 import { useStoreSettings } from '../context/StoreSettingsContext';
@@ -16,7 +18,9 @@ import { getPromoIcon, getPromoHeadline } from '../utils/promotionHelpers';
 export const Checkout: React.FC = () => {
   const { settings } = useStoreSettings();
   const { items, subtotal, offerDiscount, clearCart, couponCode, cartDiscount, appliedPromotions, availablePromotions, lockedPromotions, applyCoupon, removeCoupon, manuallySelectedPromotionId, applyPromotion, removePromotion, unlockMessages } = useCart();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const shippingThreshold = settings?.freeShippingThreshold !== undefined ? settings.freeShippingThreshold : 500;
   const totalAfterOffer = subtotal - offerDiscount;
   const shippingCharge = settings?.shippingCharge !== undefined ? settings.shippingCharge : 50;
@@ -36,6 +40,7 @@ export const Checkout: React.FC = () => {
   const [giftServices, setGiftServices] = useState<GiftServiceItem[]>([]);
   const [selectedGiftServiceId, setSelectedGiftServiceId] = useState<number | null>(null);
   const [giftMessage, setGiftMessage] = useState('');
+  const [detailsService, setDetailsService] = useState<GiftServiceItem | null>(null);
 
   const [couponInput, setCouponInput] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
@@ -44,10 +49,12 @@ export const Checkout: React.FC = () => {
   const [couponError, setCouponError] = useState('');
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     fetchUserData();
     fetchAddresses();
     fetchGiftServices();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   const fetchUserData = async () => {
     try {
@@ -120,16 +127,47 @@ export const Checkout: React.FC = () => {
     try {
       setIsSubmitting(true);
       setError('');
-      
+
+      const paymentOrder = await orderService.createPaymentOrder(couponCode || undefined, selectedGiftServiceId);
+
+      if (paymentOrder.devMode) {
+        // Backend is in PAYMENT_DEV_MODE — there's no real Razorpay order to open a checkout
+        // widget against (it would fail validation against Razorpay's own servers), so simulate
+        // a successful payment directly and go straight to order creation.
+        try {
+          const orderData = {
+            shippingAddressId: Number(selectedAddressId),
+            notes: notes,
+            couponCode: couponCode || undefined,
+            razorpayOrderId: paymentOrder.razorpayOrderId,
+            razorpayPaymentId: `pay_dev_${Date.now()}`,
+            razorpaySignature: 'dev_mode_signature',
+            giftServiceId: selectedGiftServiceId || undefined,
+            giftMessage: giftMessage || undefined,
+            items: items.map(item => ({
+              variantId: item.variantId,
+              quantity: item.quantity,
+              freeItem: item.freeItem || false,
+              freePromotionId: item.freePromotionId
+            }))
+          };
+          const apiRes = await orderService.createOrder(orderData);
+          clearCart();
+          navigate(`/checkout/success/${apiRes.data?.id}`);
+        } catch (err: any) {
+          setError(err.response?.data?.message || 'Payment verified but order creation failed. Please contact support.');
+          setIsSubmitting(false);
+        }
+        return;
+      }
+
       const isScriptLoaded = await loadRazorpayScript();
       if (!isScriptLoaded) {
         setError('Failed to load Razorpay SDK. Please check your internet connection.');
         setIsSubmitting(false);
         return;
       }
-      
-      const paymentOrder = await orderService.createPaymentOrder(couponCode || undefined, selectedGiftServiceId);
-      
+
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'YOUR_RAZORPAY_KEY_ID',
         currency: "INR",
@@ -157,7 +195,15 @@ export const Checkout: React.FC = () => {
             navigate(`/checkout/success/${apiRes.data?.id}`);
           } catch (err: any) {
              setError(err.response?.data?.message || 'Payment verified but order creation failed. Please contact support.');
+             setIsSubmitting(false);
           }
+        },
+        modal: {
+          // Fires when the user closes the Razorpay overlay without completing payment (including
+          // clicking outside it). Without this, isSubmitting was cleared right after rzp.open()
+          // returned — re-enabling "Pay Securely" while the modal was still up, so a second click
+          // could create a second payment-order for the same cart while the first was in progress.
+          ondismiss: () => setIsSubmitting(false),
         },
         prefill: {
           name: user?.firstName ? `${user.firstName} ${user.lastName || ''}` : '',
@@ -165,52 +211,69 @@ export const Checkout: React.FC = () => {
           contact: addresses.find(a => a.id === selectedAddressId)?.phone || ''
         },
         theme: {
-          color: "#0f172a"
+          color: "#121c2a"
         }
       };
-      
+
       const rzp = new (window as any).Razorpay(options);
       rzp.on('payment.failed', function (response: any) {
         setError(response.error.description || 'Payment failed. Please try again.');
+        setIsSubmitting(false);
       });
-      
+
       rzp.open();
-      
+      // isSubmitting deliberately stays true here — the modal is open. It's cleared by the
+      // handler's success (navigation away makes it moot), its catch block, payment.failed, or
+      // modal.ondismiss above — not by a blanket finally, which used to fire immediately after
+      // rzp.open() returns (the modal is non-blocking) rather than when payment actually resolves.
     } catch (err: any) {
       console.error("Failed to initiate payment", err);
       setError(err.response?.data?.message || 'Failed to initiate payment. Please try again.');
-    } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Checkout requires an account (no guest checkout) — this route isn't wrapped in
+  // ProtectedRoute at the router level, so guard it here instead.
+  if (isAuthLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-surface-bright">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
   return (
     <>
       <header className="w-full flex justify-center items-center h-24 border-b border-outline-variant/30 bg-surface/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
-        <Link to="/" className="font-headline-md text-headline-md text-primary tracking-tight">Al Ahad Attars</Link>
+        <Link to="/" className="font-headline-md text-headline-md text-primary tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 rounded-sm">Al Ahad Attars</Link>
       </header>
-      <main className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-16 md:py-24">
+      <main className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-10 md:py-16">
         <div className="mb-12">
           <h1 className="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-on-surface mb-4">Checkout</h1>
-          <Link to="/cart" className="inline-flex items-center text-on-surface-variant hover:text-primary transition-colors font-label-md text-label-md">
+          <Link to="/cart" className="inline-flex items-center text-on-surface-variant hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 rounded-sm transition-colors font-label-md text-label-md">
             <span className="material-symbols-outlined mr-2" style={{ fontSize: '18px' }}>arrow_back</span>
             Return to Cart
           </Link>
         </div>
 
         {error && (
-          <div className="bg-error-container text-on-error-container p-4 rounded mb-8">
-            {error}
+          <div className="bg-error-container text-on-error-container p-4 rounded-lg mb-8 flex items-start gap-2.5">
+            <span className="material-symbols-outlined text-[18px] mt-0.5 flex-shrink-0">error</span>
+            <p className="leading-relaxed">{error}</p>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter lg:gap-section-gap">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter lg:gap-16">
           <div className="lg:col-span-7 space-y-12">
             
             <section>
               <div className="flex justify-between items-center mb-6 border-b border-outline-variant pb-4">
                 <h2 className="font-headline-md text-headline-md text-on-surface">Shipping Address</h2>
-                <button onClick={() => setIsAddressModalOpen(true)} className="text-primary hover:underline font-label-sm">Add New Address</button>
+                <button onClick={() => setIsAddressModalOpen(true)} className="text-primary hover:text-accent-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 rounded-sm font-label-sm transition-colors">Add New Address</button>
               </div>
               
               {addresses.length > 0 ? (
@@ -218,10 +281,10 @@ export const Checkout: React.FC = () => {
                   {addresses.map(addr => (
                     <div key={addr.id} className={`border rounded-DEFAULT p-4 cursor-pointer transition-colors ${selectedAddressId === addr.id ? 'border-primary bg-primary-container/10' : 'border-outline-variant hover:border-primary/50'}`} onClick={() => setSelectedAddressId(addr.id)}>
                       <div className="flex items-start gap-4">
-                        <input type="radio" name="address" checked={selectedAddressId === addr.id} onChange={() => setSelectedAddressId(addr.id)} className="mt-1 text-primary focus:ring-primary" />
+                        <input type="radio" name="address" checked={selectedAddressId === addr.id} onChange={() => setSelectedAddressId(addr.id)} className="mt-1 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1" />
                         <div>
                           <div className="font-headline-sm font-medium">{addr.fullName}</div>
-                          <div className="font-body-md text-on-surface-variant mt-1">
+                          <div className="font-body-md text-on-surface-variant mt-1 leading-relaxed">
                             {addr.addressLine1}, {addr.addressLine2 && `${addr.addressLine2}, `}
                             {addr.city}, {addr.state} {addr.postalCode}, {addr.country}
                           </div>
@@ -234,9 +297,9 @@ export const Checkout: React.FC = () => {
                   ))}
                 </div>
               ) : (
-                <div className="bg-surface-container border border-outline-variant rounded p-6 text-center">
-                  <p className="mb-4">You don't have any saved addresses.</p>
-                  <button onClick={() => setIsAddressModalOpen(true)} className="btn-primary px-6 py-2 rounded">Add New Address</button>
+                <div className="bg-surface-container border border-outline-variant rounded-lg p-6 text-center">
+                  <p className="mb-4 text-on-surface-variant leading-relaxed">You don't have any saved addresses.</p>
+                  <button onClick={() => setIsAddressModalOpen(true)} className="btn btn-primary">Add New Address</button>
                 </div>
               )}
             </section>
@@ -253,13 +316,13 @@ export const Checkout: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-headline-sm text-lg text-on-surface tracking-wide">Secure Checkout</h3>
-                    <p className="font-body-sm text-on-surface-variant mt-1">Your payment is encrypted and securely processed by Razorpay.</p>
+                    <p className="font-body-sm text-on-surface-variant mt-1 leading-relaxed">Your payment is encrypted and securely processed by Razorpay.</p>
                   </div>
                 </div>
 
                 <div className="pt-6 border-t border-outline-variant/30">
                   <h4 className="font-label-sm uppercase tracking-widest text-on-surface-variant mb-4">Accepted Payment Methods</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                     <div className="flex items-center gap-2 text-sm font-body-md text-on-surface bg-surface-container-lowest px-3 py-2 rounded-lg border border-outline-variant/50">
                       <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span> UPI
                     </div>
@@ -297,14 +360,15 @@ export const Checkout: React.FC = () => {
                     <span className="material-symbols-outlined text-primary text-[22px]">redeem</span>
                     Make it a Gift
                   </h2>
-                  <p className="text-on-surface-variant font-body-sm mt-1">Choose a premium packaging option for a special touch.</p>
+                  <p className="text-on-surface-variant font-body-sm mt-1 leading-relaxed">Choose a premium packaging option for a special touch.</p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                   {/* No Gift Option */}
-                  <div
+                  <button
+                    type="button"
                     onClick={() => handleSelectGiftService(null, 0)}
-                    className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 flex items-center gap-3 ${
+                    className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 flex items-center gap-3 text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                       selectedGiftServiceId === null
                         ? 'border-primary bg-primary/[0.04] shadow-sm'
                         : 'border-outline-variant hover:border-primary/40'
@@ -322,14 +386,15 @@ export const Checkout: React.FC = () => {
                         <span className="material-symbols-outlined text-on-primary text-[14px]">check</span>
                       </span>
                     )}
-                  </div>
+                  </button>
 
                   {/* Gift Service Options */}
                   {giftServices.map(service => (
-                    <div
+                    <button
+                      type="button"
                       key={service.id}
                       onClick={() => handleSelectGiftService(service.id, service.price)}
-                      className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 flex items-center gap-3 ${
+                      className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 flex items-center gap-3 text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                         selectedGiftServiceId === service.id
                           ? 'border-primary bg-primary/[0.04] shadow-sm'
                           : 'border-outline-variant hover:border-primary/40'
@@ -347,16 +412,29 @@ export const Checkout: React.FC = () => {
                       <div className="flex-grow min-w-0">
                         <p className="font-label-md text-on-surface truncate">{service.name}</p>
                         {service.description && (
-                          <p className="text-xs text-on-surface-variant mt-0.5 truncate">{service.description}</p>
+                          <p className="text-xs text-on-surface-variant mt-0.5 line-clamp-2">{service.description}</p>
                         )}
-                        <p className="text-xs font-medium text-primary mt-1">{formatPrice(service.price)}</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <p className="text-xs font-medium text-primary">{formatPrice(service.price)}</p>
+                          {service.description && (
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => { e.stopPropagation(); setDetailsService(service); }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); setDetailsService(service); } }}
+                              className="text-xs text-on-surface-variant underline hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-sm"
+                            >
+                              View details
+                            </span>
+                          )}
+                        </div>
                       </div>
                       {selectedGiftServiceId === service.id && (
                         <span className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
                           <span className="material-symbols-outlined text-on-primary text-[14px]">check</span>
                         </span>
                       )}
-                    </div>
+                    </button>
                   ))}
                 </div>
 
@@ -371,7 +449,7 @@ export const Checkout: React.FC = () => {
                     maxLength={250}
                     rows={3}
                     placeholder="Happy Birthday! Wishing you all the best... 🎉"
-                    className="w-full bg-transparent border border-outline-variant rounded-lg p-3 text-on-surface font-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"
+                    className="w-full bg-transparent border border-outline-variant rounded-lg p-3 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none resize-none"
                   />
                   <p className="text-xs text-on-surface-variant text-right mt-1">{giftMessage.length}/250</p>
                 </div>
@@ -383,7 +461,7 @@ export const Checkout: React.FC = () => {
               <textarea 
                 value={notes} 
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full bg-transparent border border-outline-variant rounded p-3 text-on-surface font-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none min-h-[100px]" 
+                className="w-full bg-transparent border border-outline-variant rounded p-3 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none min-h-[100px]" 
                 placeholder="Notes about your order, e.g. special notes for delivery."
               ></textarea>
             </section>
@@ -457,7 +535,7 @@ export const Checkout: React.FC = () => {
                                   {(!promo.stackable) && (
                                     <button
                                       onClick={() => removePromotion()}
-                                      className="text-error hover:text-error/80 transition-colors flex items-center gap-0.5 font-label-sm uppercase tracking-wider text-[10px] whitespace-nowrap"
+                                      className="text-error hover:text-error/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-1 rounded-sm transition-colors flex items-center gap-0.5 font-label-sm uppercase tracking-wider text-[10px] whitespace-nowrap"
                                     >
                                       <span className="material-symbols-outlined text-[14px]">close</span>
                                       Remove
@@ -504,14 +582,14 @@ export const Checkout: React.FC = () => {
                                     <button
                                       onClick={() => handleApplyCoupon(promo.code || '')}
                                       disabled={isApplyingCoupon}
-                                      className="text-[11px] font-label-md text-primary hover:text-on-primary hover:bg-primary px-2.5 py-0.5 rounded border border-primary/20 transition-colors disabled:opacity-50"
+                                      className="text-[11px] font-label-md text-primary hover:text-on-primary hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 px-2.5 py-0.5 rounded border border-primary/20 transition-colors disabled:opacity-50"
                                     >
                                       Apply
                                     </button>
                                   ) : (
                                     <button
                                       onClick={() => applyPromotion(promo.id)}
-                                      className="text-[11px] font-label-md px-2.5 py-0.5 rounded transition-colors text-primary hover:text-on-primary hover:bg-primary border border-primary/20"
+                                      className="text-[11px] font-label-md px-2.5 py-0.5 rounded transition-colors text-primary hover:text-on-primary hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 border border-primary/20"
                                     >
                                       Apply
                                     </button>
@@ -570,7 +648,7 @@ export const Checkout: React.FC = () => {
                         <span className="material-symbols-outlined text-[18px]">local_offer</span>
                         <span className="font-label-md uppercase tracking-wider">{couponCode}</span>
                       </div>
-                      <button onClick={removeCoupon} className="text-on-surface-variant hover:text-error transition-colors" title="Remove Coupon" aria-label="Remove coupon">
+                      <button onClick={removeCoupon} className="text-on-surface-variant hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-1 rounded-sm transition-colors" title="Remove Coupon" aria-label="Remove coupon">
                         <span className="material-symbols-outlined text-[20px]">close</span>
                       </button>
                     </div>
@@ -583,13 +661,13 @@ export const Checkout: React.FC = () => {
                           onChange={(e) => setCouponInput(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
                           placeholder="Enter coupon code" 
-                          className="flex-1 bg-transparent border border-outline-variant rounded-lg px-4 py-3 text-on-surface font-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none uppercase transition-all"
+                          className="flex-1 min-w-0 bg-transparent border border-outline-variant rounded-lg px-4 py-3 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none uppercase transition-all"
                           aria-label="Coupon code input"
                         />
-                        <button 
+                        <button
                           onClick={() => handleApplyCoupon()}
                           disabled={isApplyingCoupon || !couponInput.trim()}
-                          className="bg-surface-variant text-on-surface-variant hover:bg-surface-tint hover:text-on-primary px-6 py-3 rounded-lg transition-colors disabled:opacity-50 font-label-md tracking-wider"
+                          className="shrink-0 bg-surface-variant text-on-surface-variant hover:bg-surface-tint hover:text-on-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 px-6 py-3 rounded-lg transition-colors disabled:opacity-50 font-label-md tracking-wider"
                         >
                           {isApplyingCoupon ? '…' : 'APPLY'}
                         </button>
@@ -649,10 +727,10 @@ export const Checkout: React.FC = () => {
               </div>
 
               <div className="mt-8 pt-4 border-t border-outline-variant/30">
-                <button 
+                <button
                   onClick={placeOrder}
                   disabled={isSubmitting || !selectedAddressId || items.length === 0}
-                  className="w-full bg-gradient-to-r from-primary to-[#C59B27] hover:from-[#C59B27] hover:to-[#A67C00] text-on-primary py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(212,175,55,0.25)] hover:shadow-[0_10px_25px_rgba(212,175,55,0.35)] transition-all duration-300 disabled:opacity-50 disabled:shadow-none"
+                  className="w-full bg-accent hover:bg-accent-hover text-ink py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(212,175,55,0.25)] hover:shadow-[0_10px_25px_rgba(212,175,55,0.35)] transition-all duration-300 disabled:opacity-50 disabled:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2"
                 >
                   <span className="material-symbols-outlined">{isSubmitting ? 'hourglass_empty' : 'lock'}</span>
                   <span className="font-label-lg tracking-widest text-[15px]">{isSubmitting ? 'PROCESSING PAYMENT...' : 'PAY SECURELY'}</span>
@@ -671,12 +749,30 @@ export const Checkout: React.FC = () => {
           </div>
         </div>
       </main>
-      <AddressModal 
-        isOpen={isAddressModalOpen} 
-        onClose={() => setIsAddressModalOpen(false)} 
-        onSave={fetchAddresses} 
-        editAddress={null} 
+      <AddressModal
+        isOpen={isAddressModalOpen}
+        onClose={() => setIsAddressModalOpen(false)}
+        onSave={fetchAddresses}
+        editAddress={null}
       />
+      <Modal
+        isOpen={detailsService !== null}
+        onClose={() => setDetailsService(null)}
+        title={detailsService?.name || 'Gift Option'}
+        maxWidth="sm"
+      >
+        {detailsService && (
+          <div className="space-y-4">
+            {detailsService.imageUrl && (
+              <div className="w-full h-40 rounded-lg overflow-hidden bg-surface-container">
+                <img src={getImageUrl(detailsService.imageUrl)} alt={detailsService.name} className="w-full h-full object-cover" />
+              </div>
+            )}
+            <p className="text-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">{detailsService.description}</p>
+            <p className="text-sm font-medium text-primary">{formatPrice(detailsService.price)}</p>
+          </div>
+        )}
+      </Modal>
     </>
   );
 };

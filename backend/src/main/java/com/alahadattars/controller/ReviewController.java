@@ -155,10 +155,13 @@ public class ReviewController {
 
     @Operation(summary = "Serve review image")
     @GetMapping("/images/{imageId}/file")
-    public ResponseEntity<Resource> serveReviewImage(@PathVariable Long imageId) {
+    public ResponseEntity<?> serveReviewImage(@PathVariable Long imageId) {
         ReviewImage image = reviewImageRepository.findById(imageId).orElse(null);
         if (image == null || image.getImageUrl() == null || image.getImageUrl().isEmpty()) {
             return ResponseEntity.notFound().build();
+        }
+        if (image.getImageUrl().startsWith("http://") || image.getImageUrl().startsWith("https://")) {
+            return ResponseEntity.status(302).location(java.net.URI.create(image.getImageUrl())).build();
         }
 
         try {

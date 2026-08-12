@@ -1,5 +1,6 @@
 package com.alahadattars.dto.profile;
 
+import com.alahadattars.validation.ValidPhoneNumber;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -19,8 +20,8 @@ public class AddressRequest {
     private String fullName;
 
     @NotBlank(message = "Phone number is required")
-    @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Phone number must be valid")
-    @Schema(description = "Contact phone number", example = "+1234567890")
+    @ValidPhoneNumber
+    @Schema(description = "Contact phone number in E.164 format", example = "+919876543210")
     private String phone;
 
     @NotBlank(message = "Address Line 1 is required")

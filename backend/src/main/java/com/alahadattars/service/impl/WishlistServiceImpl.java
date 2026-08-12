@@ -39,8 +39,9 @@ public class WishlistServiceImpl implements WishlistService {
     @Override
     @Transactional
     public WishlistResponse addToWishlist(String email, Long variantId) {
-        if (wishlistRepository.existsByUserEmailAndVariantId(email, variantId)) {
-            return mapToResponse(wishlistRepository.findByUserEmailAndVariantId(email, variantId).get());
+        java.util.Optional<WishlistItem> existing = wishlistRepository.findByUserEmailAndVariantId(email, variantId);
+        if (existing.isPresent()) {
+            return mapToResponse(existing.get());
         }
 
         User user = userRepository.findByEmail(email)

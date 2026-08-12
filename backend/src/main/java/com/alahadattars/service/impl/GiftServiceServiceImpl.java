@@ -3,9 +3,11 @@ package com.alahadattars.service.impl;
 import com.alahadattars.dto.gift.GiftServiceRequest;
 import com.alahadattars.dto.gift.GiftServiceResponse;
 import com.alahadattars.entity.GiftService;
+import com.alahadattars.exception.ConflictException;
 import com.alahadattars.exception.ResourceNotFoundException;
 import com.alahadattars.repository.GiftServiceRepository;
 import com.alahadattars.service.GiftServiceService;
+import com.alahadattars.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -22,13 +24,14 @@ import java.util.stream.Collectors;
 public class GiftServiceServiceImpl implements GiftServiceService {
 
     private final GiftServiceRepository giftServiceRepository;
+    private final StorageService storageService;
 
     @Override
     @Transactional
     public GiftServiceResponse create(GiftServiceRequest request) {
         // Validate no duplicate name
         giftServiceRepository.findByNameIgnoreCase(request.getName()).ifPresent(existing -> {
-            throw new IllegalArgumentException("A gift service with name '" + request.getName() + "' already exists.");
+            throw new ConflictException("A gift service with name '" + request.getName() + "' already exists.");
         });
 
         GiftService entity = GiftService.builder()
@@ -52,7 +55,7 @@ public class GiftServiceServiceImpl implements GiftServiceService {
         // Validate no duplicate name (excluding self)
         giftServiceRepository.findByNameIgnoreCase(request.getName()).ifPresent(existing -> {
             if (!existing.getId().equals(id)) {
-                throw new IllegalArgumentException("A gift service with name '" + request.getName() + "' already exists.");
+                throw new ConflictException("A gift service with name '" + request.getName() + "' already exists.");
             }
         });
 
@@ -108,9 +111,8 @@ public class GiftServiceServiceImpl implements GiftServiceService {
     }
 
     private GiftServiceResponse mapToResponse(GiftService entity) {
-        String formattedImageUrl = (entity.getImageUrl() != null && !entity.getImageUrl().isEmpty()) 
-                ? "/api/gift-services/" + entity.getId() + "/image" 
-                : null;
+        String formattedImageUrl = storageService.resolveUrl(
+                entity.getImageUrl(), "/api/gift-services/" + entity.getId() + "/image");
 
         return GiftServiceResponse.builder()
                 .id(entity.getId())

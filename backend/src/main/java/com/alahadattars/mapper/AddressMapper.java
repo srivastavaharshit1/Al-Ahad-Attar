@@ -3,6 +3,8 @@ package com.alahadattars.mapper;
 import com.alahadattars.dto.profile.AddressRequest;
 import com.alahadattars.dto.profile.AddressResponse;
 import com.alahadattars.entity.Address;
+import com.alahadattars.exception.BadRequestException;
+import com.alahadattars.util.PhoneNumberHelper;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -34,9 +36,18 @@ public class AddressMapper {
             return null;
         }
 
+        // @ValidPhoneNumber on AddressRequest already rejected malformed input; parsing again
+        // here gives the canonical E.164 form plus the decomposed country code/national number.
+        PhoneNumberHelper.ParsedPhone parsedPhone = PhoneNumberHelper.parse(request.getPhone());
+        if (parsedPhone == null) {
+            throw new BadRequestException("Invalid phone number.");
+        }
+
         return Address.builder()
                 .fullName(request.getFullName())
-                .phone(request.getPhone())
+                .phone(parsedPhone.e164())
+                .phoneCountryCode(parsedPhone.regionCode())
+                .phoneNationalNumber(parsedPhone.nationalNumber())
                 .addressLine1(request.getAddressLine1())
                 .addressLine2(request.getAddressLine2())
                 .landmark(request.getLandmark())

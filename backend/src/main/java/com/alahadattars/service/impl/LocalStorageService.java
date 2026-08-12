@@ -1,8 +1,10 @@
 package com.alahadattars.service.impl;
 
 import com.alahadattars.exception.BadRequestException;
-import com.alahadattars.service.UploadService;
+import com.alahadattars.service.StorageService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -10,48 +12,30 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.UUID;
-import org.springframework.beans.factory.annotation.Value;
 
+/**
+ * Dev-only fallback provider: stores files on local disk. Selected when
+ * {@code app.storage.provider} (STORAGE_PROVIDER) is unset or "local" — see SupabaseStorageServiceImpl
+ * for the provider actually used in deployments with Supabase credentials configured.
+ */
 @Slf4j
 @Service
-public class LocalStorageService implements UploadService {
+@ConditionalOnProperty(prefix = "app.storage", name = "provider", havingValue = "local", matchIfMissing = true)
+public class LocalStorageService implements StorageService {
 
     @Value("${app.upload.dir:uploads}")
     private String baseUploadDir;
 
     @Override
-    public String uploadFile(MultipartFile file, String directory) {
+    public String uploadFile(MultipartFile file, String objectKeyPrefix) {
+        String extension = StorageService.validateAndDetectExtension(file);
+        String objectKey = StorageService.buildObjectKey(objectKeyPrefix, extension);
         try {
-            // directory might be "products", "categories", or "uploads/logos"
-            // we will strip "uploads/" if it's already there to avoid uploads/uploads/logos
-            if (directory != null && directory.startsWith("uploads/")) {
-                directory = directory.substring("uploads/".length());
-            }
-            if (directory != null && directory.startsWith("uploads\\")) {
-                directory = directory.substring("uploads\\".length());
-            }
-
-            Path uploadPath = Paths.get(baseUploadDir, directory).toAbsolutePath().normalize();
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-
-            String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            }
-            
-            String uniqueFilename = UUID.randomUUID().toString() + extension;
-            Path filePath = uploadPath.resolve(uniqueFilename);
-            
+            Path filePath = Paths.get(baseUploadDir).resolve(objectKey).toAbsolutePath().normalize();
+            Files.createDirectories(filePath.getParent());
             file.transferTo(filePath.toFile());
-            log.info("File uploaded locally to: {}", filePath.toString());
-            
-            // Return relative path to store in DB: e.g. "products/uuid.jpg"
-            String relativePath = Paths.get(directory, uniqueFilename).toString().replace("\\", "/");
-            return relativePath;
+            log.info("File uploaded locally to: {}", filePath);
+            return objectKey;
         } catch (IOException e) {
             log.error("Failed to store file: {}", e.getMessage(), e);
             throw new BadRequestException("Failed to store file: " + e.getMessage());
@@ -59,16 +43,23 @@ public class LocalStorageService implements UploadService {
     }
 
     @Override
-    public void deleteFile(String filePath) {
-        if (filePath == null || filePath.isEmpty()) {
+    public void deleteFile(String objectKey) {
+        if (objectKey == null || objectKey.isEmpty()) {
             return;
         }
         try {
-            Path path = Paths.get(baseUploadDir).resolve(filePath).toAbsolutePath().normalize();
+            Path path = Paths.get(baseUploadDir).resolve(objectKey).toAbsolutePath().normalize();
             Files.deleteIfExists(path);
             log.info("Deleted file locally from: {}", path);
         } catch (IOException e) {
             log.error("Failed to delete file: {}", e.getMessage());
         }
+    }
+
+    @Override
+    public String publicUrl(String objectKey) {
+        // Local disk isn't web-accessible directly — callers proxy through a per-domain
+        // "serve file" controller endpoint instead (see resolveUrl's proxyPathFallback).
+        return null;
     }
 }

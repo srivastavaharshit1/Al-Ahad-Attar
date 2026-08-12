@@ -22,13 +22,14 @@ import java.util.stream.Collectors;
 public class PublicPromotionController {
 
     private final PromotionRepository promotionRepository;
+    private final com.alahadattars.service.impl.PromotionResponseMapper promotionResponseMapper;
 
     @GetMapping("/active")
     public ResponseEntity<ApiResponse<List<PromotionResponse>>> getActivePromotions() {
         List<Promotion> activePromotions = promotionRepository.findAllActivePromotions(LocalDateTime.now());
-        
+
         List<PromotionResponse> responseList = activePromotions.stream()
-                .map(PromotionResponse::fromEntity)
+                .map(promotionResponseMapper::toPublicResponse)
                 .collect(Collectors.toList());
                 
         return ResponseEntity.ok(ApiResponse.<List<PromotionResponse>>builder()

@@ -85,7 +85,22 @@ export const HeroTab: React.FC = () => {
       toast.error("Title is required");
       return;
     }
-    
+
+    // Validate any selected image files client-side before hitting the network —
+    // the backend rejects anything over 5MB (application.yml multipart.max-file-size).
+    const filesToCheck = [desktopInputRef.current?.files?.[0], mobileInputRef.current?.files?.[0]];
+    for (const f of filesToCheck) {
+      if (!f) continue;
+      if (!f.type.startsWith('image/')) {
+        toast.error(`File "${f.name}" is not a supported image type.`);
+        return;
+      }
+      if (f.size > 5 * 1024 * 1024) {
+        toast.error(`File "${f.name}" exceeds the 5MB size limit.`);
+        return;
+      }
+    }
+
     setIsSaving(true);
     const request = {
       title: title.trim(),
@@ -209,19 +224,19 @@ export const HeroTab: React.FC = () => {
       ) : (
         <div className="space-y-4">
           {heroes.map((hero, idx) => (
-            <div key={hero.id} className="flex gap-4 p-4 border border-outline-variant rounded-lg bg-surface hover:bg-surface-container-low transition-colors shadow-sm items-center">
+            <div key={hero.id} className="card flex gap-4 p-4 items-center">
               <div className="flex flex-col gap-1 shrink-0">
-                <button 
-                  onClick={() => handleMoveUp(idx)} 
+                <button
+                  onClick={() => handleMoveUp(idx)}
                   disabled={idx === 0}
-                  className={`p-1 rounded bg-surface-container text-on-surface-variant ${idx === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
+                  className={`p-1 rounded bg-surface-container text-on-surface-variant transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${idx === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
                 >
                   <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
                 </button>
-                <button 
-                  onClick={() => handleMoveDown(idx)} 
+                <button
+                  onClick={() => handleMoveDown(idx)}
                   disabled={idx === heroes.length - 1}
-                  className={`p-1 rounded bg-surface-container text-on-surface-variant ${idx === heroes.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
+                  className={`p-1 rounded bg-surface-container text-on-surface-variant transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${idx === heroes.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
                 >
                   <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
                 </button>
@@ -237,14 +252,14 @@ export const HeroTab: React.FC = () => {
                   </div>
                 )}
                 {hero.mobileImageUrl && (
-                  <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] px-1 rounded uppercase">Mobile</div>
+                  <div className="absolute bottom-1 right-1 bg-ink/70 text-surface text-[9px] px-1 rounded uppercase tracking-wide">Mobile</div>
                 )}
               </div>
-              
+
               <div className="flex-grow min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <h4 className="font-label-lg text-on-surface truncate">{hero.title}</h4>
-                  {hero.badge && <span className="text-[10px] bg-primary-container text-on-primary-container px-2 py-0.5 rounded font-bold">{hero.badge}</span>}
+                  {hero.badge && <span className="badge badge-gold">{hero.badge}</span>}
                 </div>
                 <p className="font-body-sm text-on-surface-variant truncate">{hero.subtitle}</p>
                 <p className="font-body-sm text-on-surface-variant text-xs mt-1">Link: {hero.buttonUrl || 'None'}</p>
@@ -253,7 +268,7 @@ export const HeroTab: React.FC = () => {
               <div className="flex items-center gap-4 shrink-0">
                 <button
                   onClick={() => handleToggleActive(hero)}
-                  className={`w-12 h-6 rounded-full transition-colors relative shadow-inner ${hero.active ? 'bg-primary' : 'bg-surface-container-high border border-outline'}`}
+                  className={`w-12 h-6 rounded-full transition-colors relative shadow-inner focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${hero.active ? 'bg-primary' : 'bg-surface-container-high border border-outline'}`}
                 >
                   <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform shadow ${hero.active ? 'translate-x-6' : ''}`}></span>
                 </button>
@@ -261,14 +276,14 @@ export const HeroTab: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => openEditModal(hero)}
-                    className="p-2 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
+                    className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
                     title="Edit"
                   >
                     <span className="material-symbols-outlined text-[20px]">edit</span>
                   </button>
                   <button
                     onClick={() => setDeleteId(hero.id)}
-                    className="p-2 text-on-surface-variant hover:text-error transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
+                    className="p-2 text-error hover:bg-error/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
                     title="Delete"
                   >
                     <span className="material-symbols-outlined text-[20px]">delete</span>
@@ -297,26 +312,26 @@ export const HeroTab: React.FC = () => {
           />
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea 
-              className="w-full bg-surface border border-outline-variant rounded-md py-2.5 px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none min-h-[80px]"
+            <label className="field-label">Description</label>
+            <textarea
+              className="field-input min-h-[80px]"
               value={description}
               onChange={(e: any) => setDescription(e.target.value)}
               placeholder="Detailed text for the banner (optional)"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input 
-              label="Button Text" 
-              value={buttonText} 
-              onChange={(e: any) => setButtonText(e.target.value)} 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Button Text"
+              value={buttonText}
+              onChange={(e: any) => setButtonText(e.target.value)}
               placeholder="e.g. Shop Now"
             />
-            <Input 
-              label="Button URL" 
-              value={buttonUrl} 
-              onChange={(e: any) => setButtonUrl(e.target.value)} 
+            <Input
+              label="Button URL"
+              value={buttonUrl}
+              onChange={(e: any) => setButtonUrl(e.target.value)}
               placeholder="e.g. /collection/perfumes"
             />
           </div>
@@ -329,43 +344,43 @@ export const HeroTab: React.FC = () => {
           />
 
           <div className="flex items-center gap-2 pt-2">
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               id="activeCheckbox"
               checked={active}
               onChange={(e: any) => setActive(e.target.checked)}
-              className="w-4 h-4 text-primary rounded border-outline-variant focus:ring-primary"
+              className="w-4 h-4 text-accent rounded border-outline-variant focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
             />
             <label htmlFor="activeCheckbox" className="text-sm text-on-surface">Active on storefront</label>
           </div>
 
           <div className="pt-4 mt-2 border-t border-outline-variant space-y-4">
             <h4 className="font-label-md text-on-surface">Images</h4>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-surface-container-lowest border border-outline-variant rounded p-4 text-center">
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="border-2 border-dashed border-outline-variant hover:border-accent transition-colors rounded-lg p-4 text-center bg-surface-container-lowest">
                 <p className="font-label-sm mb-2">Desktop Image (16:9)</p>
                 {editingHero?.imageUrl && (
                   <img src={getImageUrl(editingHero.imageUrl)} alt="" className="w-full h-16 object-cover mb-2 rounded" />
                 )}
-                <input 
-                  type="file" 
-                  accept="image/*" 
+                <input
+                  type="file"
+                  accept="image/*"
                   ref={desktopInputRef}
-                  className="block w-full text-xs text-on-surface-variant file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                  className="block w-full text-xs text-on-surface-variant file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 rounded"
                 />
               </div>
 
-              <div className="bg-surface-container-lowest border border-outline-variant rounded p-4 text-center">
+              <div className="border-2 border-dashed border-outline-variant hover:border-accent transition-colors rounded-lg p-4 text-center bg-surface-container-lowest">
                 <p className="font-label-sm mb-2">Mobile Image (Optional, 4:5)</p>
                 {editingHero?.mobileImageUrl && (
                   <img src={getImageUrl(editingHero.mobileImageUrl)} alt="" className="w-12 h-16 object-cover mb-2 rounded mx-auto" />
                 )}
-                <input 
-                  type="file" 
-                  accept="image/*" 
+                <input
+                  type="file"
+                  accept="image/*"
                   ref={mobileInputRef}
-                  className="block w-full text-xs text-on-surface-variant file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                  className="block w-full text-xs text-on-surface-variant file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 rounded"
                 />
               </div>
             </div>

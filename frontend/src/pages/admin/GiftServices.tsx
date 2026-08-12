@@ -71,6 +71,16 @@ export const GiftServices: React.FC = () => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be smaller than 5MB');
+      e.target.value = '';
+      return;
+    }
     try {
       setImageUploading(true);
       const res = await giftServiceService.uploadImage(file);
@@ -145,7 +155,7 @@ export const GiftServices: React.FC = () => {
         </div>
         <button
           onClick={openCreate}
-          className="btn-primary px-6 py-3 rounded-lg flex items-center gap-2 font-label-md"
+          className="btn-primary px-6 py-3 rounded-lg flex items-center gap-2 font-label-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
         >
           <span className="material-symbols-outlined text-[20px]">add</span>
           New Gift Service
@@ -159,16 +169,16 @@ export const GiftServices: React.FC = () => {
           value={searchInput}
           onChange={e => setSearchInput(e.target.value)}
           placeholder="Search gift services..."
-          className="flex-1 bg-surface-container border border-outline-variant rounded-lg px-4 py-2.5 text-on-surface font-body-md focus:border-primary focus:outline-none"
+          className="flex-1 bg-surface-container border border-outline-variant rounded-lg px-4 py-2.5 text-on-surface font-body-md hover:border-accent/60 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/15 transition-colors"
         />
-        <button type="submit" className="btn-primary px-5 py-2.5 rounded-lg font-label-md">Search</button>
+        <button type="submit" className="btn-primary px-5 py-2.5 rounded-lg font-label-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">Search</button>
         {search && (
-          <button type="button" onClick={() => { setSearch(''); setSearchInput(''); setPage(0); }} className="btn-outline px-4 py-2.5 rounded-lg font-label-md">Clear</button>
+          <button type="button" onClick={() => { setSearch(''); setSearchInput(''); setPage(0); }} className="btn-outline px-4 py-2.5 rounded-lg font-label-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">Clear</button>
         )}
       </form>
 
       {/* Table */}
-      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+      <div className="table-shell">
         {isLoading ? (
           <div className="p-12 text-center text-on-surface-variant">Loading gift services...</div>
         ) : services.length === 0 ? (
@@ -176,25 +186,25 @@ export const GiftServices: React.FC = () => {
             <span className="material-symbols-outlined text-5xl text-on-surface-variant mb-4 block">redeem</span>
             <p className="font-headline-md text-on-surface mb-2">No gift services yet</p>
             <p className="text-on-surface-variant font-body-md mb-6">Create your first premium gift service option.</p>
-            <button onClick={openCreate} className="btn-primary px-6 py-2.5 rounded-lg font-label-md">Add Gift Service</button>
+            <button onClick={openCreate} className="btn-primary px-6 py-2.5 rounded-lg font-label-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">Add Gift Service</button>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-surface-container border-b border-outline-variant">
+              <thead>
                 <tr>
-                  <th className="text-left px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider">Service</th>
-                  <th className="text-left px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider">Price</th>
-                  <th className="text-left px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider">Sort</th>
-                  <th className="text-left px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider">Status</th>
-                  <th className="text-left px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider">Created</th>
-                  <th className="text-right px-6 py-4 font-label-sm text-on-surface-variant uppercase tracking-wider">Actions</th>
+                  <th>Service</th>
+                  <th>Price</th>
+                  <th>Sort</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-outline-variant/30">
+              <tbody>
                 {services.map(service => (
-                  <tr key={service.id} className="hover:bg-surface-container/30 transition-colors">
-                    <td className="px-6 py-4">
+                  <tr key={service.id}>
+                    <td data-label="Service">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-lg bg-surface-container overflow-hidden flex-shrink-0">
                           {service.imageUrl ? (
@@ -213,30 +223,29 @@ export const GiftServices: React.FC = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-body-md text-on-surface font-medium">{formatPrice(service.price)}</td>
-                    <td className="px-6 py-4 font-body-md text-on-surface-variant">{service.sortOrder}</td>
-                    <td className="px-6 py-4">
+                    <td className="font-body-md text-on-surface font-medium" data-label="Price">{formatPrice(service.price)}</td>
+                    <td className="font-body-md text-on-surface-variant" data-label="Sort">{service.sortOrder}</td>
+                    <td data-label="Status">
                       <button
                         onClick={() => handleToggle(service.id)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-label-md uppercase tracking-wider transition-colors ${
-                          service.active
-                            ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
-                            : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                        className={`badge cursor-pointer transition-[filter] hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${
+                          service.active ? 'badge-success' : 'badge-neutral'
                         }`}
+                        title="Click to toggle active/inactive"
                       >
                         <span className="material-symbols-outlined text-[14px]">{service.active ? 'check_circle' : 'cancel'}</span>
                         {service.active ? 'Active' : 'Inactive'}
                       </button>
                     </td>
-                    <td className="px-6 py-4 text-sm text-on-surface-variant">
+                    <td className="text-sm text-on-surface-variant" data-label="Created">
                       {new Date(service.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4">
+                    <td data-label="Actions">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openEdit(service)} className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit">
+                        <button onClick={() => openEdit(service)} className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2" title="Edit">
                           <span className="material-symbols-outlined text-[18px]">edit</span>
                         </button>
-                        <button onClick={() => setDeleteConfirm(service.id)} className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-lg transition-colors" title="Delete">
+                        <button onClick={() => setDeleteConfirm(service.id)} className="p-2 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2" title="Delete">
                           <span className="material-symbols-outlined text-[18px]">delete</span>
                         </button>
                       </div>
@@ -256,7 +265,7 @@ export const GiftServices: React.FC = () => {
             <button
               key={i}
               onClick={() => setPage(i)}
-              className={`w-10 h-10 rounded-lg font-label-md text-sm transition-colors ${
+              className={`w-10 h-10 rounded-lg font-label-md text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${
                 page === i ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
               }`}
             >{i + 1}</button>
@@ -266,20 +275,20 @@ export const GiftServices: React.FC = () => {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="px-8 py-6 border-b border-outline-variant flex items-center justify-between sticky top-0 bg-surface-container-lowest">
+        <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="modal-panel w-full max-w-lg max-h-[90vh] overflow-y-auto border border-outline-variant/40">
+            <div className="px-8 py-6 border-b border-outline-variant flex items-center justify-between sticky top-0 bg-surface">
               <h2 className="font-headline-md text-on-surface">
                 {editingService ? 'Edit Gift Service' : 'New Gift Service'}
               </h2>
-              <button onClick={() => setShowModal(false)} className="text-on-surface-variant hover:text-on-surface p-1">
+              <button onClick={() => setShowModal(false)} className="text-on-surface-variant hover:text-primary hover:bg-surface-container-high p-2 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2" aria-label="Close">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             <form onSubmit={handleSubmit} className="px-8 py-6 space-y-5">
               {/* Image */}
               <div>
-                <label className="block font-label-md text-on-surface mb-2">Image</label>
+                <label className="field-label">Image</label>
                 <div className="flex items-center gap-4">
                   <div className="w-20 h-20 rounded-xl bg-surface-container border border-outline-variant overflow-hidden flex items-center justify-center flex-shrink-0">
                     {form.imageUrl ? (
@@ -288,7 +297,7 @@ export const GiftServices: React.FC = () => {
                       <span className="material-symbols-outlined text-on-surface-variant text-[28px]">card_giftcard</span>
                     )}
                   </div>
-                  <label className="cursor-pointer btn-outline px-4 py-2 rounded-lg text-sm font-label-md flex items-center gap-2">
+                  <label className="cursor-pointer btn-outline px-4 py-2 rounded-lg text-sm font-label-md flex items-center gap-2 focus-within:outline focus-within:outline-2 focus-within:outline-accent focus-within:outline-offset-2">
                     {imageUploading ? (
                       <><span className="material-symbols-outlined text-[16px] animate-spin">refresh</span> Uploading...</>
                     ) : (
@@ -301,33 +310,33 @@ export const GiftServices: React.FC = () => {
 
               {/* Name */}
               <div>
-                <label className="block font-label-md text-on-surface mb-2">Name <span className="text-error">*</span></label>
+                <label className="field-label">Name <span className="text-error">*</span></label>
                 <input
                   type="text"
                   required
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="e.g. Luxury Black Box"
-                  className="w-full bg-transparent border border-outline-variant rounded-lg px-4 py-3 text-on-surface font-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                  className="field-input"
                 />
               </div>
 
               {/* Description */}
               <div>
-                <label className="block font-label-md text-on-surface mb-2">Description</label>
+                <label className="field-label">Description</label>
                 <textarea
                   value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   rows={3}
                   placeholder="Elegant premium magnetic gift box..."
-                  className="w-full bg-transparent border border-outline-variant rounded-lg px-4 py-3 text-on-surface font-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"
+                  className="field-input resize-none"
                 />
               </div>
 
               {/* Price + Sort Order */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-label-md text-on-surface mb-2">Price (₹) <span className="text-error">*</span></label>
+                  <label className="field-label">Price (₹) <span className="text-error">*</span></label>
                   <input
                     type="number"
                     required
@@ -335,17 +344,17 @@ export const GiftServices: React.FC = () => {
                     step="0.01"
                     value={form.price}
                     onChange={e => setForm(f => ({ ...f, price: parseFloat(e.target.value) || 0 }))}
-                    className="w-full bg-transparent border border-outline-variant rounded-lg px-4 py-3 text-on-surface font-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                    className="field-input"
                   />
                 </div>
                 <div>
-                  <label className="block font-label-md text-on-surface mb-2">Sort Order</label>
+                  <label className="field-label">Sort Order</label>
                   <input
                     type="number"
                     min={0}
                     value={form.sortOrder}
                     onChange={e => setForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))}
-                    className="w-full bg-transparent border border-outline-variant rounded-lg px-4 py-3 text-on-surface font-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                    className="field-input"
                   />
                 </div>
               </div>
@@ -359,15 +368,18 @@ export const GiftServices: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setForm(f => ({ ...f, active: !f.active }))}
-                  className={`relative w-12 h-6 rounded-full transition-colors ${form.active ? 'bg-primary' : 'bg-outline-variant'}`}
+                  className={`relative w-12 h-6 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${form.active ? 'bg-primary' : 'bg-outline-variant'}`}
+                  role="switch"
+                  aria-checked={form.active}
+                  aria-label="Active"
                 >
                   <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${form.active ? 'left-7' : 'left-1'}`} />
                 </button>
               </div>
 
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 btn-outline py-3 rounded-xl font-label-md">Cancel</button>
-                <button type="submit" disabled={isSubmitting} className="flex-1 btn-primary py-3 rounded-xl font-label-md disabled:opacity-50">
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 btn-outline py-3 rounded-xl font-label-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">Cancel</button>
+                <button type="submit" disabled={isSubmitting} className="flex-1 btn-primary py-3 rounded-xl font-label-md disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">
                   {isSubmitting ? 'Saving...' : editingService ? 'Update Service' : 'Create Service'}
                 </button>
               </div>

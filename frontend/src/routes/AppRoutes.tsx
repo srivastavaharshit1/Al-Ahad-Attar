@@ -23,6 +23,8 @@ const Checkout = React.lazy(() => import('../pages/Checkout').then(m => ({ defau
 const OrderSuccess = React.lazy(() => import('../pages/OrderSuccess').then(m => ({ default: m.OrderSuccess })));
 const Login = React.lazy(() => import('../pages/Login').then(m => ({ default: m.Login })));
 const Register = React.lazy(() => import('../pages/Register').then(m => ({ default: m.Register })));
+const ForgotPassword = React.lazy(() => import('../pages/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
+const ResetPassword = React.lazy(() => import('../pages/ResetPassword').then(m => ({ default: m.ResetPassword })));
 const About = React.lazy(() => import('../pages/About').then(m => ({ default: m.About })));
 const Contact = React.lazy(() => import('../pages/Contact').then(m => ({ default: m.Contact })));
 const Wishlist = React.lazy(() => import('../pages/customer/Wishlist').then(m => ({ default: m.Wishlist })));
@@ -46,6 +48,7 @@ const AdminAddProduct = React.lazy(() => import('../pages/admin/AddProduct').the
 const AdminEditProduct = React.lazy(() => import('../pages/admin/EditProduct').then(m => ({ default: m.EditProduct })));
 const AdminOrders = React.lazy(() => import('../pages/admin/Orders').then(m => ({ default: m.Orders })));
 const AdminOrderDetails = React.lazy(() => import('../pages/admin/OrderDetails').then(m => ({ default: m.AdminOrderDetails })));
+const AdminRefunds = React.lazy(() => import('../pages/admin/Refunds').then(m => ({ default: m.Refunds })));
 const AdminCustomers = React.lazy(() => import('../pages/admin/Customers').then(m => ({ default: m.Customers })));
 const AdminPromotions = React.lazy(() => import('../pages/admin/Promotions').then(m => ({ default: m.Promotions })));
 const AdminCategories = React.lazy(() => import('../pages/admin/Categories').then(m => ({ default: m.Categories })));
@@ -97,6 +100,8 @@ export const AppRoutes: React.FC = () => {
           <Route path="/checkout/success/:id" element={<OrderSuccess />} />
           <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
           <Route path="/register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
+          <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
+          <Route path="/reset-password" element={<PublicOnlyRoute><ResetPassword /></PublicOnlyRoute>} />
         </Route>
 
         <Route path="/admin" element={<ProtectedRoute requireAdmin={true}><AdminLayout /></ProtectedRoute>}>
@@ -106,6 +111,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="products/:id/edit" element={<AdminEditProduct />} />
           <Route path="orders" element={<AdminOrders />} />
           <Route path="orders/:id" element={<AdminOrderDetails />} />
+          <Route path="refunds" element={<AdminRefunds />} />
           <Route path="customers" element={<AdminCustomers />} />
           <Route path="categories" element={<AdminCategories />} />
           <Route path="promotions" element={<AdminPromotions />} />
@@ -115,6 +121,11 @@ export const AppRoutes: React.FC = () => {
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="gift-services" element={<AdminGiftServices />} />
           <Route path="reviews" element={<AdminReviews />} />
+          {/* Reuses the customer-facing Profile component as-is: /api/profile and
+              /api/profile/change-password are role-agnostic (based on the JWT's identity, not
+              role), and the component has no customer-specific assumptions, so it renders fine
+              inside AdminLayout without duplicating the form. */}
+          <Route path="account" element={<Profile />} />
         </Route>
       </Routes>
     </Suspense>

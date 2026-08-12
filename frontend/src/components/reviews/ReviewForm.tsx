@@ -63,26 +63,27 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({ productId: _productId, o
   };
 
   return (
-    <div className={isModal ? "" : "bg-white p-6 rounded-2xl shadow-lg border border-gray-100 max-w-2xl mx-auto"}>
-      {!isModal && <h3 className="text-xl font-bold mb-4">Write a Review</h3>}
-      
+    <div className={isModal ? "" : "card p-6 max-w-2xl mx-auto"}>
+      {!isModal && <h3 className="font-headline-md text-xl text-on-surface mb-4">Write a Review</h3>}
+
       {error && (
-        <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
+        <div className="bg-error/5 border border-error/20 text-error p-3 rounded-lg mb-4 text-sm leading-relaxed">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Overall Rating *</label>
+          <label className="field-label">Overall Rating *</label>
           <StarRating rating={rating} readonly={false} size={28} onChange={setRating} />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Add a Headline</label>
+          <label htmlFor="review-title" className="field-label">Add a Headline</label>
           <input
+            id="review-title"
             type="text"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+            className="field-input"
             placeholder="What's most important to know?"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -91,11 +92,12 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({ productId: _productId, o
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Add a Written Review *</label>
+          <label htmlFor="review-description" className="field-label">Add a Written Review *</label>
           <textarea
+            id="review-description"
             required
             rows={4}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+            className="field-input resize-none"
             placeholder="What did you like or dislike? What did you use this product for?"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -104,44 +106,46 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({ productId: _productId, o
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Add Photos (Optional)</label>
+          <label className="field-label">Add Photos (Optional)</label>
           <div className="flex flex-wrap gap-4">
             {existingImages.map((url, idx) => (
-              <div key={`existing-${idx}`} className="relative w-20 h-20 border border-gray-200 rounded-lg overflow-hidden group">
+              <div key={`existing-${idx}`} className="relative w-20 h-20 border border-outline-variant rounded-lg overflow-hidden group">
                 <img src={url} alt="Existing" className="w-full h-full object-cover" />
                 <button
                   type="button"
                   onClick={() => removeExistingImage(idx)}
-                  className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label="Remove image"
+                  className="absolute top-1 right-1 bg-ink/60 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <X size={14} />
                 </button>
               </div>
             ))}
             {images.map((file, idx) => (
-              <div key={`new-${idx}`} className="relative w-20 h-20 border border-gray-200 rounded-lg overflow-hidden group">
+              <div key={`new-${idx}`} className="relative w-20 h-20 border border-outline-variant rounded-lg overflow-hidden group">
                 <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-cover" />
                 <button
                   type="button"
                   onClick={() => removeImage(idx)}
-                  className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label="Remove image"
+                  className="absolute top-1 right-1 bg-ink/60 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <X size={14} />
                 </button>
               </div>
             ))}
-            
+
             {(images.length + existingImages.length) < 5 && (
-              <label className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:text-primary hover:border-primary cursor-pointer transition-colors">
+              <label className="w-20 h-20 border-2 border-dashed border-outline-variant rounded-lg flex flex-col items-center justify-center text-on-surface-variant hover:text-accent hover:border-accent cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-accent">
                 <Upload size={20} />
-                <span className="text-[10px] mt-1 font-medium">Upload</span>
+                <span className="text-[10px] mt-1 font-label-md">Upload</span>
                 <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange} />
               </label>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
+        <div className="flex items-center gap-3 pt-4 border-t border-outline-variant/60">
           <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
             Cancel
           </Button>

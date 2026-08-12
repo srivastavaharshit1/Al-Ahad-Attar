@@ -141,6 +141,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ProductResponse getProductById(Long id) {
         log.debug("Fetching product with ID: {}", id);
         Product product = productRepository.findById(id)
@@ -152,6 +153,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ProductResponse getProductBySlug(String slug) {
         log.debug("Fetching product with slug: {}", slug);
         Product product = productRepository.findBySlug(slug)
@@ -163,13 +165,15 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductSummaryResponse> getFeaturedProducts() {
-        return productRepository.findByFeaturedTrue().stream()
+        return productRepository.findByFeaturedTrueAndActiveTrue().stream()
                 .map(productMapper::toSummaryResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductSummaryResponse> getProductsByCategory(Long categoryId) {
         log.debug("Fetching products for category ID: {}", categoryId);
         Category category = categoryRepository.findById(categoryId)
@@ -177,12 +181,13 @@ public class ProductServiceImpl implements ProductService {
                     log.warn("Products by category fetch failed: " + AppConstants.CATEGORY_NOT_FOUND_MSG + categoryId);
                     return new ResourceNotFoundException(AppConstants.CATEGORY_NOT_FOUND_MSG + categoryId);
                 });
-        return productRepository.findByCategory(category).stream()
+        return productRepository.findByCategoryAndActiveTrue(category).stream()
                 .map(productMapper::toSummaryResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductSummaryResponse> getActiveProducts() {
         return productRepository.findByActiveTrue().stream()
                 .map(productMapper::toSummaryResponse)
@@ -190,8 +195,17 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<ProductSummaryResponse> getProducts(String search, Long categoryId, String subcategory, Gender gender, String brand, Boolean featured, Boolean active, Boolean featuredInCollection, Pageable pageable) {
         Specification<Product> spec = (root, query, cb) -> {
+            // category is a ManyToOne (to-one), safe to JOIN FETCH alongside pagination — unlike
+            // variants/images (to-many, handled via @BatchSize instead), a to-one fetch join can't
+            // multiply row count and break LIMIT/OFFSET. Skipped on the count query Spring Data
+            // generates from this same Specification, where a fetch would be pointless and Hibernate
+            // rejects it outside a root-entity-returning query anyway.
+            if (Long.class != query.getResultType() && long.class != query.getResultType()) {
+                root.fetch("category", jakarta.persistence.criteria.JoinType.LEFT);
+            }
             List<Predicate> predicates = new ArrayList<>();
             if (search != null && !search.trim().isEmpty()) {
                 String searchPattern = "%" + search.trim().toLowerCase() + "%";
@@ -248,6 +262,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductSummaryResponse> getRelatedProducts(Long id) {
         log.debug("Fetching related products for product ID: {}", id);
         Product product = productRepository.findById(id)

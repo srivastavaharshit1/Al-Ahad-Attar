@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, type ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useRef, type ReactNode } from 'react';
 import type { CartItem } from '../types';
 import { storage } from '../utils/storage';
 import { useAuth } from '../hooks/useAuth';
@@ -53,6 +53,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [manuallySelectedPromotionId, setManuallySelectedPromotionId] = useState<number | null>(() => storage.get('cart_manual_promo', null));
   const [freeProductOptions, setFreeProductOptions] = useState<any[]>([]);
   const { isAuthenticated, user } = useAuth();
+  const quantityUpdateTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const syncCartState = (cartData: any) => {
     if (!cartData) return;
@@ -67,7 +68,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       price: Number(i.finalPrice || i.price),
       originalPrice: Number(i.originalPrice || i.price),
       discountAmount: Number(i.discountAmount || 0),
-      finalPrice: Number(i.finalPrice || i.price)
+      finalPrice: Number(i.finalPrice || i.price),
+      freeItem: i.freeItem,
+      freePromotionId: i.freePromotionId
     }));
     setItems(mappedItems);
     setCartDiscount(Number(cartData.cartDiscount || 0));
@@ -91,6 +94,22 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const loadCart = async () => {
       if (isAuthenticated) {
         try {
+          // Merge any items added while browsing as a guest into the server-side
+          // cart before loading it, otherwise they'd be silently lost on login.
+          const guestItems = storage.get<CartItem[]>('cart', []);
+          if (guestItems.length > 0) {
+            for (const guestItem of guestItems) {
+              if (guestItem.variantId) {
+                try {
+                  await cartService.addToCart(Number(guestItem.variantId), guestItem.quantity);
+                } catch (mergeError) {
+                  console.error("Failed to merge guest cart item into account cart", guestItem, mergeError);
+                }
+              }
+            }
+            storage.remove('cart');
+          }
+
           const response = await cartService.getCart();
           if (response) {
             syncCartState(response.data);
@@ -169,24 +188,40 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
 
-  const updateQuantity = async (id: string, quantity: number) => {
+  const updateQuantity = (id: string, quantity: number) => {
     if (quantity <= 0) {
-      await removeItem(id);
+      removeItem(id);
       return;
     }
-    
-    if (isAuthenticated) {
+
+    // Update the visible quantity immediately — itemCount/subtotal/offerDiscount below are all
+    // plain reduces over `items`, so this alone makes the whole cart feel instant instead of
+    // waiting out a full server round trip (promotion re-evaluation) on every +/- click, which
+    // is what made this feel "very slow" even though the request itself wasn't catastrophically
+    // so. The actual server sync is debounced below so a burst of clicks becomes one request.
+    const previousQuantity = items.find(item => item.id === id)?.quantity;
+    setItems(prev => prev.map(item => item.id === id ? { ...item, quantity } : item));
+
+    if (!isAuthenticated) return;
+
+    const existingTimer = quantityUpdateTimers.current.get(id);
+    if (existingTimer) clearTimeout(existingTimer);
+
+    quantityUpdateTimers.current.set(id, setTimeout(async () => {
+      quantityUpdateTimers.current.delete(id);
       try {
         const response = await cartService.updateQuantity(Number(id), quantity);
         if (response) {
-            syncCartState(response.data);
+          syncCartState(response.data);
         }
       } catch (error) {
         console.error("Failed to update remote cart quantity", error);
+        toast.error("Failed to update quantity");
+        if (previousQuantity !== undefined) {
+          setItems(prev => prev.map(item => item.id === id ? { ...item, quantity: previousQuantity } : item));
+        }
       }
-    } else {
-      setItems(prev => prev.map(item => item.id === id ? { ...item, quantity } : item));
-    }
+    }, 400));
   };
 
   const clearCart = async () => {

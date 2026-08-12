@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -30,6 +31,7 @@ public class ContactMessageController {
     }
 
     @GetMapping("/admin/contact")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Page<ContactMessageResponse>>> getAllInquiries(
             @RequestParam(required = false) String inquiryType,
             @RequestParam(required = false) MessageStatus status,
@@ -43,6 +45,7 @@ public class ContactMessageController {
     }
 
     @PutMapping("/admin/contact/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ContactMessageResponse>> updateStatus(
             @PathVariable Long id,
             @RequestParam MessageStatus status) {
@@ -55,6 +58,7 @@ public class ContactMessageController {
     }
 
     @DeleteMapping("/admin/contact/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteInquiry(@PathVariable Long id) {
         contactMessageService.deleteInquiry(id);
         return ResponseEntity.ok(ApiResponse.<Void>builder()

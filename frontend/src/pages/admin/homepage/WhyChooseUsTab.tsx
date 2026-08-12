@@ -177,21 +177,21 @@ export const WhyChooseUsTab: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((item, idx) => (
-            <div key={item.id} className="flex flex-col p-4 border border-outline-variant rounded-lg bg-surface hover:bg-surface-container-low transition-colors shadow-sm relative text-center">
-              
+            <div key={item.id} className="card flex flex-col p-4 relative text-center">
+
               <div className="flex justify-between items-start mb-2 w-full">
                 <div className="flex items-center gap-1">
-                  <button 
-                    onClick={() => handleMoveUp(idx)} 
+                  <button
+                    onClick={() => handleMoveUp(idx)}
                     disabled={idx === 0}
-                    className={`p-1 rounded bg-surface-container text-on-surface-variant ${idx === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
+                    className={`p-1 rounded bg-surface-container text-on-surface-variant transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${idx === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
                   >
                     <span className="material-symbols-outlined text-[16px]">arrow_back</span>
                   </button>
-                  <button 
-                    onClick={() => handleMoveDown(idx)} 
+                  <button
+                    onClick={() => handleMoveDown(idx)}
                     disabled={idx === items.length - 1}
-                    className={`p-1 rounded bg-surface-container text-on-surface-variant ${idx === items.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
+                    className={`p-1 rounded bg-surface-container text-on-surface-variant transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${idx === items.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
                   >
                     <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                   </button>
@@ -200,21 +200,21 @@ export const WhyChooseUsTab: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleToggleActive(item)}
-                    className={`w-10 h-5 rounded-full transition-colors relative shadow-inner ${item.active ? 'bg-primary' : 'bg-surface-container-high border border-outline'}`}
+                    className={`w-10 h-5 rounded-full transition-colors relative shadow-inner focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${item.active ? 'bg-primary' : 'bg-surface-container-high border border-outline'}`}
                     title={item.active ? 'Disable' : 'Enable'}
                   >
                     <span className={`absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform shadow ${item.active ? 'translate-x-5' : ''}`}></span>
                   </button>
                   <button
                     onClick={() => openEditModal(item)}
-                    className="p-1 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
+                    className="p-1 text-on-surface-variant hover:text-primary hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
                     title="Edit"
                   >
                     <span className="material-symbols-outlined text-[16px]">edit</span>
                   </button>
                   <button
                     onClick={() => setDeleteId(item.id)}
-                    className="p-1 text-on-surface-variant hover:text-error transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
+                    className="p-1 text-error hover:bg-error/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
                     title="Delete"
                   >
                     <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -244,26 +244,26 @@ export const WhyChooseUsTab: React.FC = () => {
           />
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Material Icon Name *</label>
+            <label className="field-label">Material Icon Name *</label>
             <div className="flex gap-2">
               <div className="w-10 h-10 shrink-0 bg-surface-container rounded border border-outline flex items-center justify-center text-primary">
                 <span className="material-symbols-outlined">{icon || 'help'}</span>
               </div>
-              <Input 
-                value={icon} 
-                onChange={(e: any) => setIcon(e.target.value)} 
+              <Input
+                value={icon}
+                onChange={(e: any) => setIcon(e.target.value)}
                 placeholder="e.g. local_shipping"
                 required
                 className="flex-grow"
               />
             </div>
-            <p className="text-xs text-on-surface-variant mt-1">Use names from <a href="https://fonts.google.com/icons" target="_blank" rel="noreferrer" className="text-primary hover:underline">Google Material Symbols</a></p>
+            <p className="text-xs text-on-surface-variant mt-1">Use names from <a href="https://fonts.google.com/icons" target="_blank" rel="noreferrer" className="link-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 rounded">Google Material Symbols</a></p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
-            <textarea 
-              className="w-full bg-surface border border-outline-variant rounded-md py-2.5 px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none min-h-[80px]"
+            <label className="field-label">Description *</label>
+            <textarea
+              className="field-input min-h-[80px]"
               value={description}
               onChange={(e: any) => setDescription(e.target.value)}
               placeholder="e.g. On all orders over ₹1000"
@@ -272,12 +272,12 @@ export const WhyChooseUsTab: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 pt-2">
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               id="activeCheckbox"
               checked={active}
               onChange={(e: any) => setActive(e.target.checked)}
-              className="w-4 h-4 text-primary rounded border-outline-variant focus:ring-primary"
+              className="w-4 h-4 text-accent rounded border-outline-variant focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
             />
             <label htmlFor="activeCheckbox" className="text-sm text-on-surface">Active on storefront</label>
           </div>

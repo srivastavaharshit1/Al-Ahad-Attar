@@ -31,34 +31,27 @@ public class ProductRequest {
     @Schema(description = "Detailed product description", example = "Experience the luxury of true aged oud...")
     private String description;
 
-    @NotBlank(message = "Brand is required")
     @Schema(description = "Brand name", example = "Al Ahad")
     private String brand;
 
     @Schema(description = "Subcategory (e.g., Fresheners for Bakhoor)", example = "Fresheners")
     private String subcategory;
 
-    @NotBlank(message = "Fragrance family is required")
     @Schema(description = "Fragrance family classification", example = "Woody Oriental")
     private String fragranceFamily;
 
-    @NotBlank(message = "Top notes are required")
     @Schema(description = "Top notes of the fragrance", example = "Saffron, Rose")
     private String topNotes;
 
-    @NotBlank(message = "Middle notes are required")
     @Schema(description = "Heart/middle notes", example = "Oud, Amber")
     private String middleNotes;
 
-    @NotBlank(message = "Base notes are required")
     @Schema(description = "Base notes", example = "Sandalwood, Musk")
     private String baseNotes;
 
-    @NotBlank(message = "Longevity is required")
     @Schema(description = "Expected longevity", example = "12+ Hours")
     private String longevity;
 
-    @NotBlank(message = "Projection is required")
     @Schema(description = "Sillage / projection", example = "Strong")
     private String projection;
 

@@ -6,6 +6,7 @@ import com.alahadattars.dto.variant.VariantResponse;
 import com.alahadattars.dto.variant.VariantSummaryResponse;
 import com.alahadattars.entity.Product;
 import com.alahadattars.entity.ProductVariant;
+import com.alahadattars.exception.BadRequestException;
 import com.alahadattars.exception.ConflictException;
 import com.alahadattars.exception.ResourceNotFoundException;
 import com.alahadattars.mapper.ProductVariantMapper;
@@ -157,24 +158,24 @@ public class ProductVariantServiceImpl implements ProductVariantService {
 
     private void validateVariantSize(com.alahadattars.enums.CategoryType categoryType, String size) {
         if (size == null) {
-            throw new IllegalArgumentException("Variant size cannot be null");
+            throw new BadRequestException("Variant size cannot be null");
         }
         String normalizedSize = size.toLowerCase().replace(" ", "");
-        
+
         switch (categoryType) {
             case ATTARS:
                 if (!List.of("3ml", "6ml", "12ml").contains(normalizedSize)) {
-                    throw new IllegalArgumentException("Invalid size for Attars. Allowed sizes: 3 ml, 6 ml, 12 ml");
+                    throw new BadRequestException("Invalid size for Attars. Allowed sizes: 3 ml, 6 ml, 12 ml");
                 }
                 break;
             case BAKHOOR:
                 if (!List.of("40g").contains(normalizedSize)) {
-                    throw new IllegalArgumentException("Invalid size for Bakhoor. Allowed size: 40 g");
+                    throw new BadRequestException("Invalid size for Bakhoor. Allowed size: 40 g");
                 }
                 break;
             case PERFUMES:
                 if (!List.of("30ml", "60ml", "100ml").contains(normalizedSize)) {
-                    throw new IllegalArgumentException("Invalid size for Perfumes. Allowed sizes: 30 ml, 60 ml, 100 ml");
+                    throw new BadRequestException("Invalid size for Perfumes. Allowed sizes: 30 ml, 60 ml, 100 ml");
                 }
                 break;
             default:

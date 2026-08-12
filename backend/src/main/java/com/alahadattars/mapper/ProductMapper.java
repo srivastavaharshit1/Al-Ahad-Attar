@@ -6,6 +6,7 @@ import com.alahadattars.dto.product.ProductSummaryResponse;
 import com.alahadattars.dto.variant.VariantResponse;
 import com.alahadattars.entity.Product;
 import com.alahadattars.entity.ProductVariant;
+import com.alahadattars.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +20,7 @@ public class ProductMapper {
 
     private final CategoryMapper categoryMapper;
     private final ProductVariantMapper productVariantMapper;
+    private final StorageService storageService;
 
     public ProductResponse toResponse(Product product) {
         if (product == null) {
@@ -37,7 +39,7 @@ public class ProductMapper {
             imageResponses = product.getImages().stream()
                     .map(img -> com.alahadattars.dto.product.ProductImageResponse.builder()
                             .id(img.getId())
-                            .imageUrl(img.getImageUrl() != null ? "/api/images/" + img.getId() + "/file" : null)
+                            .imageUrl(storageService.resolveUrl(img.getImageUrl(), "/api/images/" + img.getId() + "/file"))
                             .displayOrder(img.getDisplayOrder())
                             .isPrimary(img.isPrimary())
                             .altText(img.getAltText())
@@ -138,7 +140,7 @@ public class ProductMapper {
                     .filter(com.alahadattars.entity.ProductImage::isPrimary)
                     .findFirst()
                     .orElse(product.getImages().get(0));
-            thumb = thumbImage.getImageUrl() != null ? "/api/images/" + thumbImage.getId() + "/file" : null;
+            thumb = storageService.resolveUrl(thumbImage.getImageUrl(), "/api/images/" + thumbImage.getId() + "/file");
         }
 
         return ProductSummaryResponse.builder()
@@ -161,4 +163,5 @@ public class ProductMapper {
                 .reviewCount(product.getReviewCount())
                 .build();
     }
+
 }

@@ -5,6 +5,7 @@ import com.alahadattars.dto.order.OrderRequest;
 import com.alahadattars.entity.Address;
 import com.alahadattars.entity.Category;
 import com.alahadattars.entity.Order;
+import com.alahadattars.entity.PaymentIntent;
 import com.alahadattars.entity.Product;
 import com.alahadattars.entity.ProductVariant;
 import com.alahadattars.entity.Promotion;
@@ -12,15 +13,19 @@ import com.alahadattars.entity.PromotionConfiguration;
 import com.alahadattars.entity.User;
 import com.alahadattars.enums.PromotionType;
 import com.alahadattars.enums.RoleType;
+import com.alahadattars.exception.BadRequestException;
 import com.alahadattars.repository.AddressRepository;
 import com.alahadattars.repository.CategoryRepository;
 import com.alahadattars.repository.OrderRepository;
+import com.alahadattars.repository.PaymentIntentRepository;
 import com.alahadattars.repository.ProductRepository;
 import com.alahadattars.repository.ProductVariantRepository;
 import com.alahadattars.repository.PromotionRepository;
 import com.alahadattars.repository.RoleRepository;
 import com.alahadattars.repository.UserRepository;
 import com.alahadattars.service.OrderService;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +35,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -65,6 +71,12 @@ public class OrderServiceIntegrationTest {
 
     @Autowired
     private PromotionRepository promotionRepository;
+
+    @Autowired
+    private PaymentIntentRepository paymentIntentRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @MockBean
     private com.alahadattars.service.PaymentService paymentService;
@@ -166,6 +178,25 @@ public class OrderServiceIntegrationTest {
         promotionRepository.save(freePromotion);
     }
 
+    /**
+     * createOrder requires a PaymentIntent row (bound to the same razorpayOrderId the request
+     * carries) proving this exact amount was actually asked of Razorpay — persists one and wires
+     * the matching fields onto the request so checkout reaches the code under test instead of
+     * failing at "Unknown payment reference" (OrderServiceImpl.java ~line 115).
+     */
+    private void attachPaymentIntent(OrderRequest orderRequest, String razorpayOrderId, BigDecimal amount) {
+        PaymentIntent intent = PaymentIntent.builder()
+                .razorpayOrderId(razorpayOrderId)
+                .user(testUser)
+                .amount(amount)
+                .consumed(false)
+                .build();
+        paymentIntentRepository.save(intent);
+        orderRequest.setRazorpayOrderId(razorpayOrderId);
+        orderRequest.setRazorpayPaymentId("pay_" + razorpayOrderId);
+        orderRequest.setRazorpaySignature("sig_" + razorpayOrderId);
+    }
+
     @Test
     void testCheckoutWithValidFreeProduct() {
         // Buy 1 paid item and claim 1 free item
@@ -183,13 +214,21 @@ public class OrderServiceIntegrationTest {
         OrderRequest orderRequest = new OrderRequest();
         orderRequest.setShippingAddressId(testAddress.getId());
         orderRequest.setItems(List.of(paidReq, freeReq));
+        // Paid 1000 + free 0 = 1000 total; must exactly match what the "Razorpay" charge was for.
+        attachPaymentIntent(orderRequest, "order_valid_test", new BigDecimal("1000.00"));
 
         // Attempt checkout
         var response = orderService.createOrder(testUser.getEmail(), orderRequest);
 
+        // decrementStock is a bulk @Modifying JPQL UPDATE — it doesn't sync back into this
+        // @Transactional test's persistence context, so paidVariant/freeVariant (already loaded
+        // in @BeforeEach) would otherwise be re-fetched from the session's first-level cache
+        // showing their pre-decrement values instead of hitting the DB.
+        entityManager.clear();
+
         assertNotNull(response);
         assertEquals(2, response.getItems().size());
-        
+
         // Find the saved order
         Order order = orderRepository.findByOrderNumber(response.getOrderNumber()).orElseThrow();
         assertEquals(0, new BigDecimal("1000").compareTo(order.getTotalAmount())); // Paid 1000 for variant, free item should be 0
@@ -200,6 +239,51 @@ public class OrderServiceIntegrationTest {
 
         ProductVariant updatedFree = productVariantRepository.findById(freeVariant.getId()).orElseThrow();
         assertEquals(4, updatedFree.getStock());
+    }
+
+    @Test
+    void cancellation_restoresBothPaidAndFreeInventory_refundAmountExcludesGiftValue() {
+        OrderItemRequest paidReq = new OrderItemRequest();
+        paidReq.setVariantId(paidVariant.getId());
+        paidReq.setQuantity(1);
+        paidReq.setFreeItem(false);
+
+        OrderItemRequest freeReq = new OrderItemRequest();
+        freeReq.setVariantId(freeVariant.getId());
+        freeReq.setQuantity(1);
+        freeReq.setFreeItem(true);
+        freeReq.setFreePromotionId(freePromotion.getId());
+
+        OrderRequest orderRequest = new OrderRequest();
+        orderRequest.setShippingAddressId(testAddress.getId());
+        orderRequest.setItems(List.of(paidReq, freeReq));
+        attachPaymentIntent(orderRequest, "order_cancel_test", new BigDecimal("1000.00"));
+
+        var response = orderService.createOrder(testUser.getEmail(), orderRequest);
+        entityManager.clear();
+
+        orderService.cancelOrder(testUser.getEmail(), response.getId());
+        // Unlike the stock changes above (bulk @Modifying queries, which execute immediately),
+        // status/refundStatus are set via normal entity dirty-checking + save() on an
+        // already-persisted row — deferred until an actual flush. Nested @Transactional calls
+        // inside this test's outer transaction don't independently commit, so clear() alone would
+        // silently discard the pending change before it ever reaches the DB.
+        entityManager.flush();
+        entityManager.clear();
+
+        // Both paid (12ml, stock 10 -> 9 after checkout) and free (3ml, stock 5 -> 4 after
+        // checkout) variants must be restored to their pre-checkout stock exactly once.
+        ProductVariant restoredPaid = productVariantRepository.findById(paidVariant.getId()).orElseThrow();
+        assertEquals(10, restoredPaid.getStock());
+        ProductVariant restoredFree = productVariantRepository.findById(freeVariant.getId()).orElseThrow();
+        assertEquals(5, restoredFree.getStock());
+
+        // Refund amount must reflect only the paid subtotal (1000) — never the free item's ₹300
+        // retail value, since it was never actually charged.
+        Order cancelled = orderRepository.findByOrderNumber(response.getOrderNumber()).orElseThrow();
+        assertEquals(com.alahadattars.enums.OrderStatus.CANCELLED, cancelled.getStatus());
+        assertEquals(com.alahadattars.enums.RefundStatus.REFUND_REQUIRED, cancelled.getRefundStatus());
+        assertEquals(0, new BigDecimal("1000.00").compareTo(cancelled.getRefundAmount()));
     }
 
     @Test
@@ -220,8 +304,9 @@ public class OrderServiceIntegrationTest {
         OrderRequest orderRequest = new OrderRequest();
         orderRequest.setShippingAddressId(testAddress.getId());
         orderRequest.setItems(List.of(paidReq, fraudulentFreeReq));
+        attachPaymentIntent(orderRequest, "order_fraud_test", new BigDecimal("1000.00"));
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> {
             orderService.createOrder(testUser.getEmail(), orderRequest);
         });
 

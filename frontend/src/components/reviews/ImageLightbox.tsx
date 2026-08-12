@@ -35,7 +35,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center"
+      className="fixed inset-0 z-[60] bg-ink/95 backdrop-blur-sm flex items-center justify-center"
       role="dialog"
       aria-modal="true"
       aria-label="Image viewer"
@@ -45,14 +45,14 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
       <button
         onClick={onClose}
         aria-label="Close image viewer"
-        className="absolute top-4 right-4 z-10 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+        className="absolute top-4 right-4 z-10 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         <X size={22} />
       </button>
 
       {/* Counter */}
       {images.length > 1 && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-3 py-1 rounded-full">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-3 py-1 rounded-full font-body-sm tracking-wide">
           {current + 1} / {images.length}
         </div>
       )}
@@ -62,7 +62,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
         <button
           onClick={prev}
           aria-label="Previous image"
-          className="absolute left-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+          className="absolute left-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <ChevronLeft size={26} />
         </button>
@@ -83,7 +83,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
         <button
           onClick={next}
           aria-label="Next image"
-          className="absolute right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+          className="absolute right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <ChevronRight size={26} />
         </button>
@@ -97,8 +97,8 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
               key={idx}
               onClick={() => setCurrent(idx)}
               aria-label={`View image ${idx + 1}`}
-              className={`w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${
-                idx === current ? 'border-white scale-110' : 'border-white/30 hover:border-white/60'
+              className={`w-12 h-12 rounded-lg overflow-hidden border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                idx === current ? 'border-accent scale-110' : 'border-white/30 hover:border-white/60'
               }`}
             >
               <img

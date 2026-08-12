@@ -10,14 +10,8 @@ public interface NotificationService {
     void sendOrderNotification(Order order);
 
     /**
-     * Notify the customer that their cancellation has been accepted and refund is pending admin approval.
-     * @param order The cancelled order with refundStatus=PENDING.
-     */
-    void sendRefundPendingNotification(Order order);
-
-    /**
      * Notify the customer that the admin has successfully completed their refund.
-     * @param order The order with refundStatus=COMPLETED and refundId set.
+     * @param order The order with refundStatus=REFUNDED and refundId set.
      */
     void sendRefundCompletedNotification(Order order);
 }

@@ -15,12 +15,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Seeds structural data (roles, bootstrap admin, categories, homepage section toggles).
+ * Runs before {@link CatalogSeeder}, which depends on the categories/roles created here.
+ */
 @Component
 @RequiredArgsConstructor
+@Order(1)
 public class DataSeeder implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DataSeeder.class);
@@ -32,10 +38,12 @@ public class DataSeeder implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
-    @Value("${app.admin.email:admin@alahadattars.com}")
+    // No fallback values here either — the annotation default would otherwise resurrect the
+    // hard-coded credentials even after they were removed from application.yml.
+    @Value("${app.admin.email:}")
     private String adminEmail;
 
-    @Value("${app.admin.password:Admin@123}")
+    @Value("${app.admin.password:}")
     private String adminPassword;
 
     @Override
@@ -63,14 +71,25 @@ public class DataSeeder implements CommandLineRunner {
         });
 
 
-        // 2. Seed Default Admin Account
-        if (!userRepository.existsByEmail(adminEmail)) {
+        // 2. Seed Bootstrap Admin Account — only when credentials were supplied by the operator.
+        // Seeding a default account here would mean every deployment ships a live admin login
+        // whose password is public knowledge.
+        if (adminEmail == null || adminEmail.isBlank() || adminPassword == null || adminPassword.isBlank()) {
+            log.warn("ADMIN_EMAIL/ADMIN_PASSWORD not configured — skipping bootstrap admin account. "
+                    + "Set both environment variables to seed one.");
+        } else if (!userRepository.existsByEmail(adminEmail)) {
             log.info("Creating default Admin account: {}", adminEmail);
             User admin = User.builder()
                     .firstName("Super")
                     .lastName("Admin")
                     .email(adminEmail)
-                    .phone("+10000000000")
+                    // Must be a genuinely valid E.164 number, not just a plausible-looking one —
+                    // @ValidPhoneNumber (libphonenumber) rejects unallocated numbers like the
+                    // previous "+10000000000" placeholder, which made this INSERT fail bean
+                    // validation (ConstraintViolationException) the moment ADMIN_EMAIL/PASSWORD
+                    // were actually configured — a real bootstrap-admin-seeding bug, not just a
+                    // test artifact.
+                    .phone("+919999999999")
                     .password(passwordEncoder.encode(adminPassword))
                     .enabled(true)
                     .emailVerified(true)
@@ -140,33 +159,16 @@ public class DataSeeder implements CommandLineRunner {
         try {
             jdbcTemplate.execute(
                 "UPDATE product p " +
-                "JOIN category c_old ON p.category_id = c_old.id " +
-                "JOIN category c_new ON c_new.type = 'BAKHOOR' " +
-                "SET p.category_id = c_new.id, p.subcategory = 'FRESHENERS' " +
-                "WHERE c_old.type = 'CAR_PERFUMES'"
+                "SET category_id = c_new.id, subcategory = 'FRESHENERS' " +
+                "FROM category c_old, category c_new " +
+                "WHERE p.category_id = c_old.id " +
+                "AND c_new.type = 'BAKHOOR' " +
+                "AND c_old.type = 'CAR_PERFUMES'"
             );
             jdbcTemplate.execute("DELETE FROM category WHERE type = 'CAR_PERFUMES'");
             log.info("Migrated Car Perfumes to Bakhoor/Fresheners.");
         } catch (Exception e) {
             log.warn("Could not migrate Car Perfumes: {}", e.getMessage());
-        }
-
-        // Cleanup broken legacy absolute paths for images to fix frontend broken icons
-        try {
-            int deletedImages = jdbcTemplate.update("DELETE FROM product_image");
-            log.info("Cleaned up {} legacy paths from product_image (cleared table)", deletedImages);
-            
-            // Re-assign primary image for products that lost it
-            jdbcTemplate.execute(
-                "UPDATE product_image pi1 " +
-                "JOIN (SELECT product_id, MIN(id) as first_id FROM product_image GROUP BY product_id) pi2 " +
-                "ON pi1.id = pi2.first_id " +
-                "SET pi1.is_primary = 1 " +
-                "WHERE NOT EXISTS (SELECT 1 FROM (SELECT * FROM product_image) pi3 WHERE pi3.product_id = pi1.product_id AND pi3.is_primary = 1)"
-            );
-            log.info("Re-assigned primary images to fix missing thumbnails.");
-        } catch (Exception e) {
-            log.warn("Could not cleanup broken legacy images: {}", e.getMessage());
         }
 
         // 4. Seed Default Homepage Sections

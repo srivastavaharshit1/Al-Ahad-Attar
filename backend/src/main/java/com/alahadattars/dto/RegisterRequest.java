@@ -1,10 +1,9 @@
 package com.alahadattars.dto;
 
-import com.alahadattars.util.AppConstants;
+import com.alahadattars.validation.ValidPhoneNumber;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -31,8 +30,8 @@ public class RegisterRequest {
     private String email;
 
     @NotBlank(message = "Phone number is required")
-    @Pattern(regexp = AppConstants.PHONE_REGEX, message = "Invalid phone number format")
-    @Schema(description = "User's phone number", example = "+1234567890")
+    @ValidPhoneNumber
+    @Schema(description = "User's phone number in E.164 format", example = "+919876543210")
     private String phone;
 
     @NotBlank(message = "Password is required")

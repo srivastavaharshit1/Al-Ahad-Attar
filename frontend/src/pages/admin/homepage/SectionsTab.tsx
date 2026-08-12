@@ -128,20 +128,20 @@ export const SectionsTab: React.FC = () => {
       </div>
       
       {sections.map((section, idx) => (
-        <div key={section.id} className="flex items-center justify-between p-4 border border-outline-variant rounded-lg bg-surface hover:bg-surface-container-low transition-colors shadow-sm">
+        <div key={section.id} className="card flex items-center justify-between p-4">
           <div className="flex items-center gap-4">
             <div className="flex flex-col gap-1">
-              <button 
-                onClick={() => handleMoveUp(idx)} 
+              <button
+                onClick={() => handleMoveUp(idx)}
                 disabled={idx === 0}
-                className={`p-1 rounded bg-surface-container text-on-surface-variant ${idx === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
+                className={`p-1 rounded bg-surface-container text-on-surface-variant transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${idx === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-accent'}`}
               >
                 <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
               </button>
-              <button 
-                onClick={() => handleMoveDown(idx)} 
+              <button
+                onClick={() => handleMoveDown(idx)}
                 disabled={idx === sections.length - 1}
-                className={`p-1 rounded bg-surface-container text-on-surface-variant ${idx === sections.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-primary'}`}
+                className={`p-1 rounded bg-surface-container text-on-surface-variant transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${idx === sections.length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-container-high hover:text-accent'}`}
               >
                 <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
               </button>
@@ -149,26 +149,27 @@ export const SectionsTab: React.FC = () => {
             <div>
               <h3 className="font-label-lg text-on-surface capitalize flex items-center gap-2">
                 {section.title}
-                {!section.visible && <span className="px-2 py-0.5 rounded text-[10px] bg-surface-container-high text-on-surface-variant font-bold uppercase">Hidden</span>}
+                {!section.visible && <span className="badge badge-neutral">Hidden</span>}
               </h3>
               <p className="font-body-sm text-on-surface-variant">Key: {section.sectionKey} {section.maxItems ? `• Max Items: ${section.maxItems}` : ''}</p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <button
               onClick={() => openEditModal(section)}
-              className="p-2 text-on-surface-variant hover:text-primary transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center"
+              className="p-2 text-on-surface-variant hover:text-accent transition-colors bg-surface-container-lowest border border-outline rounded flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
               title="Edit Section"
             >
               <span className="material-symbols-outlined text-[20px]">edit</span>
             </button>
-            
+
             <button
               onClick={() => handleToggle(section)}
-              className={`w-12 h-6 rounded-full transition-colors relative shadow-inner ${section.visible ? 'bg-primary' : 'bg-surface-container-high border border-outline'}`}
+              className={`w-12 h-6 rounded-full transition-colors relative shadow-inner focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${section.visible ? 'bg-primary' : 'bg-surface-container-high border border-outline'}`}
+              title={section.visible ? 'Visible on homepage' : 'Hidden from homepage'}
             >
-              <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform shadow ${section.visible ? 'translate-x-6' : ''}`}></span>
+              <span className={`absolute top-1 left-1 bg-surface-container-lowest w-4 h-4 rounded-full transition-transform shadow ${section.visible ? 'translate-x-6' : ''}`}></span>
             </button>
           </div>
         </div>
@@ -193,9 +194,9 @@ export const SectionsTab: React.FC = () => {
             
             {/* Some sections don't need description, but it's available */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
-              <textarea 
-                className="w-full bg-surface border border-outline-variant rounded-md py-2.5 px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none min-h-[100px]"
+              <label className="field-label">Description (Optional)</label>
+              <textarea
+                className="field-input min-h-[100px]"
                 value={editDescription}
                 onChange={(e: any) => setEditDescription(e.target.value)}
               />

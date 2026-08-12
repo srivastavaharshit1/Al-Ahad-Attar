@@ -7,6 +7,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import com.alahadattars.validation.ValidPhoneNumber;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -23,7 +24,7 @@ import lombok.ToString;
  */
 @Entity
 @Table(
-    name = "user",
+    name = "users",
     indexes = {
         @Index(name = "idx_user_email", columnList = "email"),
         @Index(name = "idx_user_phone", columnList = "phone"),
@@ -51,9 +52,23 @@ public class User extends BaseEntity {
     @Column(length = 150, nullable = false, unique = true)
     private String email;
 
+    // Canonical E.164 phone (e.g. "+919876543210") — kept as the single source of truth for all
+    // existing code (auth, WhatsApp notifications, email templates) so no API contract changes.
     @NotBlank
+    @ValidPhoneNumber
     @Column(length = 20, nullable = false, unique = true)
     private String phone;
+
+    // countryCode/nationalNumber are the SAME phone number stored decomposed, populated
+    // alongside `phone` (see PhoneNumberHelper) — additive columns, not a replacement, so
+    // existing rows/code paths that only know about `phone` are unaffected. Nullable because
+    // rows created before this feature are backfilled asynchronously (see PhoneNumberBackfillRunner)
+    // rather than blocking on it.
+    @Column(name = "phone_country_code", length = 5)
+    private String phoneCountryCode;
+
+    @Column(name = "phone_national_number", length = 15)
+    private String phoneNationalNumber;
 
     @NotBlank
     @Column(length = 255, nullable = false)

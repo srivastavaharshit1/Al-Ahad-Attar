@@ -2,7 +2,7 @@ import { API_BASE_URL } from './constants';
 
 export const getImageUrl = (path: string | undefined | null): string => {
   if (!path) return '';
-  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:') || path.startsWith('blob:')) {
     return path;
   }
   

@@ -4,6 +4,7 @@ import com.alahadattars.dto.cart.CartItemRequest;
 import com.alahadattars.dto.cart.CartResponse;
 import com.alahadattars.dto.cart.FreeProductOptionResponse;
 import com.alahadattars.entity.Cart;
+import com.alahadattars.exception.BadRequestException;
 import com.alahadattars.repository.CartRepository;
 import com.alahadattars.response.ApiResponse;
 import com.alahadattars.service.CartService;
@@ -127,7 +128,7 @@ public class CartController {
         Long promotionId = body.get("promotionId");
         Long variantId = body.get("variantId");
         if (promotionId == null || variantId == null)
-            throw new IllegalArgumentException("Both 'promotionId' and 'variantId' are required.");
+            throw new BadRequestException("Both 'promotionId' and 'variantId' are required.");
         return ok(cartService.addFreeItemToCart(getEmail(), promotionId, variantId), "Free item added to cart");
     }
 

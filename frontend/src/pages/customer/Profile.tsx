@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { profileService } from '../../services/profileService';
 import type { User } from '../../types';
 import toast from 'react-hot-toast';
+import { Loader } from '../../components/ui/Loader';
+import { Input } from '../../components/ui/Input';
+import { PhoneInput } from '../../components/ui/PhoneInput';
 
 export const Profile: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [profileData, setProfileData] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Password state
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -18,7 +20,6 @@ export const Profile: React.FC = () => {
     confirmPassword: ''
   });
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProfile();
@@ -41,7 +42,6 @@ export const Profile: React.FC = () => {
     if (!profileData) return;
     try {
       setError(null);
-      setSuccessMsg(null);
       await profileService.updateProfile({
         firstName: profileData.firstName,
         lastName: profileData.lastName,
@@ -61,12 +61,11 @@ export const Profile: React.FC = () => {
       setPasswordError("New passwords do not match.");
       return;
     }
-    
+
     try {
       setPasswordError(null);
-      setPasswordSuccess(null);
       await profileService.changePassword({
-        currentPassword: passwordData.currentPassword,
+        oldPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword
       });
       toast.success('Password changed successfully');
@@ -78,23 +77,28 @@ export const Profile: React.FC = () => {
     }
   };
 
-  if (isLoading) return <div className="text-center p-8">Loading profile...</div>;
-  if (!profileData) return <div className="text-center p-8 text-error">{error}</div>;
+  if (isLoading) return <Loader />;
+  if (!profileData) return <div className="text-center p-8 text-error font-body-md leading-relaxed">{error}</div>;
 
   return (
     <div className="max-w-2xl">
+      <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.3em] mb-2 block">My Account</span>
       <h1 className="font-display-sm text-display-sm text-on-surface mb-8">Profile Details</h1>
-      
-      {error && <div className="bg-error-container text-on-error-container p-4 rounded mb-6">{error}</div>}
-      {successMsg && <div className="bg-[#f0fdf4] text-[#166534] p-4 rounded mb-6">{successMsg}</div>}
 
-      <div className="bg-surface-container-lowest border border-outline-variant p-6 md:p-8 rounded-DEFAULT mb-8">
+      {error && (
+        <div className="flex items-start gap-3 bg-error-container/20 border border-error/30 rounded-lg p-4 mb-6">
+          <span className="material-symbols-outlined text-error text-[20px] flex-shrink-0 mt-0.5">error</span>
+          <p className="text-sm text-error leading-relaxed">{error}</p>
+        </div>
+      )}
+
+      <div className="card p-6 md:p-8 mb-8">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="font-headline-md text-headline-md">Personal Information</h2>
+          <h2 className="font-headline-md text-headline-md text-on-surface">Personal Information</h2>
           {!isEditing && (
-            <button 
+            <button
               onClick={() => setIsEditing(true)}
-              className="text-primary font-label-md hover:underline flex items-center gap-1"
+              className="link-underline font-label-md text-primary flex items-center gap-1 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               <span className="material-symbols-outlined text-sm">edit</span> Edit
             </button>
@@ -103,61 +107,50 @@ export const Profile: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block font-label-md text-on-surface-variant mb-2">First Name</label>
-              <input 
-                type="text" 
-                value={profileData.firstName}
-                onChange={(e) => setProfileData({...profileData, firstName: e.target.value})}
-                disabled={!isEditing}
-                className="w-full bg-surface border border-outline-variant rounded px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-70 disabled:bg-surface-container-low"
-              />
-            </div>
-            <div>
-              <label className="block font-label-md text-on-surface-variant mb-2">Last Name</label>
-              <input 
-                type="text" 
-                value={profileData.lastName}
-                onChange={(e) => setProfileData({...profileData, lastName: e.target.value})}
-                disabled={!isEditing}
-                className="w-full bg-surface border border-outline-variant rounded px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-70 disabled:bg-surface-container-low"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block font-label-md text-on-surface-variant mb-2">Email Address</label>
-              <input 
-                type="email" 
-                value={profileData.email}
-                disabled
-                className="w-full bg-surface-container-low border border-outline-variant rounded px-4 py-2 opacity-70 cursor-not-allowed"
-                title="Email cannot be changed"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block font-label-md text-on-surface-variant mb-2">Phone Number</label>
-              <input 
-                type="tel" 
-                value={profileData.phone}
-                onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
-                disabled={!isEditing}
-                className="w-full bg-surface border border-outline-variant rounded px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-70 disabled:bg-surface-container-low"
-              />
-            </div>
+            <Input
+              label="First Name"
+              type="text"
+              value={profileData.firstName}
+              onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+              disabled={!isEditing}
+            />
+            <Input
+              label="Last Name"
+              type="text"
+              value={profileData.lastName}
+              onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+              disabled={!isEditing}
+            />
+            <Input
+              label="Email Address"
+              type="email"
+              value={profileData.email}
+              disabled
+              title="Email cannot be changed"
+              className="md:col-span-2"
+            />
+            <PhoneInput
+              label="Phone Number"
+              value={profileData.phone}
+              onChange={(phone) => setProfileData({ ...profileData, phone })}
+              disabled={!isEditing}
+              className="md:col-span-2"
+            />
           </div>
 
           {isEditing && (
             <div className="flex justify-end gap-4 pt-4 border-t border-outline-variant">
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => {
                   setIsEditing(false);
                   fetchProfile();
                 }}
-                className="btn-outline px-6 py-2"
+                className="btn btn-outline"
               >
                 Cancel
               </button>
-              <button type="submit" className="btn-primary px-6 py-2">
+              <button type="submit" className="btn btn-primary">
                 Save Changes
               </button>
             </div>
@@ -165,71 +158,65 @@ export const Profile: React.FC = () => {
         </form>
       </div>
 
-      <div className="bg-surface-container-lowest border border-outline-variant p-6 md:p-8 rounded-DEFAULT mb-8">
+      <div className="card p-6 md:p-8 mb-8">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="font-headline-md text-headline-md">Change Password</h2>
+          <h2 className="font-headline-md text-headline-md text-on-surface">Change Password</h2>
           {!isChangingPassword && (
-            <button 
+            <button
               onClick={() => setIsChangingPassword(true)}
-              className="text-primary font-label-md hover:underline flex items-center gap-1"
+              className="link-underline font-label-md text-primary flex items-center gap-1 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               <span className="material-symbols-outlined text-sm">lock_reset</span> Change
             </button>
           )}
         </div>
 
-        {passwordError && <div className="bg-error-container text-on-error-container p-4 rounded mb-6">{passwordError}</div>}
-        {passwordSuccess && <div className="bg-[#f0fdf4] text-[#166534] p-4 rounded mb-6">{passwordSuccess}</div>}
-
+        {passwordError && (
+          <div className="flex items-start gap-3 bg-error-container/20 border border-error/30 rounded-lg p-4 mb-6">
+            <span className="material-symbols-outlined text-error text-[20px] flex-shrink-0 mt-0.5">error</span>
+            <p className="text-sm text-error leading-relaxed">{passwordError}</p>
+          </div>
+        )}
         {isChangingPassword && (
           <form onSubmit={handlePasswordSubmit} className="space-y-6">
             <div className="grid grid-cols-1 gap-6 max-w-md">
-              <div>
-                <label className="block font-label-md text-on-surface-variant mb-2">Current Password</label>
-                <input 
-                  type="password" 
-                  value={passwordData.currentPassword}
-                  onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
-                  required
-                  className="w-full bg-surface border border-outline-variant rounded px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div>
-                <label className="block font-label-md text-on-surface-variant mb-2">New Password</label>
-                <input 
-                  type="password" 
-                  value={passwordData.newPassword}
-                  onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
-                  required
-                  minLength={6}
-                  className="w-full bg-surface border border-outline-variant rounded px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div>
-                <label className="block font-label-md text-on-surface-variant mb-2">Confirm New Password</label>
-                <input 
-                  type="password" 
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
-                  required
-                  minLength={6}
-                  className="w-full bg-surface border border-outline-variant rounded px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary"
-                />
-              </div>
+              <Input
+                label="Current Password"
+                type="password"
+                value={passwordData.currentPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                required
+              />
+              <Input
+                label="New Password"
+                type="password"
+                value={passwordData.newPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                required
+                minLength={6}
+              />
+              <Input
+                label="Confirm New Password"
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                required
+                minLength={6}
+              />
             </div>
 
             <div className="flex gap-4 pt-4 border-t border-outline-variant">
-              <button type="submit" className="btn-primary px-6 py-2">
+              <button type="submit" className="btn btn-primary">
                 Update Password
               </button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => {
                   setIsChangingPassword(false);
                   setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
                   setPasswordError(null);
                 }}
-                className="btn-outline px-6 py-2"
+                className="btn btn-outline"
               >
                 Cancel
               </button>

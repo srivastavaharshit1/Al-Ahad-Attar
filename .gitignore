@@ -21,6 +21,8 @@ coverage/
 .env.*
 backend/.env
 frontend/.env
+!.env.example
+!*/.env.example
 
 # Compiled Java class files
 *.class

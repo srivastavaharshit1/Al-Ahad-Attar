@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface ModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const Modal: React.FC<ModalProps> = ({
   maxWidth = 'md'
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, isOpen);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -45,26 +47,27 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div 
+    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
         ref={dialogRef}
-        className={`bg-surface rounded-2xl w-full ${maxWidthClasses[maxWidth]} shadow-xl overflow-hidden border border-outline-variant/30 transform transition-all flex flex-col max-h-[90vh]`}
+        tabIndex={-1}
+        className={`modal-panel w-full ${maxWidthClasses[maxWidth]} overflow-hidden border border-outline-variant/40 flex flex-col max-h-[90vh]`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="dialog-title"
       >
-        <div className="flex items-center justify-between p-6 border-b border-outline-variant/30 shrink-0">
-          <h2 id="dialog-title" className="font-headline-sm text-on-surface m-0">
+        <div className="flex items-center justify-between p-6 border-b border-outline-variant/40 shrink-0">
+          <h2 id="dialog-title" className="font-headline-md text-lg text-on-surface m-0">
             {title}
           </h2>
-          <button 
+          <button
             onClick={onClose}
-            className="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high p-2 rounded-full transition-colors flex items-center justify-center"
+            className="text-on-surface-variant hover:text-primary hover:bg-surface-container-high p-2 rounded-full transition-colors flex items-center justify-center"
           >
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
-        
+
         <div className="p-6 overflow-y-auto">
           {children}
         </div>

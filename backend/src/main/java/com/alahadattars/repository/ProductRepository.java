@@ -15,8 +15,15 @@ import java.util.Optional;
 public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpecificationExecutor<Product> {
     Optional<Product> findBySlug(String slug);
     boolean existsBySlug(String slug);
+    // Unfiltered on purpose — CategoryServiceImpl uses this to check "does this category still
+    // have ANY products" (active or not) before allowing a category delete, since an inactive
+    // product row still holds a real FK to it. Public-facing category browsing uses the
+    // *AndActiveTrue variant below instead.
     List<Product> findByCategory(Category category);
-    List<Product> findByFeaturedTrue();
+    List<Product> findByCategoryAndActiveTrue(Category category);
+    // Featured products are surfaced on the public homepage — deactivated ones must never appear
+    // there just because they were once marked featured.
+    List<Product> findByFeaturedTrueAndActiveTrue();
     List<Product> findByActiveTrue();
     List<Product> findByBrand(String brand);
     List<Product> findByGender(Gender gender);

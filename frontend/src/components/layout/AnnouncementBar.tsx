@@ -45,10 +45,14 @@ export const AnnouncementBar: React.FC = () => {
 
   if (activePromotions.length === 0) {
     return (
-      <div className="bg-primary text-on-primary py-2.5 text-center font-label-sm uppercase tracking-[0.2em] z-50 relative h-10 flex items-center justify-center overflow-hidden">
-        <span className="opacity-90">Free Shipping Above ₹999</span>
-        <span className="mx-3 opacity-40">|</span>
-        <span className="opacity-90">Premium Arabic Attars</span>
+      <div className="bg-primary text-on-primary py-2.5 text-center font-label-sm uppercase tracking-[0.12em] sm:tracking-[0.2em] z-50 relative h-10 flex items-center justify-center overflow-hidden px-4">
+        {/* "Premium Arabic Attars" is dropped below sm: at narrow widths the full line (with
+            uppercase tracking) doesn't fit on one row, and this bar's fixed h-10 + overflow-hidden
+            clipped the wrapped second line instead of showing it — so the free-shipping message
+            (the actionable part) is what has to survive, not both. */}
+        <span className="opacity-90 truncate">Free Shipping Above ₹999</span>
+        <span className="mx-3 opacity-40 hidden sm:inline">|</span>
+        <span className="opacity-90 hidden sm:inline">Premium Arabic Attars</span>
       </div>
     );
   }
@@ -57,7 +61,7 @@ export const AnnouncementBar: React.FC = () => {
 
   return (
     <div
-      className="bg-primary text-on-primary py-2.5 text-center font-label-sm uppercase tracking-[0.2em] z-50 relative h-10 flex items-center justify-center overflow-hidden"
+      className="bg-primary text-on-primary py-2.5 text-center font-label-sm uppercase tracking-[0.12em] sm:tracking-[0.2em] z-50 relative h-10 flex items-center justify-center overflow-hidden"
       role="marquee"
       aria-live="polite"
       aria-label="Current promotions"
@@ -67,18 +71,18 @@ export const AnnouncementBar: React.FC = () => {
       <div className="absolute inset-0 flex justify-center items-center w-full">
         <Link
           to="/offers"
-          className={`flex items-center justify-center gap-2 transition-all duration-500 ease-in-out hover:opacity-80 w-full px-4 absolute ${
-            fadeState === 'enter' 
-              ? 'opacity-100 translate-y-0' 
+          className={`flex items-center justify-center gap-2 transition-all duration-500 ease-in-out hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-primary rounded-sm w-full px-4 absolute overflow-hidden ${
+            fadeState === 'enter'
+              ? 'opacity-100 translate-y-0'
               : 'opacity-0 -translate-y-4 pointer-events-none'
           }`}
         >
-          <span aria-hidden="true" className="text-sm">{getPromoIcon(promo)}</span>
-          <span>{getPromoHeadline(promo)}</span>
+          <span aria-hidden="true" className="text-sm shrink-0">{getPromoIcon(promo)}</span>
+          <span className="truncate">{getPromoHeadline(promo)}</span>
           {promo.code && (
             <>
-              <span className="mx-1.5 opacity-40">|</span>
-              <span className="font-mono tracking-wider font-semibold">Code: {promo.code}</span>
+              <span className="mx-1.5 opacity-40 hidden sm:inline shrink-0">|</span>
+              <span className="font-mono tracking-wider font-semibold hidden sm:inline shrink-0">Code: {promo.code}</span>
             </>
           )}
         </Link>

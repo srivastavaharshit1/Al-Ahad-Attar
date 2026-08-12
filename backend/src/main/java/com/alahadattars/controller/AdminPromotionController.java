@@ -6,21 +6,26 @@ import com.alahadattars.entity.Promotion;
 import com.alahadattars.exception.ResourceNotFoundException;
 import com.alahadattars.repository.PromotionRepository;
 import com.alahadattars.response.ApiResponse;
+import com.alahadattars.service.impl.PromotionConfigValidator;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/admin/promotions")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 @Tag(name = "Admin Promotions", description = "Admin APIs for managing promotions")
 public class AdminPromotionController {
 
     private final PromotionRepository promotionRepository;
+    private final PromotionConfigValidator promotionConfigValidator;
+    private final com.alahadattars.service.impl.PromotionResponseMapper promotionResponseMapper;
 
     @GetMapping
     public ResponseEntity<ApiResponse<Page<PromotionResponse>>> getAllPromotions(
@@ -55,6 +60,7 @@ public class AdminPromotionController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<PromotionResponse>> createPromotion(@Valid @RequestBody PromotionRequest request) {
+        promotionConfigValidator.validate(request);
         Promotion promotion = toEntity(request);
         Promotion saved = promotionRepository.save(promotion);
         return ResponseEntity.ok(ApiResponse.<PromotionResponse>builder()
@@ -71,7 +77,8 @@ public class AdminPromotionController {
             
         Promotion existing = promotionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Promotion not found"));
-                
+
+        promotionConfigValidator.validate(request);
         updateEntity(existing, request);
         Promotion saved = promotionRepository.save(existing);
         
@@ -111,26 +118,7 @@ public class AdminPromotionController {
     }
 
     private PromotionResponse toResponse(Promotion promo) {
-        return PromotionResponse.builder()
-                .id(promo.getId())
-                .name(promo.getName())
-                .description(promo.getDescription())
-                .code(promo.getCode())
-                .promotionType(promo.getPromotionType())
-                .discountType(promo.getDiscountType())
-                .discountValue(promo.getDiscountValue())
-                .minCartValue(promo.getMinCartValue())
-                .maxDiscountValue(promo.getMaxDiscountValue())
-                .startDate(promo.getStartDate())
-                .endDate(promo.getEndDate())
-                .usageLimit(promo.getUsageLimit())
-                .usedCount(promo.getUsedCount())
-                .perUserLimit(promo.getPerUserLimit())
-                .priority(promo.getPriority())
-                .active(promo.isActive())
-                .stackable(promo.isStackable())
-                .configuration(promo.getConfiguration())
-                .build();
+        return promotionResponseMapper.toResponse(promo);
     }
 
     private Promotion toEntity(PromotionRequest request) {

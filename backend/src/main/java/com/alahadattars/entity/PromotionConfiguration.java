@@ -44,6 +44,20 @@ public class PromotionConfiguration implements Serializable {
     // --- Buy Qualification ---
 
     /**
+     * Explicit scope for the buy/qualification rule. Null means "legacy inference" — match the
+     * old implicit behavior based on which of buyCategoryId/buyProductId/buyVariantIds/
+     * buyVariantSize happen to be set (existing promotions created before this field existed).
+     * Non-null selects the new explicit-scope matching in PromotionEngineServiceImpl.
+     */
+    private com.alahadattars.enums.PromotionScope buyScope;
+
+    /**
+     * Multiple qualifying variant sizes (e.g. ["6 ml", "12 ml"] — either counts). Additive
+     * alongside the single-size buyVariantSize below; when non-empty, this list is used instead.
+     */
+    private java.util.List<String> buyVariantSizes;
+
+    /**
      * The variant size that triggers eligibility (e.g. "12 ml").
      * Matched case-insensitively against CartItem.variant.size.
      * If null, any variant size in the buy category qualifies.
@@ -75,6 +89,20 @@ public class PromotionConfiguration implements Serializable {
     private Integer minPurchaseQuantity;
 
     // --- Free Product Configuration ---
+
+    /**
+     * Explicit scope for the free-gift rule — independent of buyScope. Null means "legacy
+     * inference" (existing promotions created before this field existed); non-null selects the
+     * new explicit-scope matching in PromotionEngineServiceImpl.
+     */
+    private com.alahadattars.enums.PromotionScope freeScope;
+
+    /**
+     * Multiple eligible free-gift variant sizes (e.g. ["3 ml", "6 ml"] — either is offered).
+     * Additive alongside the single-size allowedFreeVariantSize below; when non-empty, this list
+     * is used instead.
+     */
+    private java.util.List<String> freeVariantSizes;
 
     /**
      * Category IDs from which the free item must come.

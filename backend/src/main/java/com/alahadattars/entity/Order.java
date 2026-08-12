@@ -33,7 +33,10 @@ import java.util.List;
     name = "orders", // 'order' is a reserved keyword in SQL
     indexes = {
         @Index(name = "idx_order_user_id", columnList = "user_id"),
-        @Index(name = "idx_order_number", columnList = "order_number", unique = true)
+        @Index(name = "idx_order_number", columnList = "order_number", unique = true),
+        // Database-level backstop against a single payment backing multiple orders.
+        // MySQL permits repeated NULLs, so orders without a transaction id are unaffected.
+        @Index(name = "idx_order_transaction_id", columnList = "transaction_id", unique = true)
     }
 )
 @Getter
@@ -77,6 +80,7 @@ public class Order extends BaseEntity {
     private BigDecimal couponDiscountAmount = BigDecimal.ZERO;
 
     @NotNull
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, columnDefinition = "VARCHAR(255)")
     private OrderStatus status;
 
@@ -94,7 +98,11 @@ public class Order extends BaseEntity {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    @Column(name = "applied_promotions_snapshot", columnDefinition = "JSON")
+    // Plain TEXT, not a Postgres JSON column: Hibernate binds a String field as varchar, and
+    // Postgres has no implicit varchar->json cast on INSERT ("column ... is of type json but
+    // expression is of type character varying"). TEXT holds the same JSON-serialized string
+    // without that mismatch — same pattern already used by Promotion.configuration.
+    @Column(name = "applied_promotions_snapshot", columnDefinition = "TEXT")
     private String appliedPromotionsSnapshot;
 
     // Gift service snapshot — stored at order time so historical accuracy is preserved even if prices change later
@@ -154,8 +162,31 @@ public class Order extends BaseEntity {
     @Column(name = "refund_initiated_by")
     private String refundInitiatedBy;
 
+    // ─── Cancellation audit fields ─────────────────────────────────────────────
+
+    /**
+     * When the CONFIRMED -> CANCELLED transition actually happened. Deliberately separate from
+     * {@code updatedAt} (BaseEntity) — updatedAt keeps moving every time a subsequent refund
+     * field changes (PROCESSING, REFUNDED, ...), so it stops meaning "when was this cancelled"
+     * the moment the refund flow starts touching the row.
+     */
+    @Column(name = "cancelled_at")
+    private LocalDateTime cancelledAt;
+
+    /**
+     * Email of whoever cancelled the order — the order owner's own email for a customer
+     * self-cancellation, or the acting admin's email for an admin-initiated cancellation. Null
+     * until the order is cancelled. Comparing this to {@code user.getEmail()} tells apart the two
+     * cases without needing a separate boolean flag.
+     */
+    @Column(name = "cancelled_by")
+    private String cancelledBy;
+
     @ToString.Exclude
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    // Batches lazy-loading of items across a page of orders into ~1 query per page instead of 1
+    // per order (N+1) — order-list endpoints page through orders without a fetch join.
+    @org.hibernate.annotations.BatchSize(size = 20)
     @Builder.Default
     private List<OrderItem> items = new ArrayList<>();
 

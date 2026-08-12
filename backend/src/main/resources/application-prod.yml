@@ -1,0 +1,15 @@
+# Activated via SPRING_PROFILES_ACTIVE=prod. Overrides application.yml's dev-oriented defaults,
+# which log every SQL statement and its bound parameter values (customer names, emails, phone
+# numbers, addresses, and the bcrypt hash on every user save) at DEBUG/TRACE — safe for local
+# development, not for a shared production log aggregator.
+spring:
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    root: INFO
+    com.alahadattars: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN

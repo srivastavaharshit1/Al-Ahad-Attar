@@ -1,8 +1,10 @@
 package com.alahadattars.controller;
 
 import com.alahadattars.dto.AuthenticationResponse;
+import com.alahadattars.dto.ForgotPasswordRequest;
 import com.alahadattars.dto.LoginRequest;
 import com.alahadattars.dto.RegisterRequest;
+import com.alahadattars.dto.ResetPasswordRequest;
 import com.alahadattars.dto.UserResponse;
 import com.alahadattars.response.ApiResponse;
 import com.alahadattars.service.AuthenticationService;
@@ -90,6 +92,39 @@ public class AuthController {
                 .success(true)
                 .message("Current user retrieved successfully")
                 .data(response)
+                .build());
+    }
+
+    @Operation(summary = "Request a password reset link")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Request accepted (always returns success, regardless of whether the email is registered)")
+    })
+    @PostMapping("/forgot-password")
+    public ResponseEntity<com.alahadattars.response.ApiResponse<Void>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+        log.info("Received password reset request for email: {}", request.getEmail());
+        authenticationService.forgotPassword(request);
+        return ResponseEntity.ok(com.alahadattars.response.ApiResponse.<Void>builder()
+                .success(true)
+                .message("If that email is registered, a password reset link has been sent")
+                .build());
+    }
+
+    @Operation(summary = "Reset password using a token from the forgot-password email")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Password reset successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid or expired token")
+    })
+    @PostMapping("/reset-password")
+    public ResponseEntity<com.alahadattars.response.ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+        log.info("Received password reset submission");
+        authenticationService.resetPassword(request);
+        return ResponseEntity.ok(com.alahadattars.response.ApiResponse.<Void>builder()
+                .success(true)
+                .message("Password reset successfully")
                 .build());
     }
 }

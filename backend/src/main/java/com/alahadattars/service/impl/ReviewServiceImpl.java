@@ -10,6 +10,8 @@ import com.alahadattars.entity.Review;
 import com.alahadattars.entity.ReviewImage;
 import com.alahadattars.entity.ReviewReport;
 import com.alahadattars.entity.User;
+import com.alahadattars.exception.BadRequestException;
+import com.alahadattars.exception.ConflictException;
 import com.alahadattars.exception.ResourceNotFoundException;
 import com.alahadattars.exception.UnauthorizedException;
 import com.alahadattars.repository.HelpfulVoteRepository;
@@ -18,7 +20,7 @@ import com.alahadattars.repository.ProductRepository;
 import com.alahadattars.repository.ReviewReportRepository;
 import com.alahadattars.repository.ReviewRepository;
 import com.alahadattars.repository.UserRepository;
-import com.alahadattars.service.UploadService;
+import com.alahadattars.service.StorageService;
 import com.alahadattars.service.ReviewService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +48,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final OrderRepository orderRepository;
     private final HelpfulVoteRepository helpfulVoteRepository;
     private final ReviewReportRepository reviewReportRepository;
-    private final UploadService fileStorageService;
+    private final StorageService storageService;
 
     @Override
     @Transactional
@@ -55,7 +57,7 @@ public class ReviewServiceImpl implements ReviewService {
         Product product = getProductById(request.getProductId());
 
         if (reviewRepository.existsByProductIdAndUserId(product.getId(), user.getId())) {
-            throw new IllegalArgumentException("You have already reviewed this product.");
+            throw new ConflictException("You have already reviewed this product.");
         }
 
         boolean isVerified = orderRepository.hasUserPurchasedProduct(user.getId(), product.getId());
@@ -109,7 +111,7 @@ public class ReviewServiceImpl implements ReviewService {
         
         // Delete images
         for (ReviewImage img : review.getImages()) {
-            fileStorageService.deleteFile(img.getImageUrl());
+            storageService.deleteFile(img.getImageUrl());
         }
 
         reviewRepository.delete(review);
@@ -218,11 +220,11 @@ public class ReviewServiceImpl implements ReviewService {
         }
         
         if (review.getImages().size() + files.size() > 5) {
-            throw new IllegalArgumentException("Maximum of 5 images allowed per review.");
+            throw new BadRequestException("Maximum of 5 images allowed per review.");
         }
 
         for (MultipartFile file : files) {
-            String imageUrl = fileStorageService.uploadFile(file, "uploads/reviews");
+            String imageUrl = storageService.uploadFile(file, "reviews/" + id);
             ReviewImage reviewImage = ReviewImage.builder()
                     .review(review)
                     .imageUrl(imageUrl)
@@ -266,13 +268,13 @@ public class ReviewServiceImpl implements ReviewService {
         Product product = review.getProduct();
         
         for (ReviewImage img : review.getImages()) {
-            fileStorageService.deleteFile(img.getImageUrl());
+            storageService.deleteFile(img.getImageUrl());
         }
-        
+
         reviewRepository.delete(review);
         updateProductRating(product);
     }
-    
+
     // --- Helper Methods ---
 
     private User getUserByEmail(String email) {
@@ -307,7 +309,7 @@ public class ReviewServiceImpl implements ReviewService {
 
         List<String> images = review.getImages() != null ?
                 review.getImages().stream()
-                    .map(img -> img.getImageUrl() != null ? "/api/reviews/images/" + img.getId() + "/file" : null)
+                    .map(img -> storageService.resolveUrl(img.getImageUrl(), "/api/reviews/images/" + img.getId() + "/file"))
                     .filter(java.util.Objects::nonNull)
                     .collect(Collectors.toList()) :
                 new ArrayList<>();
@@ -330,4 +332,5 @@ public class ReviewServiceImpl implements ReviewService {
                 .updatedAt(review.getUpdatedAt())
                 .build();
     }
+
 }

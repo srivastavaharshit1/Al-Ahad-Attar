@@ -43,39 +43,48 @@ public class PublicHomepageController {
     }
 
     @GetMapping("/heroes/{id}/image")
-    public ResponseEntity<Resource> serveHeroImage(@PathVariable Long id) {
+    public ResponseEntity<?> serveHeroImage(@PathVariable Long id) {
         HeroBanner hero = heroBannerRepository.findById(id).orElse(null);
         if (hero == null || hero.getImageUrl() == null || hero.getImageUrl().isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        return serveFile(hero.getImageUrl());
+        return serveFileOrRedirect(hero.getImageUrl());
     }
 
     @GetMapping("/heroes/{id}/mobile-image")
-    public ResponseEntity<Resource> serveHeroMobileImage(@PathVariable Long id) {
+    public ResponseEntity<?> serveHeroMobileImage(@PathVariable Long id) {
         HeroBanner hero = heroBannerRepository.findById(id).orElse(null);
         if (hero == null || hero.getMobileImageUrl() == null || hero.getMobileImageUrl().isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        return serveFile(hero.getMobileImageUrl());
+        return serveFileOrRedirect(hero.getMobileImageUrl());
     }
 
     @GetMapping("/banners/{id}/image")
-    public ResponseEntity<Resource> servePromoImage(@PathVariable Long id) {
+    public ResponseEntity<?> servePromoImage(@PathVariable Long id) {
         PromoBanner banner = promoBannerRepository.findById(id).orElse(null);
         if (banner == null || banner.getImageUrl() == null || banner.getImageUrl().isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        return serveFile(banner.getImageUrl());
+        return serveFileOrRedirect(banner.getImageUrl());
     }
 
     @GetMapping("/testimonials/{id}/photo")
-    public ResponseEntity<Resource> serveTestimonialPhoto(@PathVariable Long id) {
+    public ResponseEntity<?> serveTestimonialPhoto(@PathVariable Long id) {
         Testimonial testimonial = testimonialRepository.findById(id).orElse(null);
         if (testimonial == null || testimonial.getPhotoUrl() == null || testimonial.getPhotoUrl().isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        return serveFile(testimonial.getPhotoUrl());
+        return serveFileOrRedirect(testimonial.getPhotoUrl());
+    }
+
+    private ResponseEntity<?> serveFileOrRedirect(String url) {
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            // Already on external storage (e.g. Supabase Storage, seed-data placeholders) —
+            // redirect rather than trying to resolve it as a local upload path.
+            return ResponseEntity.status(302).location(java.net.URI.create(url)).build();
+        }
+        return serveFile(url);
     }
 
     private ResponseEntity<Resource> serveFile(String filePath) {
@@ -92,9 +101,8 @@ public class PublicHomepageController {
                     contentType = "image/webp";
                 } else if (lowerPath.endsWith(".gif")) {
                     contentType = "image/gif";
-                } else if (lowerPath.endsWith(".svg")) {
-                    contentType = "image/svg+xml";
                 }
+                // Deliberately no .svg mapping — see LocalStorageService for why SVG is rejected outright.
 
                 return ResponseEntity.ok()
                         .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")

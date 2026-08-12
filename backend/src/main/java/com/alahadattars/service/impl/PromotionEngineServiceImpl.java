@@ -12,10 +12,13 @@ import com.alahadattars.entity.PromotionConfiguration;
 import com.alahadattars.entity.ProductVariant;
 import com.alahadattars.enums.DiscountType;
 import com.alahadattars.enums.PromotionType;
+import com.alahadattars.exception.BadRequestException;
 import com.alahadattars.repository.OrderRepository;
 import com.alahadattars.repository.ProductVariantRepository;
+import com.alahadattars.repository.PromotionRedemptionRepository;
 import com.alahadattars.repository.PromotionRepository;
 import com.alahadattars.service.PromotionEngineService;
+import com.alahadattars.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,6 +43,9 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
     private final PromotionRepository promotionRepository;
     private final OrderRepository orderRepository;
     private final ProductVariantRepository productVariantRepository;
+    private final PromotionRedemptionRepository promotionRedemptionRepository;
+    private final StorageService storageService;
+    private final PromotionResponseMapper promotionResponseMapper;
 
     // ─── evaluateCart ─────────────────────────────────────────────────────────
 
@@ -47,7 +53,10 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
     @Transactional(readOnly = true)
     public CartResponse evaluateCart(Cart cart, String couponCode) {
         LocalDateTime now = LocalDateTime.now();
-        List<Promotion> automaticPromotions = promotionRepository.findActiveAutomaticPromotions(now);
+        // The query enforces the date window, but not the usage/per-user limits — apply those here so an
+        // exhausted promotion is neither applied nor advertised as available.
+        List<Promotion> automaticPromotions = new ArrayList<>(promotionRepository.findActiveAutomaticPromotions(now));
+        automaticPromotions.removeIf(p -> !isRedeemable(p, cart, now));
         List<Promotion> allPromotions = new ArrayList<>();
 
         Long manualPromoId = cart.getManuallySelectedPromotionId();
@@ -59,7 +68,9 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                 }
             } else {
                 manualPromo = promotionRepository.findById(manualPromoId).orElse(null);
-                if (manualPromo != null && isPromotionValid(manualPromo)) {
+                // findById skips the guards the repository queries apply, so re-impose them here: an
+                // arbitrary id must not smuggle in an expired promotion or a code-gated coupon.
+                if (manualPromo != null && manualPromo.getCode() == null && isRedeemable(manualPromo, cart, now)) {
                     allPromotions.add(manualPromo);
                     for (Promotion p : automaticPromotions) {
                         if (p.isStackable() && !p.getId().equals(manualPromoId)) allPromotions.add(p);
@@ -84,7 +95,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
             Optional<Promotion> couponOpt = promotionRepository.findActivePromotionByCode(cleanCoupon, now);
             if (couponOpt.isPresent()) {
                 Promotion coupon = couponOpt.get();
-                if (isPromotionValid(coupon)) {
+                if (isRedeemable(coupon, cart, now)) {
                     allPromotions.add(coupon);
                     couponFound = true;
                 }
@@ -105,22 +116,28 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         BigDecimal originalSubtotal = BigDecimal.ZERO;
 
         for (CartItem item : cart.getItems()) {
+            // Read the variant's live price, not the CartItem.price snapshot taken at add-to-cart
+            // time — OrderServiceImpl.createOrder does the same at checkout ("Always store actual
+            // market price"), so a price the admin corrects after a customer added the item to
+            // their cart takes effect immediately instead of staying stuck at whatever it was
+            // (including 0, if the variant briefly had no price set) until the item is re-added.
+            BigDecimal livePrice = item.getVariant().getPrice();
             // Free items don't add to the subtotal
             if (!item.isFreeItem()) {
                 originalSubtotal = originalSubtotal.add(
-                        item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+                        livePrice.multiply(BigDecimal.valueOf(item.getQuantity())));
             }
             CartItemResponse response = CartItemResponse.builder()
                     .id(item.getId())
                     .productId(item.getProduct().getId())
                     .variantId(item.getVariant().getId())
                     .name(item.getProduct().getName())
-                    .image(item.getVariant().getImage())
+                    .image(resolveCartItemImage(item.getVariant(), item.getProduct()))
                     .size(item.getVariant().getSize())
                     .quantity(item.getQuantity())
-                    .originalPrice(item.isFreeItem() ? BigDecimal.ZERO : item.getPrice())
+                    .originalPrice(item.isFreeItem() ? BigDecimal.ZERO : livePrice)
                     .discountAmount(BigDecimal.ZERO)
-                    .finalPrice(item.isFreeItem() ? BigDecimal.ZERO : item.getPrice())
+                    .finalPrice(item.isFreeItem() ? BigDecimal.ZERO : livePrice)
                     .appliedPromotions(new ArrayList<>())
                     .freeItem(item.isFreeItem())
                     .freePromotionId(item.getFreePromotionId())
@@ -258,11 +275,11 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         }
 
         List<PromotionResponse> appliedDto = appliedPromos.stream()
-                .map(PromotionResponse::fromEntity).collect(Collectors.toList());
+                .map(promotionResponseMapper::toResponse).collect(Collectors.toList());
         List<PromotionResponse> lockedDto = lockedPromos.stream()
-                .map(PromotionResponse::fromEntity).collect(Collectors.toList());
+                .map(promotionResponseMapper::toResponse).collect(Collectors.toList());
         List<PromotionResponse> availableDto = availablePromos.stream()
-                .map(PromotionResponse::fromEntity).collect(Collectors.toList());
+                .map(promotionResponseMapper::toResponse).collect(Collectors.toList());
 
         return CartResponse.builder()
                 .id(cart.getId())
@@ -327,8 +344,8 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
             List<ProductVariant> eligible;
             if (config.getFreeVariantIds() != null && !config.getFreeVariantIds().isEmpty()) {
                 eligible = productVariantRepository.findEligibleFreeVariantsByIds(config.getFreeVariantIds());
-            } else {
-                // Fallback to legacy string matching if Variant IDs are not configured
+            } else if (config.getFreeScope() == null) {
+                // Legacy inference path — unchanged: category + allowedFreeVariantSize via the DB query.
                 List<Long> freeCatIds = resolveFreeCategories(config);
                 if (freeCatIds.isEmpty()) continue;
 
@@ -345,6 +362,38 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                             .filter(v -> config.getFreeProductIds().contains(v.getProduct().getId()))
                             .collect(Collectors.toList());
                 }
+            } else {
+                // Explicit scope path — retrieve the candidate pool, then filter by size in Java
+                // (one place for all three scopes, via sizeMatches).
+                List<ProductVariant> candidates = switch (config.getFreeScope()) {
+                    case SPECIFIC_PRODUCT -> {
+                        if (config.getFreeProductIds() == null || config.getFreeProductIds().isEmpty()) {
+                            yield List.<ProductVariant>of();
+                        }
+                        yield productVariantRepository.findEligibleVariantsByProducts(config.getFreeProductIds());
+                    }
+                    case CATEGORY -> {
+                        List<Long> freeCatIds = resolveFreeCategories(config);
+                        if (freeCatIds.isEmpty()) yield List.<ProductVariant>of();
+                        else yield productVariantRepository.findEligibleVariantsByCategories(freeCatIds);
+                    }
+                    case ANY_PRODUCT -> productVariantRepository.findByActiveTrue().stream()
+                            .filter(v -> v.getStock() > 0 && v.getProduct() != null && v.getProduct().isActive())
+                            .collect(Collectors.toList());
+                };
+
+                eligible = candidates.stream()
+                        .filter(v -> sizeMatches(v.getSize(), config.getFreeVariantSizes(), config.getAllowedFreeVariantSize()))
+                        .collect(Collectors.toList());
+
+                // CATEGORY/ANY_PRODUCT can optionally be further narrowed to specific products;
+                // SPECIFIC_PRODUCT already sourced its candidates from freeProductIds above.
+                if (config.getFreeScope() != com.alahadattars.enums.PromotionScope.SPECIFIC_PRODUCT
+                        && config.getFreeProductIds() != null && !config.getFreeProductIds().isEmpty()) {
+                    eligible = eligible.stream()
+                            .filter(v -> config.getFreeProductIds().contains(v.getProduct().getId()))
+                            .collect(Collectors.toList());
+                }
             }
 
             for (ProductVariant v : eligible) {
@@ -356,7 +405,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                         .variant(v.getSize())
                         .price(BigDecimal.ZERO)
                         .promotion(promo.getName())
-                        .image(v.getImage())
+                        .image(resolveCartItemImage(v, v.getProduct()))
                         .categoryName(v.getProduct().getCategory() != null
                                 ? v.getProduct().getCategory().getName() : "")
                         .build());
@@ -372,6 +421,29 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         return options;
     }
 
+    /**
+     * ProductVariant.image is an optional per-variant override (a specific size having its own
+     * distinct photo) — it's normally blank, since products are photographed once and share that
+     * image across all their variants. Cart items and free-gift options were built from this field
+     * alone with no fallback, so any product without a variant-level image override (i.e. almost
+     * all of them) showed no photo at all in the cart, even though the product itself has real
+     * images. Falls back to the product's primary (or first) image, matching the same
+     * primary-image resolution ProductMapper uses for product listings.
+     */
+    private String resolveCartItemImage(ProductVariant variant, Product product) {
+        if (variant.getImage() != null && !variant.getImage().isBlank()) {
+            return variant.getImage();
+        }
+        if (product.getImages() == null || product.getImages().isEmpty()) {
+            return null;
+        }
+        com.alahadattars.entity.ProductImage primary = product.getImages().stream()
+                .filter(com.alahadattars.entity.ProductImage::isPrimary)
+                .findFirst()
+                .orElse(product.getImages().get(0));
+        return storageService.resolveUrl(primary.getImageUrl(), "/api/images/" + primary.getId() + "/file");
+    }
+
     // ─── validateFreeItemEligibility ─────────────────────────────────────────
 
     @Override
@@ -384,21 +456,21 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                         "Promotion not found: " + promotionId));
 
         if (promo.getPromotionType() != PromotionType.FREE_PRODUCT)
-            throw new IllegalArgumentException("Promotion " + promotionId + " is not a FREE_PRODUCT type.");
+            throw new BadRequestException("Promotion " + promotionId + " is not a FREE_PRODUCT type.");
         if (!promo.isActive())
-            throw new IllegalArgumentException("This free product promotion is currently disabled.");
+            throw new BadRequestException("This free product promotion is currently disabled.");
         if (!isDateValid(promo, now))
-            throw new IllegalArgumentException("This free product promotion has expired or not yet started.");
+            throw new BadRequestException("This free product promotion has expired or not yet started.");
         if (!isPromotionValid(promo))
-            throw new IllegalArgumentException("This free product promotion is no longer valid.");
+            throw new BadRequestException("This free product promotion is no longer valid.");
 
         PromotionConfiguration config = promo.getConfiguration();
         if (config == null)
-            throw new IllegalArgumentException("Promotion configuration is missing.");
+            throw new BadRequestException("Promotion configuration is missing.");
 
         // Cart must still qualify
         if (!cartQualifiesForFreeProduct(cart, promo, config))
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "Your cart no longer qualifies for this free product promotion. "
                     + "Please ensure you have the required item and quantity.");
 
@@ -408,7 +480,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                 .mapToLong(CartItem::getQuantity).sum();
         int maxFree = config.getMaxFreeQuantity() != null ? config.getMaxFreeQuantity() : 1;
         if (alreadyAdded >= maxFree)
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "You have already added the maximum number of free items for this promotion.");
 
         // Check duplicate
@@ -417,7 +489,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                         && promo.getId().equals(item.getFreePromotionId())
                         && item.getVariant().getId().equals(variantId));
         if (duplicate)
-            throw new IllegalArgumentException("This free item is already in your cart.");
+            throw new BadRequestException("This free item is already in your cart.");
 
         // Validate the chosen variant is eligible
         ProductVariant chosen = productVariantRepository.findById(variantId)
@@ -425,36 +497,15 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                         "Variant not found: " + variantId));
 
         if (!chosen.isActive() || chosen.getStock() <= 0)
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "The selected free item is out of stock or unavailable.");
 
-        // CRITICAL: Variant size must exactly match allowedFreeVariantSize OR Variant ID must match
-        if (config.getFreeVariantIds() != null && !config.getFreeVariantIds().isEmpty()) {
-            if (!config.getFreeVariantIds().contains(variantId)) {
-                throw new IllegalArgumentException(
-                        "The selected variant is not eligible for this promotion.");
-            }
-        } else {
-            String allowed = config.getAllowedFreeVariantSize();
-            if (allowed == null || !allowed.trim().equalsIgnoreCase(chosen.getSize()))
-                throw new IllegalArgumentException(
-                        "The selected variant '" + chosen.getSize()
-                        + "' is not eligible. Only '" + allowed + "' is allowed as a free item for this promotion.");
-        }
-
-        // Category must be in freeCategoryIds
-        List<Long> freeCatIds = resolveFreeCategories(config);
-        Long chosenCatId = chosen.getProduct().getCategory() != null
-                ? chosen.getProduct().getCategory().getId() : null;
-        if (chosenCatId == null || !freeCatIds.contains(chosenCatId))
-            throw new IllegalArgumentException(
-                    "The selected product is not from an eligible category for this promotion.");
-
-        // Optional: specific product restriction
-        if (config.getFreeProductIds() != null && !config.getFreeProductIds().isEmpty()) {
-            if (!config.getFreeProductIds().contains(chosen.getProduct().getId()))
-                throw new IllegalArgumentException(
-                        "The selected product is not eligible for this promotion.");
+        // CRITICAL: single source of truth shared with evaluateFreeProductOptions and
+        // validateFreeItemStillValid — a manipulated/stale/wrong-size variant is rejected here.
+        if (!isVariantEligibleAsFreeGift(chosen, config)) {
+            throw new BadRequestException(
+                    "The selected variant '" + chosen.getSize()
+                    + "' is not eligible as a free item for this promotion.");
         }
 
         log.info("[FREE_PRODUCT] Validation passed: promotionId={}, variantId={}", promotionId, variantId);
@@ -492,17 +543,9 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         if (promo.getMinCartValue() != null) {
             BigDecimal cartTotal = cart.getItems().stream()
                     .filter(i -> !i.isFreeItem())
-                    .map(i -> i.getPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
+                    .map(i -> i.getVariant().getPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             if (cartTotal.compareTo(promo.getMinCartValue()) < 0) return false;
-        }
-
-        // Variant qualification
-        if (config.getBuyVariantIds() == null || config.getBuyVariantIds().isEmpty()) {
-            String buySize = config.getBuyVariantSize();
-            if (buySize == null || buySize.isBlank()) {
-                // No variant size or ID restriction — any qualifying item works
-            }
         }
 
         int minQty = config.getMinPurchaseQuantity() != null ? config.getMinPurchaseQuantity() : 1;
@@ -520,30 +563,131 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
      * Returns true if the cart item satisfies the buy-side conditions.
      */
     private boolean itemMatchesBuyCondition(CartItem item, PromotionConfiguration config) {
-        // Category filter
-        if (config.getBuyCategoryId() != null) {
-            if (item.getProduct().getCategory() == null) return false;
-            if (!item.getProduct().getCategory().getId().equals(config.getBuyCategoryId())) return false;
+        if (config.getBuyScope() == null) {
+            // Legacy inference path — kept byte-for-byte for promotions created before buyScope
+            // existed (scope was implicit based on which fields happened to be set).
+            // Category filter
+            if (config.getBuyCategoryId() != null) {
+                if (item.getProduct().getCategory() == null) return false;
+                if (!item.getProduct().getCategory().getId().equals(config.getBuyCategoryId())) return false;
+            }
+
+            // Product filter
+            if (config.getBuyProductId() != null) {
+                if (!item.getProduct().getId().equals(config.getBuyProductId())) return false;
+            }
+
+            // Variant ID filter
+            if (config.getBuyVariantIds() != null && !config.getBuyVariantIds().isEmpty()) {
+                if (!config.getBuyVariantIds().contains(item.getVariant().getId())) return false;
+            } else {
+                // Variant size filter — CASE INSENSITIVE
+                String buySize = config.getBuyVariantSize();
+                if (buySize != null && !buySize.isBlank()) {
+                    String itemSize = item.getVariant().getSize();
+                    return itemSize != null && itemSize.trim().equalsIgnoreCase(buySize.trim());
+                }
+            }
+
+            return true;
         }
 
-        // Product filter
-        if (config.getBuyProductId() != null) {
-            if (!item.getProduct().getId().equals(config.getBuyProductId())) return false;
-        }
-
-        // Variant ID filter
+        // Explicit scope path (buyScope set) — variant-ID list still wins outright if configured,
+        // same priority as the legacy path.
         if (config.getBuyVariantIds() != null && !config.getBuyVariantIds().isEmpty()) {
-            if (!config.getBuyVariantIds().contains(item.getVariant().getId())) return false;
-        } else {
-            // Variant size filter — CASE INSENSITIVE
-            String buySize = config.getBuyVariantSize();
-            if (buySize != null && !buySize.isBlank()) {
-                String itemSize = item.getVariant().getSize();
-                return itemSize != null && itemSize.trim().equalsIgnoreCase(buySize.trim());
+            return config.getBuyVariantIds().contains(item.getVariant().getId());
+        }
+
+        switch (config.getBuyScope()) {
+            case SPECIFIC_PRODUCT -> {
+                if (config.getBuyProductId() == null
+                        || !item.getProduct().getId().equals(config.getBuyProductId())) return false;
+            }
+            case CATEGORY -> {
+                if (config.getBuyCategoryId() == null || item.getProduct().getCategory() == null
+                        || !item.getProduct().getCategory().getId().equals(config.getBuyCategoryId())) return false;
+            }
+            case ANY_PRODUCT -> {
+                // No category/product restriction — any active product may contribute.
             }
         }
 
-        return true;
+        return sizeMatches(item.getVariant().getSize(), config.getBuyVariantSizes(), config.getBuyVariantSize());
+    }
+
+    /**
+     * Normalizes both sides (lowercase, spaces stripped) the same way
+     * ProductVariantServiceImpl.validateVariantSize and the DB-level free-variant query already
+     * do — "12ml" and "12 ml" must match. allowedSizes (if non-empty) wins over legacySingle; if
+     * neither is configured, no size constraint applies (any size counts).
+     */
+    private boolean sizeMatches(String actualSize, List<String> allowedSizes, String legacySingle) {
+        if (actualSize == null) return false;
+        List<String> effective;
+        if (allowedSizes != null && !allowedSizes.isEmpty()) {
+            effective = allowedSizes;
+        } else if (legacySingle != null && !legacySingle.isBlank()) {
+            effective = List.of(legacySingle);
+        } else {
+            return true;
+        }
+        String normalizedActual = actualSize.toLowerCase().replace(" ", "");
+        for (String allowed : effective) {
+            if (allowed != null && normalizedActual.equals(allowed.toLowerCase().replace(" ", ""))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Single source of truth for "is this variant a valid free gift under this promotion config" —
+     * used by {@link #evaluateFreeProductOptions} (as a candidate filter for non-legacy scopes),
+     * {@link #validateFreeItemEligibility} (checkout-time anti-fraud check), and
+     * {@link #validateFreeItemStillValid} (cart-time staleness check). Keeping all three on one
+     * method guarantees they can never disagree about what "eligible" means.
+     */
+    private boolean isVariantEligibleAsFreeGift(ProductVariant variant, PromotionConfiguration config) {
+        if (config.getFreeVariantIds() != null && !config.getFreeVariantIds().isEmpty()) {
+            return config.getFreeVariantIds().contains(variant.getId());
+        }
+
+        if (config.getFreeScope() == null) {
+            // Legacy inference path — same category/size/product checks evaluateFreeProductOptions's
+            // DB query and the old ad-hoc checks enforced, just consolidated into Java and
+            // consistently space-normalized (see sizeMatches) instead of the old exact-trim-only
+            // comparison the two manual checks used, which silently rejected "12ml" vs "12 ml".
+            List<Long> freeCatIds = resolveFreeCategories(config);
+            Long catId = variant.getProduct().getCategory() != null
+                    ? variant.getProduct().getCategory().getId() : null;
+            if (catId == null || !freeCatIds.contains(catId)) return false;
+            if (!sizeMatches(variant.getSize(), null, config.getAllowedFreeVariantSize())) return false;
+            if (config.getFreeProductIds() != null && !config.getFreeProductIds().isEmpty()) {
+                return config.getFreeProductIds().contains(variant.getProduct().getId());
+            }
+            return true;
+        }
+
+        switch (config.getFreeScope()) {
+            case SPECIFIC_PRODUCT -> {
+                if (config.getFreeProductIds() == null
+                        || !config.getFreeProductIds().contains(variant.getProduct().getId())) return false;
+            }
+            case CATEGORY -> {
+                List<Long> freeCatIds = resolveFreeCategories(config);
+                Long catId = variant.getProduct().getCategory() != null
+                        ? variant.getProduct().getCategory().getId() : null;
+                if (catId == null || !freeCatIds.contains(catId)) return false;
+                if (config.getFreeProductIds() != null && !config.getFreeProductIds().isEmpty()
+                        && !config.getFreeProductIds().contains(variant.getProduct().getId())) return false;
+            }
+            case ANY_PRODUCT -> {
+                if (config.getFreeProductIds() != null && !config.getFreeProductIds().isEmpty()
+                        && !config.getFreeProductIds().contains(variant.getProduct().getId())) return false;
+            }
+        }
+
+        return sizeMatches(variant.getSize(), config.getFreeVariantSizes(), config.getAllowedFreeVariantSize());
     }
 
     /**
@@ -562,6 +706,12 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
     /**
      * Check if an existing free item in the cart is still valid (used during cart evaluation).
      */
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isFreeCartItemStillValid(Cart cart, CartItem freeItem) {
+        return validateFreeItemStillValid(cart, freeItem, null);
+    }
+
     private boolean validateFreeItemStillValid(Cart cart, CartItem freeItem, String couponCode) {
         if (freeItem.getFreePromotionId() == null) return false;
         LocalDateTime now = LocalDateTime.now();
@@ -572,9 +722,9 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         PromotionConfiguration config = promo.getConfiguration();
         if (config == null) return false;
         if (!cartQualifiesForFreeProduct(cart, promo, config)) return false;
-        // Check variant still matches
-        String allowed = config.getAllowedFreeVariantSize();
-        if (allowed == null || !allowed.trim().equalsIgnoreCase(freeItem.getVariant().getSize())) return false;
+        // Check variant still matches — was previously checking only allowedFreeVariantSize, which
+        // wrongly flagged every freeVariantIds-based free item as stale regardless of validity.
+        if (!isVariantEligibleAsFreeGift(freeItem.getVariant(), config)) return false;
         // Check stock
         return freeItem.getVariant().getStock() > 0;
     }
@@ -585,6 +735,32 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         if (!promotion.isActive()) return false;
         if (promotion.getUsageLimit() != null && promotion.getUsedCount() >= promotion.getUsageLimit())
             return false;
+        return true;
+    }
+
+    /**
+     * Full redemption check: active, inside its date window, and within both the global and per-user
+     * redemption limits. Prefer this over {@link #isPromotionValid} wherever a cart is in hand — the
+     * latter checks neither dates nor the per-user cap.
+     */
+    private boolean isRedeemable(Promotion promotion, Cart cart, LocalDateTime now) {
+        if (!isPromotionValid(promotion)) return false;
+        if (!isDateValid(promotion, now)) return false;
+        return isWithinPerUserLimit(promotion, cart);
+    }
+
+    private boolean isWithinPerUserLimit(Promotion promotion, Cart cart) {
+        Integer perUserLimit = promotion.getPerUserLimit();
+        if (perUserLimit == null || perUserLimit <= 0) return true;
+        if (cart == null || cart.getUser() == null || cart.getUser().getId() == null) return true;
+
+        long alreadyRedeemed = promotionRedemptionRepository
+                .countByPromotionIdAndUserId(promotion.getId(), cart.getUser().getId());
+        if (alreadyRedeemed >= perUserLimit) {
+            log.info("Promotion '{}' exhausted for user {} ({} of {} redemptions used)",
+                    promotion.getName(), cart.getUser().getId(), alreadyRedeemed, perUserLimit);
+            return false;
+        }
         return true;
     }
 

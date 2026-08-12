@@ -4,7 +4,7 @@ import com.alahadattars.dto.gift.GiftServiceRequest;
 import com.alahadattars.dto.gift.GiftServiceResponse;
 import com.alahadattars.response.ApiResponse;
 import com.alahadattars.service.GiftServiceService;
-import com.alahadattars.service.UploadService;
+import com.alahadattars.service.StorageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -28,7 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class AdminGiftServiceController {
 
     private final GiftServiceService giftServiceService;
-    private final UploadService uploadService;
+    private final StorageService storageService;
 
     @Operation(summary = "Get all gift services (paginated, searchable)")
     @GetMapping
@@ -107,7 +107,7 @@ public class AdminGiftServiceController {
     @Operation(summary = "Upload an image for a gift service")
     @PostMapping(value = "/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<String>> uploadImage(@RequestParam("file") MultipartFile file) {
-        String path = uploadService.uploadFile(file, "gift-services");
+        String path = storageService.uploadFile(file, "gift-services");
         return ResponseEntity.ok(ApiResponse.<String>builder()
                 .success(true)
                 .message("Image uploaded successfully")

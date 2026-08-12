@@ -5,7 +5,29 @@ import { formatPrice } from '../../utils/formatPrice';
 import { formatOrderStatus } from '../../utils/formatOrderStatus';
 import type { Order } from '../../types';
 import { getImageUrl } from '../../utils/getImageUrl';
+import { Loader } from '../../components/ui/Loader';
+import { Breadcrumb } from '../../components/ui/Breadcrumb';
 
+const getStatusBadgeClass = (status: string) => {
+  switch (status?.toUpperCase()) {
+    case 'CONFIRMED': return 'badge-warning';
+    case 'PACKED': return 'badge-neutral';
+    case 'SHIPPED': return 'badge-gold';
+    case 'DELIVERED': return 'badge-success';
+    case 'CANCELLED': return 'badge-error';
+    default: return 'badge-neutral';
+  }
+};
+
+const getPaymentBadgeClass = (status?: string) => {
+  switch (status?.toUpperCase()) {
+    case 'PAID': return 'badge-success';
+    case 'PENDING': return 'badge-warning';
+    case 'FAILED': return 'badge-error';
+    case 'REFUNDED': return 'badge-neutral';
+    default: return 'badge-neutral';
+  }
+};
 
 // ─── Cancellation Section ────────────────────────────────────────────────────
 
@@ -36,14 +58,14 @@ const CancellationSection: React.FC<CancellationSectionProps> = ({
             {cancelError && (
               <div className="mb-4 flex items-start gap-3 bg-error-container/20 border border-error/30 rounded-lg p-4">
                 <span className="material-symbols-outlined text-error text-[20px] flex-shrink-0 mt-0.5">error</span>
-                <p className="text-sm text-error">{cancelError}</p>
+                <p className="text-sm text-error leading-relaxed">{cancelError}</p>
               </div>
             )}
             {!showConfirm ? (
               <button
                 id="cancel-order-btn"
                 onClick={() => setShowConfirm(true)}
-                className="flex items-center gap-2 px-6 py-3 rounded-DEFAULT border border-error text-error font-label-lg hover:bg-error hover:text-white transition-all duration-200"
+                className="btn flex items-center gap-2 rounded-DEFAULT border border-error !bg-transparent text-error hover:bg-error hover:text-white focus-visible:outline-error transition-all duration-200"
               >
                 <span className="material-symbols-outlined text-[20px]">cancel</span>
                 Cancel Order
@@ -53,9 +75,10 @@ const CancellationSection: React.FC<CancellationSectionProps> = ({
                 <div className="flex items-start gap-3 mb-5">
                   <span className="material-symbols-outlined text-error text-[24px] flex-shrink-0">warning</span>
                   <div>
-                    <p className="font-label-lg text-on-surface mb-1">Cancel this order?</p>
-                    <p className="text-sm text-on-surface-variant">
-                      This action cannot be undone. The order will be marked as cancelled and your payment refund (if applicable) will be processed.
+                    <p className="font-label-lg text-on-surface mb-1">Are you sure you want to cancel this order?</p>
+                    <p className="text-sm text-on-surface-variant leading-relaxed">
+                      Since the order has not yet been packed, it can still be cancelled. Your full payment will be
+                      refunded to the original payment method after our team processes the refund.
                     </p>
                   </div>
                 </div>
@@ -64,7 +87,7 @@ const CancellationSection: React.FC<CancellationSectionProps> = ({
                     id="confirm-cancel-btn"
                     onClick={onCancel}
                     disabled={isCancelling}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-DEFAULT bg-error text-white font-label-lg hover:bg-error/90 disabled:opacity-60 transition-all duration-200"
+                    className="btn flex items-center gap-2 rounded-DEFAULT bg-error text-white hover:bg-error/90 focus-visible:outline-error disabled:opacity-60 transition-all duration-200"
                   >
                     {isCancelling ? (
                       <>
@@ -82,7 +105,7 @@ const CancellationSection: React.FC<CancellationSectionProps> = ({
                     id="keep-order-btn"
                     onClick={() => setShowConfirm(false)}
                     disabled={isCancelling}
-                    className="px-5 py-2.5 rounded-DEFAULT border border-outline-variant text-on-surface font-label-lg hover:bg-surface-container transition-colors"
+                    className="btn btn-outline"
                   >
                     Keep Order
                   </button>
@@ -95,76 +118,78 @@ const CancellationSection: React.FC<CancellationSectionProps> = ({
 
     case 'PACKED':
       return (
-        <div className="bg-surface-container-lowest border border-indigo-200 rounded-DEFAULT overflow-hidden">
-          <div className="p-6 flex items-start gap-4">
-            <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-              <span className="text-2xl">📦</span>
+        <div className="card p-6 flex items-start gap-4">
+          <div className="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined text-on-surface-variant text-[22px]">inventory_2</span>
+          </div>
+          <div>
+            <div className="flex items-center gap-3 mb-1.5 flex-wrap">
+              <p className="font-label-lg text-on-surface">Order Being Prepared</p>
+              <span className="badge badge-neutral">Packed</span>
             </div>
-            <div>
-              <p className="font-label-lg text-indigo-800 mb-1">Order Being Prepared</p>
-              <p className="text-sm text-indigo-700 leading-relaxed">
-                Your order has been packed and is being prepared for shipment.
-                Order cancellation is no longer available.
-              </p>
-            </div>
+            <p className="text-sm text-on-surface-variant leading-relaxed">
+              Your order has been packed and is being prepared for shipment. Order cancellation is no longer available.
+            </p>
           </div>
         </div>
       );
 
     case 'SHIPPED':
       return (
-        <div className="bg-surface-container-lowest border border-purple-200 rounded-DEFAULT overflow-hidden">
-          <div className="p-6 flex items-start gap-4">
-            <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-              <span className="text-2xl">🚚</span>
+        <div className="card p-6 flex items-start gap-4">
+          <div className="w-12 h-12 rounded-full bg-accent-soft flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined text-accent text-[22px]">local_shipping</span>
+          </div>
+          <div>
+            <div className="flex items-center gap-3 mb-1.5 flex-wrap">
+              <p className="font-label-lg text-on-surface">Order Shipped</p>
+              <span className="badge badge-gold">Shipped</span>
             </div>
-            <div>
-              <p className="font-label-lg text-purple-800 mb-1">Order Shipped</p>
-              <p className="text-sm text-purple-700 leading-relaxed">
-                This order has already been shipped and is on its way to you.
-                Cancellation is no longer available.
-              </p>
-              {(order.courierName || order.trackingNumber) && (
-                <div className="mt-3 bg-purple-50 rounded p-3 text-sm text-purple-900 space-y-1">
-                  {order.courierName && <p><strong>Courier:</strong> {order.courierName}</p>}
-                  {order.trackingNumber && <p><strong>Tracking:</strong> {order.trackingNumber}</p>}
-                </div>
-              )}
-            </div>
+            <p className="text-sm text-on-surface-variant leading-relaxed">
+              This order has already been shipped and is on its way to you. Cancellation is no longer available.
+            </p>
+            {(order.courierName || order.trackingNumber) && (
+              <div className="mt-3 bg-surface-container p-3 rounded text-sm text-on-surface space-y-1">
+                {order.courierName && <p><strong>Courier:</strong> {order.courierName}</p>}
+                {order.trackingNumber && <p><strong>Tracking:</strong> <span className="font-mono">{order.trackingNumber}</span></p>}
+              </div>
+            )}
           </div>
         </div>
       );
 
     case 'DELIVERED':
       return (
-        <div className="bg-surface-container-lowest border border-green-200 rounded-DEFAULT overflow-hidden">
-          <div className="p-6 flex items-start gap-4">
-            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-              <span className="text-2xl">✅</span>
+        <div className="card p-6 flex items-start gap-4">
+          <div className="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined text-on-surface-variant text-[22px]">check_circle</span>
+          </div>
+          <div>
+            <div className="flex items-center gap-3 mb-1.5 flex-wrap">
+              <p className="font-label-lg text-on-surface">Order Delivered</p>
+              <span className="badge badge-success">Delivered</span>
             </div>
-            <div>
-              <p className="font-label-lg text-green-800 mb-1">Order Delivered</p>
-              <p className="text-sm text-green-700 leading-relaxed">
-                Your order has been successfully delivered. Thank you for shopping with us!
-              </p>
-            </div>
+            <p className="text-sm text-on-surface-variant leading-relaxed">
+              Your order has been successfully delivered. Thank you for shopping with us!
+            </p>
           </div>
         </div>
       );
 
     case 'CANCELLED':
       return (
-        <div className="bg-surface-container-lowest border border-red-200 rounded-DEFAULT overflow-hidden">
-          <div className="p-6 flex items-start gap-4">
-            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-              <span className="text-2xl">❌</span>
+        <div className="card p-6 flex items-start gap-4">
+          <div className="w-12 h-12 rounded-full bg-error-container/40 flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined text-error text-[22px]">cancel</span>
+          </div>
+          <div>
+            <div className="flex items-center gap-3 mb-1.5 flex-wrap">
+              <p className="font-label-lg text-on-surface">Order Cancelled</p>
+              <span className="badge badge-error">Cancelled</span>
             </div>
-            <div>
-              <p className="font-label-lg text-red-800 mb-1">Order Cancelled</p>
-              <p className="text-sm text-red-700 leading-relaxed">
-                This order has been cancelled.
-              </p>
-            </div>
+            <p className="text-sm text-on-surface-variant leading-relaxed">
+              This order has been cancelled.
+            </p>
           </div>
         </div>
       );
@@ -219,13 +244,39 @@ export const OrderDetails: React.FC = () => {
     }
   };
 
-  if (isLoading) return <div className="text-center p-8">Loading order details...</div>;
-  if (error || !order) return <div className="text-center p-8 text-error">{error || 'Order not found'}</div>;
+  if (isLoading) return <Loader />;
+
+  if (error || !order) {
+    return (
+      <div className="flex flex-col items-center text-center py-20 px-6">
+        <div className="w-16 h-16 border border-accent rounded-full flex items-center justify-center mb-6">
+          <span className="material-symbols-outlined text-accent text-2xl">error_outline</span>
+        </div>
+        <h2 className="font-headline-md text-on-surface mb-2 tracking-widest uppercase">Order Not Found</h2>
+        <p className="font-body-md text-on-surface-variant mb-8 leading-relaxed max-w-md">
+          {error || "We couldn't find that order. It may have been removed or the link is incorrect."}
+        </p>
+        <Link to="/account/orders" className="btn btn-primary inline-flex items-center">
+          Back to Orders
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div>
+      <Breadcrumb items={[
+        { label: 'My Account', href: '/account/dashboard' },
+        { label: 'Orders', href: '/account/orders' },
+        { label: order.orderNumber },
+      ]} />
+
       <div className="flex items-center gap-4 mb-8">
-        <Link to="/account/orders" className="w-10 h-10 bg-surface-container-low rounded-full flex items-center justify-center hover:bg-surface-container transition-colors">
+        <Link
+          to="/account/orders"
+          className="w-10 h-10 bg-surface-container-low rounded-full flex items-center justify-center hover:bg-surface-container transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          aria-label="Back to orders"
+        >
           <span className="material-symbols-outlined">arrow_back</span>
         </Link>
         <h1 className="font-display-sm text-display-sm text-on-surface">Order Details</h1>
@@ -234,7 +285,7 @@ export const OrderDetails: React.FC = () => {
       <div className="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-6 mb-8 flex flex-wrap gap-x-12 gap-y-4">
         <div>
           <p className="font-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Order Number</p>
-          <p className="font-body-lg text-on-surface">{order.orderNumber}</p>
+          <p className="font-mono text-sm text-on-surface">{order.orderNumber}</p>
         </div>
         <div>
           <p className="font-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Date Placed</p>
@@ -242,14 +293,7 @@ export const OrderDetails: React.FC = () => {
         </div>
         <div>
           <p className="font-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Status</p>
-          <span className={`inline-block px-3 py-1 rounded-full text-xs font-label-md uppercase tracking-wider mt-1 ${
-            order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' : 
-            order.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' : 
-            order.status === 'PACKED' ? 'bg-indigo-100 text-indigo-800' : 
-            order.status === 'SHIPPED' ? 'bg-purple-100 text-purple-800' : 
-            order.status === 'CANCELLED' ? 'bg-red-100 text-red-800' : 
-            'bg-gray-100 text-gray-800'
-          }`}>
+          <span className={`badge ${getStatusBadgeClass(order.status)} mt-1`}>
             {formatOrderStatus(order.status)}
           </span>
         </div>
@@ -271,7 +315,7 @@ export const OrderDetails: React.FC = () => {
                     {order.giftMessage && (
                       <div className="mt-3 bg-surface-container p-3 rounded-lg border border-outline-variant/50">
                         <p className="font-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Gift Message</p>
-                        <p className="font-body-md text-on-surface italic">"{order.giftMessage}"</p>
+                        <p className="font-body-md text-on-surface italic leading-relaxed">"{order.giftMessage}"</p>
                       </div>
                     )}
                   </div>
@@ -291,7 +335,7 @@ export const OrderDetails: React.FC = () => {
             <div className="p-6 space-y-6">
               {order.items.map((item) => (
                 <div key={item.id} className="flex gap-4">
-                  <div className="w-24 h-24 bg-surface-container-low rounded flex items-center justify-center overflow-hidden flex-shrink-0">
+                  <div className="product-media w-24 h-24 bg-surface-container-low rounded flex items-center justify-center flex-shrink-0">
                     {item.productImage ? (
                       <img src={getImageUrl(item.productImage)} alt={item.productName} className="w-full h-full object-cover" />
                     ) : (
@@ -319,7 +363,7 @@ export const OrderDetails: React.FC = () => {
               ))}
             </div>
           </div>
-          
+
           {/* Timeline */}
           <div className="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT overflow-hidden">
             <div className="bg-surface-container-low px-6 py-4 border-b border-outline-variant">
@@ -327,45 +371,49 @@ export const OrderDetails: React.FC = () => {
             </div>
             <div className="p-6">
               <div className="relative border-l border-outline-variant ml-4 space-y-8 pb-4">
-                
+
                 <div className="relative">
-                  <span className={`absolute -left-2 top-1 w-4 h-4 rounded-full ring-4 ring-surface-container-lowest ${['CONFIRMED', 'PACKED', 'SHIPPED', 'DELIVERED'].includes(order.status) ? 'bg-primary' : 'bg-outline-variant'}`}></span>
+                  <span className="absolute -left-2 top-1 w-4 h-4 rounded-full ring-4 ring-surface-container-lowest bg-primary"></span>
                   <div className="ml-6">
                     <p className="font-label-lg">Order Confirmed</p>
-                    <p className="text-sm text-on-surface-variant">Your order has been verified and confirmed.</p>
+                    <p className="text-sm text-on-surface-variant leading-relaxed">Your order has been verified and confirmed.</p>
                   </div>
                 </div>
 
-                <div className="relative">
-                  <span className={`absolute -left-2 top-1 w-4 h-4 rounded-full ring-4 ring-surface-container-lowest ${['PACKED', 'SHIPPED', 'DELIVERED'].includes(order.status) ? 'bg-primary' : 'bg-outline-variant'}`}></span>
-                  <div className="ml-6">
-                    <p className="font-label-lg">Packed</p>
-                    <p className="text-sm text-on-surface-variant">Items are packed and ready for shipping.</p>
-                  </div>
-                </div>
-                
-                <div className="relative">
-                  <span className={`absolute -left-2 top-1 w-4 h-4 rounded-full ring-4 ring-surface-container-lowest ${['SHIPPED', 'DELIVERED'].includes(order.status) ? 'bg-primary' : 'bg-outline-variant'}`}></span>
-                  <div className="ml-6">
-                    <p className="font-label-lg">Shipped</p>
-                    <p className="text-sm text-on-surface-variant">Order has been handed over to the courier.</p>
-                  </div>
-                </div>
-
-                <div className="relative">
-                  <span className={`absolute -left-2 top-1 w-4 h-4 rounded-full ring-4 ring-surface-container-lowest ${order.status === 'DELIVERED' ? 'bg-primary' : 'bg-outline-variant'}`}></span>
-                  <div className="ml-6">
-                    <p className="font-label-lg">Delivered</p>
-                  </div>
-                </div>
-                
-                {order.status === 'CANCELLED' && (
-                  <div className="relative mt-8">
+                {order.status === 'CANCELLED' ? (
+                  // Packed/Shipped/Delivered never happened for a cancelled order — showing them
+                  // as upcoming steps would be misleading, so the timeline stops at Cancelled.
+                  <div className="relative">
                     <span className="absolute -left-2 top-1 w-4 h-4 rounded-full ring-4 ring-surface-container-lowest bg-error"></span>
                     <div className="ml-6">
                       <p className="font-label-lg text-error">Cancelled</p>
                     </div>
                   </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <span className={`absolute -left-2 top-1 w-4 h-4 rounded-full ring-4 ring-surface-container-lowest ${['PACKED', 'SHIPPED', 'DELIVERED'].includes(order.status) ? 'bg-primary' : 'bg-outline-variant'}`}></span>
+                      <div className="ml-6">
+                        <p className="font-label-lg">Packed</p>
+                        <p className="text-sm text-on-surface-variant leading-relaxed">Items are packed and ready for shipping.</p>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <span className={`absolute -left-2 top-1 w-4 h-4 rounded-full ring-4 ring-surface-container-lowest ${['SHIPPED', 'DELIVERED'].includes(order.status) ? 'bg-primary' : 'bg-outline-variant'}`}></span>
+                      <div className="ml-6">
+                        <p className="font-label-lg">Shipped</p>
+                        <p className="text-sm text-on-surface-variant leading-relaxed">Order has been handed over to the courier.</p>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <span className={`absolute -left-2 top-1 w-4 h-4 rounded-full ring-4 ring-surface-container-lowest ${order.status === 'DELIVERED' ? 'bg-primary' : 'bg-outline-variant'}`}></span>
+                      <div className="ml-6">
+                        <p className="font-label-lg">Delivered</p>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -386,31 +434,37 @@ export const OrderDetails: React.FC = () => {
             <div className="bg-surface-container-low px-6 py-4 border-b border-outline-variant">
               <h2 className="font-headline-sm">Order Summary</h2>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="flex justify-between text-on-surface-variant text-sm">
-                <span>Subtotal</span>
-                <span>{formatPrice(order.items.reduce((acc, item) => acc + ((item.originalPrice || 0) * item.quantity), 0))}</span>
-              </div>
-              {order.offerDiscountAmount > 0 && (
-                <div className="flex justify-between text-green-600 text-sm">
-                  <span>Item Discounts</span>
-                  <span>-{formatPrice(order.offerDiscountAmount)}</span>
-                </div>
-              )}
-              {order.couponDiscountAmount > 0 && (
-                <div className="flex justify-between text-primary text-sm">
-                  <span>Cart Discount</span>
-                  <span>-{formatPrice(order.couponDiscountAmount)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-on-surface-variant text-sm">
-                <span>Shipping</span>
-                <span>{order.shippingCost === 0 ? <span className="text-green-600">Free</span> : formatPrice(order.shippingCost)}</span>
-              </div>
-              <div className="pt-4 border-t border-outline-variant flex justify-between mt-2">
-                <span className="font-headline-sm">Total</span>
-                <span className="font-headline-sm">{formatPrice(order.totalAmount)}</span>
-              </div>
+            <div className="table-shell !border-0 !rounded-none">
+              <table className="w-full">
+                <tbody>
+                  <tr>
+                    <td className="text-on-surface-variant">Subtotal</td>
+                    <td className="text-right text-on-surface-variant">{formatPrice(order.items.reduce((acc, item) => acc + ((item.originalPrice || 0) * item.quantity), 0))}</td>
+                  </tr>
+                  {order.offerDiscountAmount > 0 && (
+                    <tr>
+                      <td className="text-on-surface-variant">Item Discounts</td>
+                      <td className="text-right" style={{ color: 'var(--success)' }}>-{formatPrice(order.offerDiscountAmount)}</td>
+                    </tr>
+                  )}
+                  {order.couponDiscountAmount > 0 && (
+                    <tr>
+                      <td className="text-on-surface-variant">Cart Discount</td>
+                      <td className="text-right text-primary">-{formatPrice(order.couponDiscountAmount)}</td>
+                    </tr>
+                  )}
+                  <tr>
+                    <td className="text-on-surface-variant">Shipping</td>
+                    <td className="text-right text-on-surface-variant">
+                      {order.shippingCost === 0 ? <span style={{ color: 'var(--success)' }}>Free</span> : formatPrice(order.shippingCost)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="font-headline-sm text-on-surface">Total</td>
+                    <td className="text-right font-headline-sm text-on-surface">{formatPrice(order.totalAmount)}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -422,13 +476,13 @@ export const OrderDetails: React.FC = () => {
             <div className="p-6 space-y-6">
               <div>
                 <p className="font-label-md text-on-surface-variant uppercase tracking-wider mb-2">Shipping Address</p>
-                <div className="text-on-surface font-body-md space-y-1">
+                <div className="text-on-surface font-body-md leading-relaxed space-y-1">
                   <p className="font-medium">{order.shippingAddress?.fullName}</p>
                   <p>{order.shippingAddress?.addressLine1}</p>
                   <p>{order.shippingAddress?.city}, {order.shippingAddress?.country}</p>
                 </div>
               </div>
-              
+
               <div>
                 <p className="font-label-md text-on-surface-variant uppercase tracking-wider mb-2">Payment Details</p>
                 <div className="flex items-center gap-2 font-body-md mb-2">
@@ -437,7 +491,8 @@ export const OrderDetails: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 font-body-md">
                   <span className="material-symbols-outlined text-on-surface-variant text-sm">info</span>
-                  <span>Status: <strong className={order.paymentStatus === 'PAID' ? 'text-primary' : ''}>{order.paymentStatus}</strong></span>
+                  <span>Status:</span>
+                  <span className={`badge ${getPaymentBadgeClass(order.paymentStatus)}`}>{order.paymentStatus}</span>
                 </div>
               </div>
 
@@ -445,58 +500,70 @@ export const OrderDetails: React.FC = () => {
               {order.refundStatus && order.refundStatus !== 'NOT_REQUIRED' && (
                 <div className="bg-surface-container/30 p-4 rounded-lg border border-outline-variant/50">
                   <p className="font-label-md text-on-surface-variant uppercase tracking-wider mb-3">Refund Status</p>
-                  
-                  {order.refundStatus === 'PENDING' && (
-                    <div className="flex items-start gap-3 text-amber-800">
-                      <span className="material-symbols-outlined text-[20px] mt-0.5">hourglass_empty</span>
+
+                  {order.refundStatus === 'REFUND_REQUIRED' && (
+                    <div className="flex items-start gap-3">
+                      <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--warning)' }}>hourglass_empty</span>
                       <div>
-                        <p className="font-medium">Pending Approval</p>
-                        <p className="text-sm opacity-90 mt-1">Your refund of {formatPrice(order.refundAmount || order.totalAmount)} will be initiated shortly.</p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-on-surface">Refund Required</p>
+                          <span className="badge badge-warning">Pending</span>
+                        </div>
+                        <p className="text-sm text-on-surface-variant leading-relaxed">Your full refund of {formatPrice(order.refundAmount || order.totalAmount)} is awaiting processing by our team.</p>
                       </div>
                     </div>
                   )}
 
                   {order.refundStatus === 'PROCESSING' && (
-                    <div className="flex items-start gap-3 text-blue-800">
-                      <span className="material-symbols-outlined text-[20px] animate-spin mt-0.5">sync</span>
+                    <div className="flex items-start gap-3">
+                      <span className="material-symbols-outlined text-[20px] animate-spin text-accent mt-0.5">sync</span>
                       <div>
-                        <p className="font-medium">Processing</p>
-                        <p className="text-sm opacity-90 mt-1">Your refund has been initiated. Please allow 5–7 business days to reflect in your account.</p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-on-surface">Processing</p>
+                          <span className="badge badge-gold">Processing</span>
+                        </div>
+                        <p className="text-sm text-on-surface-variant leading-relaxed">Your refund has been initiated. Please allow 5–7 business days to reflect in your account.</p>
                       </div>
                     </div>
                   )}
 
-                  {order.refundStatus === 'COMPLETED' && (
-                    <div className="flex items-start gap-3 text-green-800">
-                      <span className="material-symbols-outlined text-[20px] mt-0.5">check_circle</span>
+                  {order.refundStatus === 'REFUNDED' && (
+                    <div className="flex items-start gap-3">
+                      <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--success)' }}>check_circle</span>
                       <div>
-                        <p className="font-medium">Completed</p>
-                        <p className="text-sm opacity-90 mt-1">{formatPrice(order.refundAmount || 0)} has been refunded successfully.</p>
-                        {order.refundId && <p className="text-xs opacity-75 mt-1 font-mono">ID: {order.refundId}</p>}
-                        {order.refundCompletedAt && <p className="text-xs opacity-75">Date: {new Date(order.refundCompletedAt).toLocaleDateString()}</p>}
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-on-surface">Refund Processed</p>
+                          <span className="badge badge-success">Refunded</span>
+                        </div>
+                        <p className="text-sm text-on-surface-variant leading-relaxed">{formatPrice(order.refundAmount || 0)} has been refunded successfully.</p>
+                        {order.refundId && <p className="text-xs text-on-surface-variant mt-1 font-mono">ID: {order.refundId}</p>}
+                        {order.refundCompletedAt && <p className="text-xs text-on-surface-variant">Date: {new Date(order.refundCompletedAt).toLocaleDateString()}</p>}
                       </div>
                     </div>
                   )}
 
                   {order.refundStatus === 'FAILED' && (
-                    <div className="flex items-start gap-3 text-red-800">
-                      <span className="material-symbols-outlined text-[20px] mt-0.5">error</span>
+                    <div className="flex items-start gap-3">
+                      <span className="material-symbols-outlined text-error text-[20px] mt-0.5">error</span>
                       <div>
-                        <p className="font-medium">Refund Failed</p>
-                        <p className="text-sm opacity-90 mt-1">There was an issue processing your refund. Please contact support.</p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-on-surface">Refund Failed</p>
+                          <span className="badge badge-error">Failed</span>
+                        </div>
+                        <p className="text-sm text-on-surface-variant leading-relaxed">There was an issue processing your refund. Please contact support.</p>
                       </div>
                     </div>
                   )}
                 </div>
               )}
 
-              
+
               {(order.courierName || order.trackingNumber || order.expectedDeliveryDate) && (
                 <div className="border-t border-outline-variant/30 pt-6">
                   <p className="font-label-md text-on-surface-variant uppercase tracking-wider mb-2">Shipping Details</p>
-                  <div className="text-on-surface font-body-md space-y-2 bg-primary-container/10 p-4 rounded border border-primary/20">
+                  <div className="text-on-surface font-body-md leading-relaxed space-y-2 bg-primary-container/10 p-4 rounded border border-primary/20">
                     {order.courierName && <p><strong>Courier:</strong> {order.courierName}</p>}
-                    {order.trackingNumber && <p><strong>Tracking Number:</strong> {order.trackingNumber}</p>}
+                    {order.trackingNumber && <p><strong>Tracking Number:</strong> <span className="font-mono">{order.trackingNumber}</span></p>}
                     {order.expectedDeliveryDate && <p><strong>Expected Delivery:</strong> {order.expectedDeliveryDate}</p>}
                     {order.shipmentNotes && <p><strong>Notes:</strong> {order.shipmentNotes}</p>}
                   </div>
