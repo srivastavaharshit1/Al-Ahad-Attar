@@ -19,7 +19,7 @@ export const AddProduct: React.FC = () => {
     shortDescription: '',
     description: '',
     brand: 'Al Ahad',
-    subCategoryId: '',
+    subcategory: '',
     fragranceFamily: '',
     topNotes: '',
     middleNotes: '',
