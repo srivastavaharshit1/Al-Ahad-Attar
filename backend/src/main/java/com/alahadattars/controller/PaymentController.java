@@ -27,6 +27,7 @@ public class PaymentController {
         } catch (IllegalStateException e) {
             return ResponseEntity.status(400).body(new ErrorResponse(e.getMessage()));
         } catch (Exception e) {
+            log.error("Failed to initialize Razorpay payment", e);
             return ResponseEntity.status(503).body(new ErrorResponse("Unable to initialize secure payment. Payment service is temporarily unavailable."));
         }
     }
