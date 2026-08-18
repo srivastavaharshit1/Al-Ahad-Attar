@@ -11,6 +11,7 @@ public interface HomepageService {
     List<HomepageSectionResponse> getAllSections();
     HomepageSectionResponse updateSection(String sectionKey, HomepageSectionRequest request);
     void reorderSections(List<ReorderRequest> requests);
+    HomepageSectionResponse uploadSectionImage(String sectionKey, org.springframework.web.multipart.MultipartFile file);
 
     // Hero Banners
     List<HeroBannerResponse> getAllHeroBanners();

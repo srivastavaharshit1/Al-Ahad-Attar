@@ -41,6 +41,12 @@ public class ProductVariantController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Validation error"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Variant SKU already exists")
     })
+    @PostMapping("/cleanup-sizes")
+    public org.springframework.http.ResponseEntity<?> cleanupSizes() {
+        variantService.cleanupSizes();
+        return org.springframework.http.ResponseEntity.ok().build();
+    }
+
     @PostMapping("/api/products/{productId}/variants")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<VariantResponse>> createVariant(

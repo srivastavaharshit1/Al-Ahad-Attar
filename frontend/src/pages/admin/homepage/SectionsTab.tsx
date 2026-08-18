@@ -17,6 +17,8 @@ export const SectionsTab: React.FC = () => {
   const [editSubtitle, setEditSubtitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editMaxItems, setEditMaxItems] = useState(0);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -87,6 +89,8 @@ export const SectionsTab: React.FC = () => {
     setEditSubtitle(section.subtitle || '');
     setEditDescription(section.description || '');
     setEditMaxItems(section.maxItems || 0);
+    setEditImageFile(null);
+    setPreviewImageUrl(section.imageUrl || null);
   };
 
   const closeEditModal = () => {
@@ -109,6 +113,11 @@ export const SectionsTab: React.FC = () => {
         visible: editingSection.visible,
         maxItems: editMaxItems > 0 ? editMaxItems : null
       });
+
+      if (editImageFile) {
+        await homepageService.uploadSectionImage(editingSection.sectionKey, editImageFile);
+      }
+
       toast.success('Section updated successfully');
       closeEditModal();
       loadSections();
@@ -200,6 +209,30 @@ export const SectionsTab: React.FC = () => {
                 value={editDescription}
                 onChange={(e: any) => setEditDescription(e.target.value)}
               />
+            </div>
+
+            <div>
+              <div className="flex flex-col items-start mb-2">
+                <label className="field-label mb-0">Section Image (Optional)</label>
+                <span className="text-[10px] text-on-surface-variant/70">Recommended: 1080x1080 (1:1) or 1080x1350 (4:5)</span>
+              </div>
+              <div className="flex items-center gap-4 mt-2">
+                {previewImageUrl && (
+                  <img src={previewImageUrl} alt="Preview" className="w-24 h-24 object-cover rounded border border-outline-variant" />
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setEditImageFile(file);
+                      setPreviewImageUrl(URL.createObjectURL(file));
+                    }
+                  }}
+                  className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-surface-container file:text-primary hover:file:bg-surface-container-high cursor-pointer"
+                />
+              </div>
             </div>
 
             {/* Max Items is useful for Categories / Featured Products */}

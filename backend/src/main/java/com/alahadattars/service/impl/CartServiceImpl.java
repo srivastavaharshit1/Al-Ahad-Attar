@@ -30,6 +30,35 @@ public class CartServiceImpl implements CartService {
     private final ProductVariantRepository productVariantRepository;
     private final PromotionEngineService promotionEngineService;
 
+    // ─── Guest Cart Evaluation ────────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public CartResponse evaluateGuestCart(com.alahadattars.dto.cart.GuestCartRequest request) {
+        Cart cart = new Cart();
+        cart.setCouponCode(request.getCouponCode());
+        cart.setManuallySelectedPromotionId(request.getManuallySelectedPromotionId());
+
+        if (request.getItems() != null) {
+            for (com.alahadattars.dto.cart.GuestCartRequest.GuestCartItemRequest itemReq : request.getItems()) {
+                ProductVariant variant = productVariantRepository.findById(itemReq.getVariantId()).orElse(null);
+                if (variant != null) {
+                    CartItem item = CartItem.builder()
+                            .cart(cart)
+                            .product(variant.getProduct())
+                            .variant(variant)
+                            .quantity(itemReq.getQuantity())
+                            .price(variant.getPrice())
+                            .freeItem(itemReq.isFreeItem())
+                            .freePromotionId(itemReq.getFreePromotionId())
+                            .build();
+                    cart.addItem(item);
+                }
+            }
+        }
+        return promotionEngineService.evaluateCart(cart, cart.getCouponCode());
+    }
+
     // ─── Standard Cart Operations ─────────────────────────────────────────────
 
     @Override

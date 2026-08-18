@@ -9,15 +9,15 @@ import { giftServiceService } from '../services/giftServiceService';
 import type { GiftServiceItem } from '../services/giftServiceService';
 import type { Address } from '../types';
 import { AddressModal } from '../components/customer/AddressModal';
-import { Modal } from '../components/ui/Modal';
 import { getImageUrl } from '../utils/getImageUrl';
+import { GiftWrappingOptions } from '../components/common/GiftWrappingOptions';
 
 import { useStoreSettings } from '../context/StoreSettingsContext';
 import { getPromoIcon, getPromoHeadline } from '../utils/promotionHelpers';
 
 export const Checkout: React.FC = () => {
   const { settings } = useStoreSettings();
-  const { items, subtotal, offerDiscount, clearCart, couponCode, cartDiscount, appliedPromotions, availablePromotions, lockedPromotions, applyCoupon, removeCoupon, manuallySelectedPromotionId, applyPromotion, removePromotion, unlockMessages } = useCart();
+  const { items, subtotal, offerDiscount, clearCart, couponCode, cartDiscount, appliedPromotions, availablePromotions, lockedPromotions, applyCoupon, removeCoupon, manuallySelectedPromotionId, applyPromotion, removePromotion, unlockMessages, giftServiceId, giftMessage } = useCart();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,7 +26,13 @@ export const Checkout: React.FC = () => {
   const shippingCharge = settings?.shippingCharge !== undefined ? settings.shippingCharge : 50;
   const isFreeShipping = appliedPromotions && appliedPromotions.some((p: any) => p.name.includes('Free Shipping'));
   const shippingCost = isFreeShipping ? 0 : (totalAfterOffer > shippingThreshold ? 0 : shippingCharge);
-  const [selectedGiftPrice, setSelectedGiftPrice] = useState(0);
+  
+  const [giftServices, setGiftServices] = useState<GiftServiceItem[]>([]);
+  
+  const selectedGiftPrice = giftServiceId && giftServices.find(g => g.id === giftServiceId) 
+    ? (giftServices.find(g => g.id === giftServiceId)?.price || 0) 
+    : 0;
+
   const total = totalAfterOffer - cartDiscount + shippingCost + selectedGiftPrice;
   const totalSavings = offerDiscount + cartDiscount;
 
@@ -35,12 +41,6 @@ export const Checkout: React.FC = () => {
   const [selectedAddressId, setSelectedAddressId] = useState<number | ''>('');
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [notes, setNotes] = useState('');
-
-  // Gift service state
-  const [giftServices, setGiftServices] = useState<GiftServiceItem[]>([]);
-  const [selectedGiftServiceId, setSelectedGiftServiceId] = useState<number | null>(null);
-  const [giftMessage, setGiftMessage] = useState('');
-  const [detailsService, setDetailsService] = useState<GiftServiceItem | null>(null);
 
   const [couponInput, setCouponInput] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
@@ -88,11 +88,6 @@ export const Checkout: React.FC = () => {
     }
   };
 
-  const handleSelectGiftService = (id: number | null, price: number) => {
-    setSelectedGiftServiceId(id);
-    setSelectedGiftPrice(price);
-  };
-
   const handleApplyCoupon = async (code?: string) => {
     const codeToApply = code || couponInput.trim();
     if (!codeToApply) return;
@@ -128,7 +123,7 @@ export const Checkout: React.FC = () => {
       setIsSubmitting(true);
       setError('');
 
-      const paymentOrder = await orderService.createPaymentOrder(couponCode || undefined, selectedGiftServiceId);
+      const paymentOrder = await orderService.createPaymentOrder(couponCode || undefined, giftServiceId);
 
       if (paymentOrder.devMode) {
         // Backend is in PAYMENT_DEV_MODE — there's no real Razorpay order to open a checkout
@@ -142,7 +137,8 @@ export const Checkout: React.FC = () => {
             razorpayOrderId: paymentOrder.razorpayOrderId,
             razorpayPaymentId: `pay_dev_${Date.now()}`,
             razorpaySignature: 'dev_mode_signature',
-            giftServiceId: selectedGiftServiceId || undefined,
+            paymentMethod: 'cod',
+            giftServiceId: giftServiceId || undefined,
             giftMessage: giftMessage || undefined,
             items: items.map(item => ({
               variantId: item.variantId,
@@ -183,7 +179,7 @@ export const Checkout: React.FC = () => {
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
-              giftServiceId: selectedGiftServiceId || undefined,
+              giftServiceId: giftServiceId || undefined,
               giftMessage: giftMessage || undefined,
               items: items.map(item => ({
                 variantId: item.variantId,
@@ -352,109 +348,7 @@ export const Checkout: React.FC = () => {
               </div>
             </section>
 
-            {/* Gift Services Section */}
-            {giftServices.length > 0 && (
-              <section>
-                <div className="mb-6 border-b border-outline-variant pb-4">
-                  <h2 className="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-[22px]">redeem</span>
-                    Make it a Gift
-                  </h2>
-                  <p className="text-on-surface-variant font-body-sm mt-1 leading-relaxed">Choose a premium packaging option for a special touch.</p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                  {/* No Gift Option */}
-                  <button
-                    type="button"
-                    onClick={() => handleSelectGiftService(null, 0)}
-                    className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 flex items-center gap-3 text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-                      selectedGiftServiceId === null
-                        ? 'border-primary bg-primary/[0.04] shadow-sm'
-                        : 'border-outline-variant hover:border-primary/40'
-                    }`}
-                  >
-                    <div className="w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center flex-shrink-0">
-                      <span className="material-symbols-outlined text-on-surface-variant text-[24px]">remove_shopping_cart</span>
-                    </div>
-                    <div className="flex-grow">
-                      <p className="font-label-md text-on-surface">No Gift Wrapping</p>
-                      <p className="text-xs text-on-surface-variant mt-0.5">Standard packaging</p>
-                    </div>
-                    {selectedGiftServiceId === null && (
-                      <span className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                        <span className="material-symbols-outlined text-on-primary text-[14px]">check</span>
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Gift Service Options */}
-                  {giftServices.map(service => (
-                    <button
-                      type="button"
-                      key={service.id}
-                      onClick={() => handleSelectGiftService(service.id, service.price)}
-                      className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 flex items-center gap-3 text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-                        selectedGiftServiceId === service.id
-                          ? 'border-primary bg-primary/[0.04] shadow-sm'
-                          : 'border-outline-variant hover:border-primary/40'
-                      }`}
-                    >
-                      <div className="w-12 h-12 rounded-lg bg-surface-container overflow-hidden flex-shrink-0">
-                        {service.imageUrl ? (
-                          <img src={getImageUrl(service.imageUrl)} alt={service.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <span className="material-symbols-outlined text-on-surface-variant text-[22px]">card_giftcard</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-grow min-w-0">
-                        <p className="font-label-md text-on-surface truncate">{service.name}</p>
-                        {service.description && (
-                          <p className="text-xs text-on-surface-variant mt-0.5 line-clamp-2">{service.description}</p>
-                        )}
-                        <div className="flex items-center gap-3 mt-1">
-                          <p className="text-xs font-medium text-primary">{formatPrice(service.price)}</p>
-                          {service.description && (
-                            <span
-                              role="button"
-                              tabIndex={0}
-                              onClick={(e) => { e.stopPropagation(); setDetailsService(service); }}
-                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); setDetailsService(service); } }}
-                              className="text-xs text-on-surface-variant underline hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-sm"
-                            >
-                              View details
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {selectedGiftServiceId === service.id && (
-                        <span className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-on-primary text-[14px]">check</span>
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Gift Message */}
-                <div>
-                  <label className="block font-label-md text-on-surface mb-2">
-                    Gift Message <span className="text-on-surface-variant font-body-sm">(Optional)</span>
-                  </label>
-                  <textarea
-                    value={giftMessage}
-                    onChange={e => setGiftMessage(e.target.value.slice(0, 250))}
-                    maxLength={250}
-                    rows={3}
-                    placeholder="Happy Birthday! Wishing you all the best... 🎉"
-                    className="w-full bg-transparent border border-outline-variant rounded-lg p-3 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none resize-none"
-                  />
-                  <p className="text-xs text-on-surface-variant text-right mt-1">{giftMessage.length}/250</p>
-                </div>
-              </section>
-            )}
+            <GiftWrappingOptions />
 
             <section>
               <h2 className="font-headline-md text-headline-md text-on-surface mb-6 border-b border-outline-variant pb-4">Order Notes (Optional)</h2>
@@ -699,13 +593,15 @@ export const Checkout: React.FC = () => {
                     {shippingCost === 0 ? <span className="text-primary font-medium tracking-wide">FREE</span> : formatPrice(shippingCost)}
                   </span>
                 </div>
-                {selectedGiftServiceId && selectedGiftPrice > 0 && (
-                  <div className="flex justify-between text-on-surface-variant py-1">
-                    <span className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[16px] text-primary">redeem</span>
+                {giftServiceId && giftServices.find(g => g.id === giftServiceId) && (
+                  <div className="flex justify-between items-center text-sm font-body-md mt-2">
+                    <span className="text-on-surface-variant flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px]">redeem</span>
                       Gift Wrapping
                     </span>
-                    <span className="font-medium text-on-surface">{formatPrice(selectedGiftPrice)}</span>
+                    <span className="font-bold text-on-surface">
+                      +{formatPrice(giftServices.find(g => g.id === giftServiceId)?.price || 0)}
+                    </span>
                   </div>
                 )}
 
@@ -755,24 +651,6 @@ export const Checkout: React.FC = () => {
         onSave={fetchAddresses}
         editAddress={null}
       />
-      <Modal
-        isOpen={detailsService !== null}
-        onClose={() => setDetailsService(null)}
-        title={detailsService?.name || 'Gift Option'}
-        maxWidth="sm"
-      >
-        {detailsService && (
-          <div className="space-y-4">
-            {detailsService.imageUrl && (
-              <div className="w-full h-40 rounded-lg overflow-hidden bg-surface-container">
-                <img src={getImageUrl(detailsService.imageUrl)} alt={detailsService.name} className="w-full h-full object-cover" />
-              </div>
-            )}
-            <p className="text-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">{detailsService.description}</p>
-            <p className="text-sm font-medium text-primary">{formatPrice(detailsService.price)}</p>
-          </div>
-        )}
-      </Modal>
     </>
   );
 };

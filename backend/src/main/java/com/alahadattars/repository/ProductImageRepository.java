@@ -11,6 +11,6 @@ import java.util.Optional;
 @Repository
 public interface ProductImageRepository extends JpaRepository<ProductImage, Long> {
     List<ProductImage> findByProductAndActiveTrueOrderByDisplayOrderAsc(Product product);
-    Optional<ProductImage> findByProductAndIsPrimaryAndActiveTrue(Product product, boolean isPrimary);
+    List<ProductImage> findByProductAndIsPrimaryAndActiveTrue(Product product, boolean isPrimary);
     int countByProductAndActiveTrue(Product product);
 }

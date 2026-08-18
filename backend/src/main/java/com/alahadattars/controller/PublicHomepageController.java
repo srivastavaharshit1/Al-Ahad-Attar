@@ -32,6 +32,7 @@ public class PublicHomepageController {
     private final HeroBannerRepository heroBannerRepository;
     private final PromoBannerRepository promoBannerRepository;
     private final TestimonialRepository testimonialRepository;
+    private final com.alahadattars.repository.HomepageSectionRepository homepageSectionRepository;
 
     @GetMapping
     public ResponseEntity<ApiResponse<HomepageDataResponse>> getHomepageData() {
@@ -76,6 +77,15 @@ public class PublicHomepageController {
             return ResponseEntity.notFound().build();
         }
         return serveFileOrRedirect(testimonial.getPhotoUrl());
+    }
+
+    @GetMapping("/sections/{sectionKey}/image")
+    public ResponseEntity<?> serveSectionImage(@PathVariable String sectionKey) {
+        com.alahadattars.entity.HomepageSection section = homepageSectionRepository.findBySectionKey(sectionKey).orElse(null);
+        if (section == null || section.getImageUrl() == null || section.getImageUrl().isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return serveFileOrRedirect(section.getImageUrl());
     }
 
     private ResponseEntity<?> serveFileOrRedirect(String url) {

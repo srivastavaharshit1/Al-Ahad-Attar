@@ -30,6 +30,10 @@ export const Settings: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navbarFileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Local state for logos to allow removal before save
+  const [localBrandLogo, setLocalBrandLogo] = useState<string | null>(null);
+  const [localNavbarLogo, setLocalNavbarLogo] = useState<string | null>(null);
 
   useEffect(() => {
     if (settings) {
@@ -51,6 +55,9 @@ export const Settings: React.FC = () => {
       setEmailAddress(settings.emailAddress || '');
       setBusinessHours(settings.businessHours || '');
       setMapEmbedUrl(settings.mapEmbedUrl || '');
+      
+      setLocalBrandLogo(settings.brandLogoUrl || null);
+      setLocalNavbarLogo(settings.navbarLogoUrl || null);
     }
   }, [settings]);
 
@@ -58,8 +65,8 @@ export const Settings: React.FC = () => {
     try {
       setIsSaving(true);
       await storeSettingsService.updateSettings({
-        brandLogoUrl: settings?.brandLogoUrl || '', // Not updated here
-        navbarLogoUrl: settings?.navbarLogoUrl || '', // Not updated here
+        brandLogoUrl: localBrandLogo || '',
+        navbarLogoUrl: localNavbarLogo || '',
         storeName,
         whatsappNumber,
         instagramHandle,
@@ -157,14 +164,17 @@ export const Settings: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Logo Upload */}
                 <div>
-                  <label className="field-label">Primary Brand Logo (Footer/About)</label>
+                  <div className="flex flex-col mb-4">
+                    <label className="field-label mb-0">Primary Store Logo (Footer/About)</label>
+                    <span className="text-[10px] text-on-surface-variant/70">Recommended: 200x50 (4:1)</span>
+                  </div>
                   <div className="flex flex-col gap-4">
                     <div 
                       className="w-32 h-32 border border-outline-variant bg-surface-container flex items-center justify-center relative overflow-hidden group cursor-pointer hover:border-primary transition-colors"
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      {settings?.brandLogoUrl ? (
-                        <img className="w-full h-full object-contain p-2 bg-white" src={getImageUrl(settings.brandLogoUrl)} alt="Brand Logo" />
+                      {localBrandLogo ? (
+                        <img className="w-full h-full object-contain p-2 bg-white" src={getImageUrl(localBrandLogo)} alt="Brand Logo" />
                       ) : (
                         <span className="material-symbols-outlined text-outline text-3xl">image</span>
                       )}
@@ -174,21 +184,29 @@ export const Settings: React.FC = () => {
                     </div>
                     <div>
                       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleLogoUpload} />
-                      <button type="button" onClick={() => fileInputRef.current?.click()} className="btn-outline px-4 py-2 rounded-lg text-sm font-label-md mb-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">Change Primary Logo</button>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className="btn-outline px-4 py-2 rounded-lg text-sm font-label-md mb-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">Change Logo</button>
+                        {localBrandLogo && (
+                          <button type="button" onClick={() => setLocalBrandLogo(null)} className="btn-outline px-4 py-2 rounded-lg text-sm font-label-md mb-2 border-red-500 text-red-500 hover:bg-red-50">Remove</button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Navbar Logo Upload */}
                 <div>
-                  <label className="field-label">Navbar Logo (Clean Brand Mark)</label>
+                  <div className="flex flex-col mb-4">
+                    <label className="field-label mb-0">Navbar Logo (Clean Brand Mark)</label>
+                    <span className="text-[10px] text-on-surface-variant/70">Recommended: 200x50 (4:1)</span>
+                  </div>
                   <div className="flex flex-col gap-4">
                     <div 
                       className="w-32 h-32 border border-outline-variant bg-surface-container flex items-center justify-center relative overflow-hidden group cursor-pointer hover:border-primary transition-colors"
                       onClick={() => navbarFileInputRef.current?.click()}
                     >
-                      {settings?.navbarLogoUrl ? (
-                        <img className="w-full h-full object-contain p-2 bg-white" src={getImageUrl(settings.navbarLogoUrl)} alt="Navbar Logo" />
+                      {localNavbarLogo ? (
+                        <img className="w-full h-full object-contain p-2 bg-white" src={getImageUrl(localNavbarLogo)} alt="Navbar Logo" />
                       ) : (
                         <span className="material-symbols-outlined text-outline text-3xl">image</span>
                       )}
@@ -198,7 +216,12 @@ export const Settings: React.FC = () => {
                     </div>
                     <div>
                       <input type="file" ref={navbarFileInputRef} className="hidden" accept="image/*" onChange={handleNavbarLogoUpload} />
-                      <button type="button" onClick={() => navbarFileInputRef.current?.click()} className="btn-outline px-4 py-2 rounded-lg text-sm font-label-md mb-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">Change Navbar Logo</button>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => navbarFileInputRef.current?.click()} className="btn-outline px-4 py-2 rounded-lg text-sm font-label-md mb-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">Change Logo</button>
+                        {localNavbarLogo && (
+                          <button type="button" onClick={() => setLocalNavbarLogo(null)} className="btn-outline px-4 py-2 rounded-lg text-sm font-label-md mb-2 border-red-500 text-red-500 hover:bg-red-50">Remove</button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

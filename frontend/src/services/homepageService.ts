@@ -39,6 +39,15 @@ export const homepageService = {
     await apiClient.patch(`${ADMIN_API}/sections/reorder`, requests);
   },
 
+  uploadSectionImage: async (sectionKey: string, file: File): Promise<HomepageSectionResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post(`${ADMIN_API}/sections/${sectionKey}/image`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data.data;
+  },
+
   // --- Admin Hero Banners ---
   getAllHeroBanners: async (): Promise<HeroBannerResponse[]> => {
     const response = await apiClient.get(`${ADMIN_API}/heroes`);

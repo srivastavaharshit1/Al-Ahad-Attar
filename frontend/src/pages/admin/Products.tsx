@@ -21,6 +21,7 @@ export const Products: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState('');
+  const [activeStatus, setActiveStatus] = useState('true');
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -33,7 +34,7 @@ export const Products: React.FC = () => {
 
   useEffect(() => {
     fetchProducts();
-  }, [currentPage, categoryId]);
+  }, [currentPage, categoryId, activeStatus]);
 
   const fetchProducts = async (pageOverride?: number) => {
     try {
@@ -44,6 +45,9 @@ export const Products: React.FC = () => {
       }
       if (categoryId) {
         params.categoryId = categoryId;
+      }
+      if (activeStatus !== '') {
+        params.active = activeStatus === 'true';
       }
       const response = await productService.getProducts(params);
       setProducts(response.content || []);
@@ -59,6 +63,12 @@ export const Products: React.FC = () => {
 
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setCategoryId(e.target.value);
+    searchParams.set('page', '0');
+    setSearchParams(searchParams);
+  };
+
+  const handleActiveStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setActiveStatus(e.target.value);
     searchParams.set('page', '0');
     setSearchParams(searchParams);
   };
@@ -84,6 +94,9 @@ export const Products: React.FC = () => {
       }
       if (categoryId) {
         params.categoryId = categoryId;
+      }
+      if (activeStatus !== '') {
+        params.active = activeStatus === 'true';
       }
       const response = await productService.getProducts(params);
 
@@ -187,6 +200,18 @@ export const Products: React.FC = () => {
               </select>
               <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-[20px]">expand_more</span>
             </div>
+            <div className="relative">
+              <select
+                value={activeStatus}
+                onChange={handleActiveStatusChange}
+                className="field-input appearance-none py-2.5 pl-4 pr-10 font-label-sm text-label-sm uppercase tracking-wide cursor-pointer min-w-[120px]"
+              >
+                <option value="true">Active</option>
+                <option value="false">Deleted / Inactive</option>
+                <option value="">All Statuses</option>
+              </select>
+              <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-[20px]">expand_more</span>
+            </div>
           </div>
           <div className="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
             Showing {products.length} of {totalElements} items
@@ -225,14 +250,17 @@ export const Products: React.FC = () => {
                             )}
                           </div>
                           <div>
-                            <div className="font-headline-md text-headline-md text-on-surface text-[18px] leading-tight mb-1">{product.name}</div>
+                            <div className="font-headline-md text-headline-md text-on-surface text-[18px] leading-tight mb-1">
+                              {product.name}
+                              {!product.active && <span className="ml-2 badge badge-error text-xs align-middle">DELETED</span>}
+                            </div>
                             <div className="font-label-sm text-label-sm text-on-surface-variant">ID: {product.id}</div>
                           </div>
                         </div>
                       </td>
                       <td data-label="Category">
                         {product.categoryName || 'Uncategorized'}
-                        {product.subcategory && <span className="text-on-surface-variant text-sm ml-1">({product.subcategory})</span>}
+                        {product.subCategory && <span className="text-on-surface-variant text-sm ml-1">({product.subCategory.name})</span>}
                       </td>
                       <td data-label="Gender">
                         <span className="badge badge-neutral">{product.gender || 'UNISEX'}</span>

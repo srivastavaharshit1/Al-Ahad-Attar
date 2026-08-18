@@ -10,6 +10,7 @@ export interface HomepageSectionResponse {
   visible: boolean;
   displayOrder: number;
   maxItems: number | null;
+  imageUrl?: string;
 }
 
 export interface HomepageSectionRequest {

@@ -43,6 +43,9 @@ public class HomepageSection extends BaseEntity {
     @Builder.Default
     private boolean visible = true;
 
+    @Column(length = 1000)
+    private String imageUrl;
+
     @Column(name = "display_order", nullable = false)
     @Builder.Default
     private int displayOrder = 0;

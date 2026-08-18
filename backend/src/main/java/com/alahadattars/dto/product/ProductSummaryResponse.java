@@ -29,4 +29,5 @@ public class ProductSummaryResponse {
     private java.util.List<String> availableSizes;
     private Double averageRating;
     private Integer reviewCount;
+    private boolean active;
 }

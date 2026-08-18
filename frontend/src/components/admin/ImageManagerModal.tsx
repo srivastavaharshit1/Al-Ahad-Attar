@@ -164,6 +164,7 @@ export const ImageManagerModal: React.FC<ImageManagerModalProps> = ({ variantId,
           <span className="material-symbols-outlined text-4xl text-primary mb-3">cloud_upload</span>
           <h3 className="font-headline-sm text-primary mb-1">Click to upload or drag and drop</h3>
           <p className="text-on-surface-variant font-body-sm text-sm">PNG, JPG, or WEBP up to 5MB</p>
+          <p className="text-[10px] text-on-surface-variant/70 mt-1">Recommended: 1080x1080 (1:1 ratio)</p>
           <input
             type="file"
             ref={fileInputRef}
@@ -196,12 +197,25 @@ export const ImageManagerModal: React.FC<ImageManagerModalProps> = ({ variantId,
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-4">
             {images.map((img, idx) => (
               <div key={img.id} className={`group relative bg-surface-container rounded-lg overflow-hidden border-2 transition-colors ${img.imageType === 'THUMBNAIL' ? 'border-accent shadow-[0_0_0_3px_rgba(var(--accent-rgb),.2)]' : 'border-outline-variant'} aspect-square flex items-center justify-center`}>
-                <img
-                  src={getImageUrl(`/api/images/${img.id}`)}
-                  alt={img.originalFileName}
-                  className="w-full h-full object-cover"
-                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x400?text=Error'; }}
-                />
+                <>
+                  <img
+                    src={getImageUrl(`/api/images/${img.id}`)}
+                    alt={img.originalFileName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.currentTarget as HTMLImageElement;
+                      target.onerror = null;
+                      target.style.display = 'none';
+                      if (target.nextElementSibling) {
+                        target.nextElementSibling.classList.remove('hidden');
+                        target.nextElementSibling.classList.add('flex');
+                      }
+                    }}
+                  />
+                  <div className="w-full h-full hidden items-center justify-center text-on-surface-variant bg-surface-container absolute inset-0">
+                    <span className="material-symbols-outlined text-4xl opacity-20">broken_image</span>
+                  </div>
+                </>
 
                 {/* Status Badges */}
                 {img.imageType === 'THUMBNAIL' && (

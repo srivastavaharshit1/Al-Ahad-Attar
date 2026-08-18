@@ -197,7 +197,9 @@ const CategoriesSection = ({ categories, section }: { categories: any[], section
             </div>
             
             <div className="relative z-10 p-10 text-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
-              <h3 className="font-headline-md text-3xl text-white mb-3 font-normal tracking-wide">{cat.homepageTitle || cat.name}</h3>
+              <h3 className="font-headline-md text-3xl text-white mb-3 font-normal tracking-wide">
+                {cat.homepageTitle || (cat.name.toLowerCase() === 'bakhoor' ? 'Bakhoor & Incense Stick' : cat.name.toLowerCase() === 'perfumes' ? 'Perfumes & Car Perfumes' : cat.name)}
+              </h3>
               {cat.homepageSubtitle && (
                 <p className="text-white/80 font-body-sm mb-4 italic leading-relaxed max-w-[90%] mx-auto">{cat.homepageSubtitle}</p>
               )}
@@ -214,24 +216,26 @@ const CategoriesSection = ({ categories, section }: { categories: any[], section
 
 const BrandStorySection = ({ section }: { section?: any }) => {
   return (
-    <section className="py-0 flex flex-col md:flex-row w-full min-h-[700px]">
-      <div className="w-full md:w-1/2 relative min-h-[400px] md:min-h-full overflow-hidden">
-        <div 
-          className="absolute inset-0 bg-cover bg-center" 
-          style={{ backgroundImage: "url('https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=1887&auto=format&fit=crop')" }}
-        ></div>
-      </div>
-      <div className="w-full md:w-1/2 flex items-center justify-center p-12 md:p-24 bg-white">
-        <div className="max-w-md">
-          <span className="text-[#d4af37] text-[10px] font-label-md uppercase tracking-[0.3em] mb-6 block">{section?.subtitle || 'OUR HERITAGE'}</span>
-          <h2 className="font-headline-lg text-4xl md:text-5xl text-[#121c2a] mb-8 leading-tight font-normal whitespace-pre-line">{section?.title || 'The Art of Fine \nPerfumery'}</h2>
-          <p className="font-body-md text-on-surface-variant font-light leading-relaxed mb-12 whitespace-pre-line">
-            {section?.description || 'Born from a passion for the rarest ingredients and the most exquisite olfactory experiences, Al Ahad Attars represents the pinnacle of luxury Arabic perfumery.\n\nEvery drop is a testament to generations of masterful craftsmanship, blending rich oud, pure musk, and delicate floral essences into timeless signatures that linger long after you leave the room.'}
-          </p>
-          <Link to="/about" className="inline-flex items-center gap-4 text-[10px] text-[#121c2a] font-label-md uppercase tracking-[0.2em] border-b border-[#d4af37] pb-1 hover:text-[#d4af37] transition-colors group">
-            LEARN MORE 
-            <span className="transform group-hover:translate-x-2 transition-transform duration-300">→</span>
-          </Link>
+    <section className="py-32 px-4 md:px-8 max-w-7xl mx-auto">
+      <div className="flex flex-col md:flex-row gap-12 lg:gap-24 items-center">
+        <div className="w-full md:w-1/2 relative aspect-[4/5] md:aspect-[3/4] overflow-hidden rounded-sm">
+          <div 
+            className="absolute inset-0 bg-cover bg-center" 
+            style={{ backgroundImage: `url('${section?.imageUrl ? getImageUrl(section.imageUrl) : 'https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=1887&auto=format&fit=crop'}')` }}
+          ></div>
+        </div>
+        <div className="w-full md:w-1/2 flex flex-col justify-center">
+          <div className="max-w-md">
+            <span className="text-[#d4af37] text-[10px] font-label-md uppercase tracking-[0.3em] mb-6 block">{section?.subtitle || 'OUR HERITAGE'}</span>
+            <h2 className="font-headline-lg text-4xl md:text-5xl text-[#121c2a] mb-8 leading-tight font-normal whitespace-pre-line">{section?.title || 'The Art of Fine \nPerfumery'}</h2>
+            <p className="font-body-md text-on-surface-variant font-light leading-relaxed mb-12 whitespace-pre-line">
+              {section?.description || 'Born from a passion for the rarest ingredients and the most exquisite olfactory experiences, Al Ahad Attars represents the pinnacle of luxury Arabic perfumery.\n\nEvery drop is a testament to generations of masterful craftsmanship, blending rich oud, pure musk, and delicate floral essences into timeless signatures that linger long after you leave the room.'}
+            </p>
+            <Link to="/about" className="inline-flex items-center gap-4 text-[10px] text-[#121c2a] font-label-md uppercase tracking-[0.2em] border-b border-[#d4af37] pb-1 hover:text-[#d4af37] transition-colors group">
+              LEARN MORE 
+              <span className="transform group-hover:translate-x-2 transition-transform duration-300">→</span>
+            </Link>
+          </div>
         </div>
       </div>
     </section>
@@ -252,15 +256,18 @@ const FeaturedProductsSection = ({ products, section }: { products: any[], secti
           <h2 className="font-headline-lg text-4xl md:text-5xl text-[#121c2a] font-normal tracking-wide">{section?.title || 'Featured Products'}</h2>
           {section?.description && <p className="mt-4 font-body-md text-on-surface-variant max-w-xl">{section.description}</p>}
         </div>
-        <Link to="/collections" className="text-[10px] text-[#121c2a] font-label-md uppercase tracking-[0.2em] hover:text-[#d4af37] transition-colors pb-2">
-          VIEW ALL PRODUCTS
-        </Link>
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         {displayProducts.map(product => (
           <ProductCard key={product.id} product={product} />
         ))}
+      </div>
+      
+      <div className="mt-16 flex justify-center">
+        <Link to="/collections" className="bg-[#121c2a] text-white px-12 py-4 text-[10px] font-label-md uppercase tracking-[0.25em] hover:bg-[#d4af37] transition-colors">
+          VIEW ALL PRODUCTS
+        </Link>
       </div>
     </section>
   );
@@ -331,13 +338,13 @@ const TestimonialsSection = ({ testimonials, section }: { testimonials: any[], s
       {/* Luxury CSS Scroll Snap Carousel */}
       <div className="flex overflow-x-auto snap-x snap-mandatory gap-8 pb-12 hide-scrollbar px-4 md:px-[calc((100vw-1280px)/2+2rem)]">
         {testimonials.map(test => (
-          <div key={test.id} className="snap-center shrink-0 w-[85vw] md:w-[600px] bg-white p-12 md:p-16 flex flex-col items-center text-center shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)]">
-            <div className="flex gap-2 text-[#d4af37] mb-10">
+          <div key={test.id} className="snap-center shrink-0 w-[85vw] md:w-[450px] bg-white p-8 md:p-10 flex flex-col items-center text-center shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)]">
+            <div className="flex gap-2 text-[#d4af37] mb-8">
               {[...Array(5)].map((_, i) => (
                 <span key={i} className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: i < test.rating ? "'FILL' 1" : "'FILL' 0" }}>star</span>
               ))}
             </div>
-            <p className="font-headline-md text-xl md:text-2xl text-[#121c2a] mb-12 italic font-light leading-relaxed">
+            <p className="font-headline-md text-lg md:text-xl text-[#121c2a] mb-10 italic font-light leading-relaxed">
               "{test.review}"
             </p>
             <div className="flex flex-col items-center gap-4 mt-auto">

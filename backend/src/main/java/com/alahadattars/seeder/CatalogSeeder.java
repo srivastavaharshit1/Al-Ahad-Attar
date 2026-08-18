@@ -123,19 +123,18 @@ public class CatalogSeeder implements CommandLineRunner {
 
     private record VariantSeed(String size, BigDecimal price, int stock) {}
 
-    private static VariantSeed[] attarSizes(int p3, int p6, int p12, int p25) {
+    private static VariantSeed[] attarSizes(int p3, int p6, int p12) {
         return new VariantSeed[]{
             new VariantSeed("3ml", BigDecimal.valueOf(p3), 60),
             new VariantSeed("6ml", BigDecimal.valueOf(p6), 45),
             new VariantSeed("12ml", BigDecimal.valueOf(p12), 30),
-            new VariantSeed("25ml", BigDecimal.valueOf(p25), 15),
         };
     }
 
-    private static VariantSeed[] perfumeSizes(int p30, int p50, int p100) {
+    private static VariantSeed[] perfumeSizes(int p30, int p60, int p100) {
         return new VariantSeed[]{
             new VariantSeed("30ml", BigDecimal.valueOf(p30), 40),
-            new VariantSeed("50ml", BigDecimal.valueOf(p50), 25),
+            new VariantSeed("60ml", BigDecimal.valueOf(p60), 25),
             new VariantSeed("100ml", BigDecimal.valueOf(p100), 12),
         };
     }
@@ -157,105 +156,105 @@ public class CatalogSeeder implements CommandLineRunner {
             "Oud Royale opens with a resinous, smoky oud heart drawn from aged Cambodi wood, softened with a whisper of rose and warmed by amber and musk in the base. Built for cooler evenings and formal occasions, it leaves a trail that lingers for hours.",
             "Woody Oud", "Saffron, Cambodi Oud", "Rose, Cardamom", "Amber, White Musk",
             "8-10 hours", "Strong", Gender.UNISEX, CategoryType.ATTARS, "Oud", true,
-            ProductType.ATTAR, attarSizes(699, 1199, 2099, 3799)));
+            ProductType.ATTAR, attarSizes(699, 1199, 2099)));
 
         p.add(new ProductSeed("Misk Al Layl (Night Musk)", "Al Ahad Signature",
             "A soft, skin-close white musk for everyday wear.",
             "Night Musk is a clean, powdery white musk blended with a touch of vanilla and sandalwood — the kind of scent that sits close to the skin and is noticed only on an embrace. A staff favourite for daily wear.",
             "Musk", "Bergamot", "White Musk, Vanilla", "Sandalwood, Ambergris",
             "6-8 hours", "Moderate", Gender.UNISEX, CategoryType.ATTARS, "Musk", true,
-            ProductType.ATTAR, attarSizes(499, 899, 1599, 2899)));
+            ProductType.ATTAR, attarSizes(499, 899, 1599)));
 
         p.add(new ProductSeed("Gulab-e-Kashmir", "Bait Al Attar",
             "A dewy Kashmiri rose attar, distilled the traditional way.",
             "Steam-distilled from Kashmiri Damask roses using the centuries-old deg-bhapka method, this attar captures the rose at its most fragrant moment — green, dewy, and honeyed, without ever turning cloying.",
             "Floral Rose", "Rose Petals, Green Leaves", "Rose Absolute, Honey", "Sandalwood, Musk",
             "6-8 hours", "Moderate", Gender.FEMALE, CategoryType.ATTARS, "Floral", false,
-            ProductType.ATTAR, attarSizes(549, 949, 1699, 2999)));
+            ProductType.ATTAR, attarSizes(549, 949, 1699)));
 
         p.add(new ProductSeed("Zafraan Reserve", "Zafraan Reserve",
             "Saffron and amber layered over a creamy sandalwood base.",
             "A warm, spiced attar built around genuine Kashmiri saffron, layered over creamy Mysore-style sandalwood and finished with a soft amber glow. Rich enough for winter, refined enough for a boardroom.",
             "Oriental Spicy", "Saffron, Pink Pepper", "Sandalwood, Cinnamon", "Amber, Benzoin",
             "8-10 hours", "Strong", Gender.MALE, CategoryType.ATTARS, "Spicy", true,
-            ProductType.ATTAR, attarSizes(799, 1399, 2499, 4499)));
+            ProductType.ATTAR, attarSizes(799, 1399, 2499)));
 
         p.add(new ProductSeed("Sandal Chandan", "Waha Collection",
             "Pure, creamy Mysore-style sandalwood — nothing else.",
             "A single-note tribute to sandalwood: warm, creamy, and slightly milky, drawn from a Mysore-style base oil. No embellishment needed — this is the attar for purists.",
             "Woody Sandalwood", "Sandalwood", "Sandalwood", "Sandalwood, Musk",
             "6-8 hours", "Moderate", Gender.UNISEX, CategoryType.ATTARS, "Woody", false,
-            ProductType.ATTAR, attarSizes(599, 1049, 1849, 3299)));
+            ProductType.ATTAR, attarSizes(599, 1049, 1849)));
 
         p.add(new ProductSeed("Amber Nuit", "Qasr Al Oud",
             "A honeyed amber attar with a warm, resinous trail.",
             "Amber Nuit builds a thick, honeyed amber accord over labdanum and vanilla, finished with a trace of oud smoke. Best applied sparingly — a little carries the whole room.",
             "Amber", "Bergamot, Labdanum", "Amber, Vanilla", "Oud, Benzoin",
             "8-10 hours", "Strong", Gender.UNISEX, CategoryType.ATTARS, "Amber", false,
-            ProductType.ATTAR, attarSizes(649, 1149, 1999, 3599)));
+            ProductType.ATTAR, attarSizes(649, 1149, 1999)));
 
         p.add(new ProductSeed("Yasmin Bloom", "Bait Al Attar",
             "A jasmine-forward floral attar with a green, indolic heart.",
             "Night-blooming jasmine sambac takes centre stage here, tempered with green leaf accords and a soft musk drydown. Romantic without being heavy.",
             "Floral White", "Green Leaves, Bergamot", "Jasmine Sambac", "White Musk, Sandalwood",
             "6-8 hours", "Moderate", Gender.FEMALE, CategoryType.ATTARS, "Floral", false,
-            ProductType.ATTAR, attarSizes(549, 949, 1699, 2999)));
+            ProductType.ATTAR, attarSizes(549, 949, 1699)));
 
         p.add(new ProductSeed("Oud Cambodi Extreme", "Sultani Oud House",
             "An uncompromising, barnyard-funk Cambodi oud for connoisseurs.",
             "Not for the faint-hearted — this is oud at its most raw and animalic, sourced from aged Cambodi agarwood. Leathery, smoky, and deeply complex, it rewards patience as it settles over the first hour.",
             "Woody Oud", "Cambodi Oud", "Leather, Smoke", "Musk, Patchouli",
             "10+ hours", "Very Strong", Gender.MALE, CategoryType.ATTARS, "Oud", false,
-            ProductType.ATTAR, attarSizes(899, 1599, 2899, 5299)));
+            ProductType.ATTAR, attarSizes(899, 1599, 2899)));
 
         p.add(new ProductSeed("Mukhallat Al Ahad", "Al Ahad Signature",
             "The house blend — oud, rose, and saffron in perfect balance.",
             "Our signature mukhallat brings together three of our best-selling notes — Cambodi oud, Kashmiri rose, and saffron — into a single, balanced composition designed to work equally well day or night.",
             "Oriental Woody", "Saffron, Rose", "Oud, Rose Absolute", "Amber, Musk",
             "8-10 hours", "Strong", Gender.UNISEX, CategoryType.ATTARS, "Signature", true,
-            ProductType.ATTAR, attarSizes(749, 1299, 2299, 4199)));
+            ProductType.ATTAR, attarSizes(749, 1299, 2299)));
 
         p.add(new ProductSeed("Vetiver Al Sharq", "Noor Al Sharq",
             "A dry, earthy vetiver attar with citrus lift.",
             "Vetiver Al Sharq pairs smoky, earthy vetiver root with a citrus top note and a soft musk base — a green, grounded attar built for warm afternoons.",
             "Woody Green", "Bergamot, Petitgrain", "Vetiver", "Musk, Cedarwood",
             "5-7 hours", "Moderate", Gender.MALE, CategoryType.ATTARS, "Woody", false,
-            ProductType.ATTAR, attarSizes(549, 949, 1699, 2999)));
+            ProductType.ATTAR, attarSizes(549, 949, 1699)));
 
         p.add(new ProductSeed("Ambergris Marine", "Qasr Al Oud",
             "A luminous, salty-sweet ambergris with a marine edge.",
             "A modern take on the classic ambergris attar, brightened with a faint marine accord and rounded out with white musk — fresher and lighter than a traditional amber.",
             "Amber Fresh", "Marine Accord, Bergamot", "Ambergris", "White Musk, Driftwood",
             "6-8 hours", "Moderate", Gender.UNISEX, CategoryType.ATTARS, "Amber", false,
-            ProductType.ATTAR, attarSizes(649, 1149, 1999, 3599)));
+            ProductType.ATTAR, attarSizes(649, 1149, 1999)));
 
         p.add(new ProductSeed("Kesar Chandan", "Waha Collection",
             "Saffron-kissed sandalwood, warm and comforting.",
             "A gentler cousin to Zafraan Reserve — saffron threads folded into creamy sandalwood, with none of the heavier spice notes. An easy, everyday warmth.",
             "Woody Spicy", "Saffron", "Sandalwood, Cardamom", "Musk, Vanilla",
             "6-8 hours", "Moderate", Gender.UNISEX, CategoryType.ATTARS, "Woody", false,
-            ProductType.ATTAR, attarSizes(599, 1049, 1849, 3299)));
+            ProductType.ATTAR, attarSizes(599, 1049, 1849)));
 
         p.add(new ProductSeed("Bahar-e-Gulshan (Garden Bloom)", "Bait Al Attar",
             "A multi-floral bouquet — rose, jasmine, and lily of the valley.",
             "A classic Lucknowi-style gulshan blend layering rose, jasmine, and lily of the valley over a soft musk base — a garden captured in a single bottle.",
             "Floral Bouquet", "Lily of the Valley", "Rose, Jasmine", "White Musk",
             "5-7 hours", "Moderate", Gender.FEMALE, CategoryType.ATTARS, "Floral", false,
-            ProductType.ATTAR, attarSizes(549, 949, 1699, 2999)));
+            ProductType.ATTAR, attarSizes(549, 949, 1699)));
 
         p.add(new ProductSeed("Dahn Al Oud Mubakhar", "Sultani Oud House",
             "Smoked oud oil, distilled over bakhoor embers.",
             "Traditionally distilled with the agarwood chips passed over smouldering bakhoor before extraction, giving this oil a deep, incense-like smokiness rarely found outside the Gulf.",
             "Smoky Oud", "Smoke, Cambodi Oud", "Incense, Leather", "Amber, Musk",
             "10+ hours", "Very Strong", Gender.MALE, CategoryType.ATTARS, "Oud", false,
-            ProductType.ATTAR, attarSizes(999, 1799, 3199, 5799)));
+            ProductType.ATTAR, attarSizes(999, 1799, 3199)));
 
         p.add(new ProductSeed("Rehan Al Malaki (Royal Basil)", "Noor Al Sharq",
             "A sharp, herbal basil-mint attar for warm days.",
             "An unusually fresh entry in our attar line — sweet basil and spearmint over a light musk base, worn for its cooling effect in the Gulf heat.",
             "Fresh Herbal", "Spearmint, Basil", "Green Tea", "White Musk",
             "4-6 hours", "Light", Gender.UNISEX, CategoryType.ATTARS, "Fresh", false,
-            ProductType.ATTAR, attarSizes(449, 799, 1399, 2499)));
+            ProductType.ATTAR, attarSizes(449, 799, 1399)));
 
         // ── Bakhoor (incense) ────────────────────────────────────────────────────────
         p.add(new ProductSeed("Royal Oud Bakhoor", "Sultani Oud House",
@@ -466,7 +465,6 @@ public class CatalogSeeder implements CommandLineRunner {
                 .shortDescription(s.shortDescription())
                 .description(s.description())
                 .brand(s.brand())
-                .subcategory(s.subcategory())
                 .fragranceFamily(s.fragranceFamily())
                 .topNotes(s.topNotes())
                 .middleNotes(s.middleNotes())
@@ -477,6 +475,7 @@ public class CatalogSeeder implements CommandLineRunner {
                 .featured(s.featured())
                 .active(true)
                 .category(category)
+                .subcategory(s.subcategory())
                 .build();
             product = productRepository.save(product);
 

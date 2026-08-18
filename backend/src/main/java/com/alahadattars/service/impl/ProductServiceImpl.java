@@ -56,6 +56,10 @@ public class ProductServiceImpl implements ProductService {
                 });
 
         Product product = productMapper.toEntity(request);
+        product.setCategory(category);
+        
+        product.setSubcategory(request.getSubcategory());
+
         category.addProduct(product);
         
         Product savedProduct = productRepository.save(product);
@@ -95,6 +99,7 @@ public class ProductServiceImpl implements ProductService {
         product.setShortDescription(request.getShortDescription());
         product.setDescription(request.getDescription());
         product.setBrand(request.getBrand());
+        
         product.setSubcategory(request.getSubcategory());
         product.setFragranceFamily(request.getFragranceFamily());
         product.setTopNotes(request.getTopNotes());
@@ -218,7 +223,11 @@ public class ProductServiceImpl implements ProductService {
                 predicates.add(cb.equal(root.get("category").get("id"), categoryId));
             }
             if (subcategory != null && !subcategory.trim().isEmpty()) {
-                predicates.add(cb.equal(root.get("subcategory"), subcategory));
+                if (subcategory.equalsIgnoreCase("none")) {
+                    predicates.add(cb.or(cb.isNull(root.get("subcategory")), cb.equal(root.get("subcategory"), "")));
+                } else {
+                    predicates.add(cb.equal(root.get("subcategory"), subcategory));
+                }
             }
             if (gender != null) {
                 predicates.add(cb.equal(root.get("gender"), gender));

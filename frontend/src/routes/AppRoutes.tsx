@@ -52,6 +52,7 @@ const AdminRefunds = React.lazy(() => import('../pages/admin/Refunds').then(m =>
 const AdminCustomers = React.lazy(() => import('../pages/admin/Customers').then(m => ({ default: m.Customers })));
 const AdminPromotions = React.lazy(() => import('../pages/admin/Promotions').then(m => ({ default: m.Promotions })));
 const AdminCategories = React.lazy(() => import('../pages/admin/Categories').then(m => ({ default: m.Categories })));
+const AdminSubCategories = React.lazy(() => import('../pages/admin/SubCategories').then(m => ({ default: m.SubCategories })));
 const AdminHomepage = React.lazy(() => import('../pages/admin/Homepage').then(m => ({ default: m.Homepage })));
 const AdminSettings = React.lazy(() => import('../pages/admin/Settings').then(m => ({ default: m.Settings })));
 const AdminAnalytics = React.lazy(() => import('../pages/admin/Analytics').then(m => ({ default: m.Analytics })));
@@ -114,6 +115,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="refunds" element={<AdminRefunds />} />
           <Route path="customers" element={<AdminCustomers />} />
           <Route path="categories" element={<AdminCategories />} />
+          <Route path="subcategories" element={<AdminSubCategories />} />
           <Route path="promotions" element={<AdminPromotions />} />
           <Route path="inquiries" element={<AdminContactMessages />} />
           <Route path="homepage" element={<AdminHomepage />} />

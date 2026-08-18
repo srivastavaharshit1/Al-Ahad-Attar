@@ -8,6 +8,7 @@ import com.alahadattars.dto.variant.VariantSummaryResponse;
 import java.util.List;
 
 public interface ProductVariantService {
+    void cleanupSizes();
     VariantResponse createVariant(Long productId, CreateVariantRequest request);
     VariantResponse updateVariant(Long id, UpdateVariantRequest request);
     void deleteVariant(Long id);

@@ -201,7 +201,7 @@ public class ProductController {
     public ResponseEntity<ApiResponse<Page<ProductSummaryResponse>>> getProducts(
             @Parameter(description = "Search query for product name or description") @RequestParam(required = false) String search,
             @Parameter(description = "Filter by category ID") @RequestParam(required = false) Long categoryId,
-            @Parameter(description = "Filter by subcategory") @RequestParam(required = false) String subcategory,
+            @Parameter(description = "Filter by subcategory string") @RequestParam(required = false) String subcategory,
             @Parameter(description = "Filter by gender") @RequestParam(required = false) Gender gender,
             @Parameter(description = "Filter by brand name") @RequestParam(required = false) String brand,
             @Parameter(description = "Filter by featured status") @RequestParam(required = false) Boolean featured,

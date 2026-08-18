@@ -33,6 +33,11 @@ export interface CartItemResponse {
 }
 
 export const cartService = {
+  evaluateGuestCart: async (payload: { items: any[], couponCode: string | null, manuallySelectedPromotionId: number | null }) => {
+    const response = await apiClient.post<ApiResponse<CartResponse>>('/cart/evaluate-guest', payload);
+    return response.data;
+  },
+
   getCart: async () => {
     const response = await apiClient.get<ApiResponse<CartResponse>>('/cart');
     return response.data;

@@ -1,4 +1,5 @@
 import type { Category } from './category';
+import type { SubCategory } from '../services/subCategoryService';
 import type { Variant } from './variant';
 
 export interface ProductImage {
@@ -19,7 +20,7 @@ export interface Product {
   shortDescription?: string;
   description: string;
   brand: string;
-  subcategory?: string;
+  subCategory?: SubCategory;
   fragranceFamily: string;
   topNotes: string;
   middleNotes: string;
@@ -50,7 +51,7 @@ export interface ProductSummary {
   featuredInCollection: boolean;
   gender: string;
   categoryName: string;
-  subcategory?: string;
+  subCategory?: SubCategory;
   minimumPrice: number;
   thumbnail: string;
   totalStock: number;
@@ -59,4 +60,5 @@ export interface ProductSummary {
   availableSizes: string[];
   averageRating: number;
   reviewCount: number;
+  active: boolean;
 }

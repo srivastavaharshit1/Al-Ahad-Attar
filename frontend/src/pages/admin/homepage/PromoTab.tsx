@@ -346,7 +346,10 @@ export const PromoTab: React.FC = () => {
           </div>
 
           <div className="pt-4 mt-2 border-t border-outline-variant space-y-4">
-            <h4 className="font-label-md text-on-surface">Background Image (Optional)</h4>
+            <div className="flex flex-col items-start mb-2">
+              <h4 className="font-label-md text-on-surface">Background Image (Optional)</h4>
+              <span className="text-[10px] text-on-surface-variant/70">Recommended: 1920x600 (approx. 3:1 ratio)</span>
+            </div>
 
             <div className="border-2 border-dashed border-outline-variant hover:border-accent transition-colors rounded-lg p-4 text-center bg-surface-container-lowest">
               {editingPromo?.imageUrl && (

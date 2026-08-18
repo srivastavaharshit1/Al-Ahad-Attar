@@ -29,6 +29,10 @@ interface CartContextType {
   freeProductOptions: any[];
   addFreeItem: (promotionId: number, variantId: number) => Promise<void>;
   removeFreeItem: (cartItemId: string) => Promise<void>;
+  giftServiceId: number | null;
+  setGiftServiceId: (id: number | null) => void;
+  giftMessage: string;
+  setGiftMessage: (msg: string) => void;
 }
 
 export const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -52,8 +56,21 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [unlockMessages, setUnlockMessages] = useState<string[]>([]);
   const [manuallySelectedPromotionId, setManuallySelectedPromotionId] = useState<number | null>(() => storage.get('cart_manual_promo', null));
   const [freeProductOptions, setFreeProductOptions] = useState<any[]>([]);
+  const [giftServiceId, setGiftServiceIdState] = useState<number | null>(() => storage.get('cart_gift_service_id', null));
+  const [giftMessage, setGiftMessageState] = useState<string>(() => storage.get('cart_gift_message', ''));
   const { isAuthenticated, user } = useAuth();
   const quantityUpdateTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  const setGiftServiceId = (id: number | null) => {
+    setGiftServiceIdState(id);
+    if (id !== null) storage.set('cart_gift_service_id', id);
+    else storage.remove('cart_gift_service_id');
+  };
+
+  const setGiftMessage = (msg: string) => {
+    setGiftMessageState(msg);
+    storage.set('cart_gift_message', msg);
+  };
 
   const syncCartState = (cartData: any) => {
     if (!cartData) return;
@@ -140,6 +157,42 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     storage.set('cart_discount', discount);
     storage.set('cart_manual_promo', manuallySelectedPromotionId);
   }, [couponCode, discount, manuallySelectedPromotionId]);
+
+  // Guest cart evaluation
+  useEffect(() => {
+    if (isAuthenticated || !isLoaded) return;
+    
+    const evaluate = async () => {
+      try {
+        const payload = {
+          items: items.map(i => ({
+            productId: Number(i.productId),
+            variantId: Number(i.variantId),
+            quantity: i.quantity,
+            freeItem: i.freeItem,
+            freePromotionId: i.freePromotionId
+          })),
+          couponCode,
+          manuallySelectedPromotionId
+        };
+        const res = await cartService.evaluateGuestCart(payload);
+        if (res) syncCartState(res.data);
+      } catch (err) {
+        console.error("Guest cart evaluation failed", err);
+      }
+    };
+
+    const timeoutId = setTimeout(evaluate, 500); // debounce
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isAuthenticated,
+    isLoaded,
+    couponCode,
+    manuallySelectedPromotionId,
+    // JSON.stringify to avoid infinite loops when syncCartState replaces the items array reference
+    JSON.stringify(items.map(i => ({ p: i.productId, v: i.variantId, q: i.quantity, f: i.freeItem, prm: i.freePromotionId })))
+  ]);
 
   const addItem = async (item: CartItem) => {
     if (isAuthenticated && item.variantId) {
@@ -357,7 +410,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       itemCount, subtotal, offerDiscount, couponCode, discount: effectiveDiscount,
       cartDiscount, appliedPromotions, availablePromotions, lockedPromotions, unlockMessages,
       applyCoupon, removeCoupon, manuallySelectedPromotionId, applyPromotion, removePromotion,
-      freeProductOptions, addFreeItem, removeFreeItem
+      freeProductOptions, addFreeItem, removeFreeItem, giftServiceId, setGiftServiceId, giftMessage, setGiftMessage
     }}>
       {children}
     </CartContext.Provider>

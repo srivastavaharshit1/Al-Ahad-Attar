@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class StoreSettingsRequest {
     private String brandLogoUrl;
+    private String navbarLogoUrl;
     private String storeName;
     private String whatsappNumber;
     private String instagramHandle;

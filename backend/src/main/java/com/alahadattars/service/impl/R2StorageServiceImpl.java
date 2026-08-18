@@ -57,8 +57,8 @@ public class R2StorageServiceImpl implements StorageService {
                     "STORAGE_PROVIDER=r2 requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY to be set.");
         }
         this.s3Client = S3Client.builder()
+                .httpClientBuilder(software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient.builder())
                 .endpointOverride(URI.create("https://" + accountId + ".r2.cloudflarestorage.com"))
-                // R2 doesn't use AWS regions; "auto" is Cloudflare's documented placeholder value.
                 .region(Region.of("auto"))
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(accessKeyId, secretAccessKey)))

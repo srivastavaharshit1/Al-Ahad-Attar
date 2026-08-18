@@ -59,9 +59,9 @@ export const Navbar: React.FC = () => {
           {/* Left: Logo */}
           <div className="flex-1 flex justify-start h-full py-2 min-w-0">
             <Link to="/" className="flex items-center h-full min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2">
-              {settings?.navbarLogoUrl || settings?.brandLogoUrl ? (
+              {settings?.navbarLogoUrl ? (
                 <img
-                  src={getImageUrl(settings.navbarLogoUrl || settings.brandLogoUrl)}
+                  src={getImageUrl(settings.navbarLogoUrl)}
                   alt={settings?.storeName || 'Al Ahad Attars'}
                   className="h-[40px] md:h-[60px] lg:h-[75px] w-auto object-contain transition-opacity duration-300 hover:opacity-90"
                 />
