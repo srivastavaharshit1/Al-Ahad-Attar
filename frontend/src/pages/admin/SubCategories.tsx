@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+// import { useSearchParams } from 'react-router-dom'; // removed unused import
 import { subCategoryService, type SubCategory, type SubCategoryRequest } from '../../services/subCategoryService';
 import { categoryService } from '../../services/categoryService';
 import type { Category } from '../../types';
@@ -130,7 +130,7 @@ export const SubCategories: React.FC = () => {
   if (isLoading && categories.length === 0) {
     return (
       <div className="flex justify-center items-center h-64">
-        <Loader size="lg" />
+        <Loader />
       </div>
     );
   }
@@ -166,7 +166,7 @@ export const SubCategories: React.FC = () => {
       <div className="bg-surface rounded-2xl shadow-sm border border-outline-variant overflow-hidden">
         {isLoading ? (
           <div className="p-8 flex justify-center">
-            <Loader size="md" />
+            <Loader />
           </div>
         ) : subCategories.length === 0 ? (
           <div className="p-12 text-center text-on-surface-variant bg-surface-container/30">
@@ -275,7 +275,7 @@ export const SubCategories: React.FC = () => {
                 disabled={isSaving}
                 className="btn btn-primary"
               >
-                {isSaving ? <Loader size="sm" color="white" /> : 'Save Subcategory'}
+                {isSaving ? <Loader /> : 'Save Subcategory'}
               </button>
             </div>
           </div>
@@ -286,11 +286,11 @@ export const SubCategories: React.FC = () => {
       <ConfirmationDialog
         isOpen={deleteConfirmId !== null}
         title="Delete Subcategory"
-        message="Are you sure you want to delete this subcategory? This action cannot be undone."
-        confirmLabel="Delete Subcategory"
-        confirmVariant="danger"
+        description="Are you sure you want to delete this subcategory? This action cannot be undone."
+        confirmText="Delete Subcategory"
+        dangerMode={true}
         onConfirm={confirmDelete}
-        onCancel={() => setDeleteConfirmId(null)}
+        onClose={() => setDeleteConfirmId(null)}
         isLoading={isDeleting}
       />
     </div>
