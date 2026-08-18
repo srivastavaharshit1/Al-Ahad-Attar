@@ -75,7 +75,7 @@ public class SecurityConfig {
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/variants/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/images/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/promotions/**").permitAll()
-                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/homepage/**").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/homepage", "/api/homepage/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/public/cms/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/settings/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/gift-services/**").permitAll()
