@@ -64,6 +64,18 @@ public class HomepageServiceImpl implements HomepageService {
         sectionRepository.saveAll(sections);
     }
 
+    @Override
+    @Transactional
+    public HomepageSectionResponse uploadSectionImage(String sectionKey, org.springframework.web.multipart.MultipartFile file) {
+        HomepageSection section = sectionRepository.findBySectionKey(sectionKey)
+                .orElseThrow(() -> new com.alahadattars.exception.ResourceNotFoundException("Section not found: " + sectionKey));
+        
+        String path = storageService.uploadFile(file, "sections");
+        section.setImageUrl(path);
+        
+        return mapSection(sectionRepository.save(section));
+    }
+
     // --- Hero Banners ---
 
     @Override
@@ -338,6 +350,7 @@ public class HomepageServiceImpl implements HomepageService {
                 .visible(s.isVisible())
                 .displayOrder(s.getDisplayOrder())
                 .maxItems(s.getMaxItems())
+                .imageUrl(storageService.resolveUrl(s.getImageUrl(), "/api/homepage/sections/" + s.getSectionKey() + "/image"))
                 .build();
     }
 

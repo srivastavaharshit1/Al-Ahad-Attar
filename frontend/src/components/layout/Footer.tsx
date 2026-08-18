@@ -37,9 +37,6 @@ export const Footer: React.FC = () => {
                 Instagram
               </a>
             )}
-            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/60 uppercase tracking-[0.2em] hover:text-accent transition-colors rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ink">
-              Facebook
-            </a>
             {settings?.whatsappNumber ? (
               <a href={`https://wa.me/${settings.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/60 uppercase tracking-[0.2em] hover:text-accent transition-colors rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ink">
                 WhatsApp
@@ -69,7 +66,6 @@ export const Footer: React.FC = () => {
           <h4 className="font-label-md text-[10px] text-accent uppercase tracking-[0.25em] mb-8">Company</h4>
           <ul className="space-y-4">
             <li><Link to="/about" className={footerLinkClass}>About Us</Link></li>
-            <li><Link to="/our-story" className={footerLinkClass}>Our Story</Link></li>
             <li><Link to="/contact" className={footerLinkClass}>Contact</Link></li>
             <li><Link to="/faq" className={footerLinkClass}>FAQ</Link></li>
           </ul>

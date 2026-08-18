@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
 import { formatPrice } from '../utils/formatPrice';
@@ -6,15 +6,56 @@ import { getImageUrl } from '../utils/getImageUrl';
 import { useStoreSettings } from '../context/StoreSettingsContext';
 import { getPromoIcon, getPromoHeadline, estimateSavings } from '../utils/promotionHelpers';
 import { useInView } from '../hooks/useInView';
+import { giftServiceService } from '../services/giftServiceService';
+import type { GiftServiceItem } from '../services/giftServiceService';
+import { GiftWrappingOptions } from '../components/common/GiftWrappingOptions';
 
 export const Cart: React.FC = () => {
   const { settings } = useStoreSettings();
-  const { items, removeItem, updateQuantity, subtotal, offerDiscount, itemCount, appliedPromotions, availablePromotions, lockedPromotions, unlockMessages, cartDiscount, manuallySelectedPromotionId, applyPromotion, removePromotion, removeCoupon, freeProductOptions, addFreeItem, removeFreeItem } = useCart();
+  const { items, removeItem, updateQuantity, subtotal, offerDiscount, itemCount, appliedPromotions, availablePromotions, lockedPromotions, unlockMessages, cartDiscount, manuallySelectedPromotionId, applyPromotion, removePromotion, removeCoupon, freeProductOptions, addFreeItem, removeFreeItem, applyCoupon, giftServiceId } = useCart();
 
   // Scroll-reveal refs (called unconditionally, before any early returns)
   const { ref: itemsRef, inView: itemsInView } = useInView<HTMLDivElement>();
   const { ref: summaryRef, inView: summaryInView } = useInView<HTMLDivElement>();
   const [brokenGiftImages, setBrokenGiftImages] = useState<Set<number>>(new Set());
+  const [giftServices, setGiftServices] = useState<GiftServiceItem[]>([]);
+
+  const [couponInput, setCouponInput] = useState('');
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState('');
+  const [showAllFreeGifts, setShowAllFreeGifts] = useState(false);
+
+  useEffect(() => {
+    fetchGiftServices();
+  }, []);
+
+  const fetchGiftServices = async () => {
+    try {
+      const res = await giftServiceService.getActiveServices();
+      setGiftServices(res.data || []);
+    } catch (err) {
+      console.error("Failed to load gift services", err);
+    }
+  };
+
+  const handleApplyCoupon = async (code?: string | React.FormEvent) => {
+    if (code && typeof code !== 'string' && 'preventDefault' in code) {
+      code.preventDefault();
+    }
+    const codeToApply = typeof code === 'string' ? code : couponInput.trim();
+    if (!codeToApply) return;
+    
+    setIsApplyingCoupon(true);
+    setCouponError('');
+    try {
+      await applyCoupon(codeToApply);
+      setCouponInput('');
+    } catch (err: any) {
+      setCouponError(err.response?.data?.message || 'Invalid coupon code');
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
 
   const shippingThreshold = settings?.freeShippingThreshold !== undefined ? settings.freeShippingThreshold : 500;
   
@@ -25,8 +66,11 @@ export const Cart: React.FC = () => {
   const isFreeShipping = appliedPromotions && appliedPromotions.some((p: any) => p.name.includes('Free Shipping'));
   const shippingCost = isFreeShipping ? 0 : (totalAfterOffer > shippingThreshold ? 0 : shippingCharge);
   
-  const total = totalAfterOffer - cartDiscount + shippingCost;
-  const totalSavings = offerDiscount + cartDiscount;
+  const selectedGiftPrice = giftServiceId && giftServices.find(g => g.id === giftServiceId) 
+    ? (giftServices.find(g => g.id === giftServiceId)?.price || 0) 
+    : 0;
+
+  const total = totalAfterOffer - cartDiscount + shippingCost + selectedGiftPrice;
 
   if (items.length === 0) {
     return (
@@ -298,7 +342,7 @@ export const Cart: React.FC = () => {
         )}
         <p className="text-xs text-on-surface-variant">{freeProductOptions.length} eligible {freeProductOptions.length === 1 ? 'product' : 'products'} — pick one</p>
         <div className="rounded-xl border border-outline-variant divide-y divide-outline-variant overflow-hidden bg-surface-container-lowest">
-          {freeProductOptions.map((option, idx) => {
+          {(showAllFreeGifts ? freeProductOptions : freeProductOptions.slice(0, 3)).map((option, idx) => {
             const isAdded = items.some(item => item.freePromotionId === option.promotionId && Number(item.variantId) === option.variantId);
             return (
               <button
@@ -344,6 +388,17 @@ export const Cart: React.FC = () => {
             );
           })}
         </div>
+        {freeProductOptions.length > 3 && (
+          <div className="mt-4 flex justify-center">
+            <button
+              onClick={() => setShowAllFreeGifts(!showAllFreeGifts)}
+              type="button"
+              className="text-[10px] text-on-surface font-label-md uppercase tracking-[0.2em] border border-outline-variant hover:bg-surface-container px-8 py-3 transition-colors rounded-md"
+            >
+              {showAllFreeGifts ? 'Show Less' : `View All ${freeProductOptions.length} Options`}
+            </button>
+          </div>
+        )}
       </div>
     );
   };
@@ -365,11 +420,22 @@ export const Cart: React.FC = () => {
             <div key={item.id} className="flex flex-col sm:flex-row items-center gap-6 pb-8 border-b border-outline-variant/50 relative group">
               <div className="w-full sm:w-36 h-36 bg-surface-container-lowest border border-outline-variant flex-shrink-0 overflow-hidden rounded-sm">
                 {item.image ? (
-                  <img
-                    src={getImageUrl(item.image)}
-                    alt={item.name || 'Product'}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
+                  <>
+                    <img
+                      src={getImageUrl(item.image)}
+                      alt={item.name || 'Product'}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.style.display = 'none';
+                        const next = e.currentTarget.nextElementSibling;
+                        if (next) next.classList.remove('hidden');
+                      }}
+                    />
+                    <div className="hidden w-full h-full flex items-center justify-center text-on-surface-variant">
+                      <span className="material-symbols-outlined text-3xl">image</span>
+                    </div>
+                  </>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-on-surface-variant">
                     <span className="material-symbols-outlined text-3xl">image</span>
@@ -448,6 +514,11 @@ export const Cart: React.FC = () => {
           {/* Free Gifts Panel */}
           {renderFreeGiftsPanel()}
 
+          {/* Gift Services Panel */}
+          <div className="mt-8">
+            <GiftWrappingOptions />
+          </div>
+
           {/* Premium Offer Panel */}
           {renderOfferPanel()}
         </div>
@@ -456,21 +527,15 @@ export const Cart: React.FC = () => {
         <div ref={summaryRef} className={`w-full lg:w-1/3 bg-surface-container-lowest border border-outline-variant p-8 relative overflow-hidden rounded-sm sticky top-24 reveal ${summaryInView ? 'in-view' : ''}`} style={{ boxShadow: '0 10px 30px rgba(31, 41, 55, 0.04)' }}>
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
           <h2 className="font-headline-lg text-headline-lg text-on-surface mb-8 border-b border-outline-variant/30 pb-4">Order Summary</h2>
-          <div className="space-y-4 mb-8">
+          <div className="space-y-4 mb-6">
             <div className="flex justify-between items-center">
               <span className="font-body-md text-body-md text-on-surface-variant">Subtotal ({itemCount} items)</span>
               <span className="font-body-md text-body-md text-on-surface">{formatPrice(subtotal)}</span>
             </div>
-            {offerDiscount > 0 && (
+            {(offerDiscount + cartDiscount) > 0 && (
               <div className="flex justify-between items-center">
-                <span className="font-body-md text-body-md text-on-surface-variant">Item Discounts</span>
-                <span className="font-body-md text-body-md text-primary">-{formatPrice(offerDiscount)}</span>
-              </div>
-            )}
-            {cartDiscount > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="font-body-md text-body-md text-on-surface-variant">Cart Discount</span>
-                <span className="font-body-md text-body-md text-primary">-{formatPrice(cartDiscount)}</span>
+                <span className="font-body-md text-body-md text-primary">Discount</span>
+                <span className="font-body-md text-body-md text-primary">-{formatPrice(offerDiscount + cartDiscount)}</span>
               </div>
             )}
             <div className="flex justify-between items-center">
@@ -483,6 +548,15 @@ export const Cart: React.FC = () => {
                 )}
               </span>
             </div>
+            {selectedGiftPrice > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="font-body-md text-body-md text-on-surface-variant flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[16px]">redeem</span>
+                  Gift Wrapping
+                </span>
+                <span className="font-body-md text-body-md text-on-surface">{formatPrice(selectedGiftPrice)}</span>
+              </div>
+            )}
             {shippingCost > 0 && (!unlockMessages || unlockMessages.length === 0) && (
               <p className="text-xs text-on-surface-variant">
                 Add {formatPrice(shippingThreshold - (totalAfterOffer - cartDiscount))} more for free shipping
@@ -498,30 +572,113 @@ export const Cart: React.FC = () => {
                 </p>
               </div>
             ))}
+          </div>
 
-            {/* Applied offers */}
-            {appliedPromotions && appliedPromotions.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-outline-variant/30">
-                <p className="font-label-sm text-label-sm text-on-surface-variant mb-2.5">Applied Offers</p>
-                <div className="flex flex-wrap gap-2">
-                  {appliedPromotions.map((promo: any, i) => (
-                    <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/[0.06] text-primary text-xs rounded-full border border-primary/10">
-                      <span className="material-symbols-outlined text-[13px]">check_circle</span>
-                      {promo.name}
-                    </span>
-                  ))}
+          {/* Offers & Coupon Section */}
+          <div className="mb-6 pt-6 border-t border-outline-variant/30">
+            {appliedPromotions && appliedPromotions.length > 0 ? (
+              <div className="mb-2">
+                {appliedPromotions.map((promo: any) => (
+                  <div key={promo.id} className="flex flex-col gap-1">
+                    <div className="font-label-md text-sm text-primary font-bold flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px]">check</span>
+                      Coupon applied: {promo.code || promo.name}
+                    </div>
+                    <div className="flex justify-between items-center text-sm font-body-md mb-1.5">
+                      <span className="text-on-surface-variant">Discount:</span>
+                      <span className="font-bold text-primary">-{formatPrice(promo.discountAmount || cartDiscount || offerDiscount)}</span>
+                    </div>
+                    <div>
+                      <button
+                        onClick={() => {
+                          if (promo.code) removeCoupon();
+                          else removePromotion();
+                        }}
+                        className="text-[11px] font-label-md uppercase tracking-wider text-error hover:underline"
+                      >
+                        [ Remove ]
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Input Area */}
+                <div>
+                  <p className="font-label-sm text-on-surface-variant mb-2.5 font-medium">Have a coupon code?</p>
+                  <div>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        value={couponInput}
+                        onChange={(e) => setCouponInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleApplyCoupon();
+                          }
+                        }}
+                        placeholder="Enter coupon code" 
+                        className="flex-1 min-w-0 bg-transparent border border-outline-variant rounded-sm px-4 py-2 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none uppercase transition-all"
+                        aria-label="Coupon code input"
+                        disabled={isApplyingCoupon}
+                      />
+                      <button
+                        onClick={() => handleApplyCoupon()}
+                        disabled={isApplyingCoupon || !couponInput.trim()}
+                        className="shrink-0 bg-surface-variant text-on-surface-variant hover:bg-outline-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent px-6 py-2 rounded-sm transition-colors disabled:opacity-50 font-label-md tracking-wider uppercase"
+                      >
+                        {isApplyingCoupon ? '...' : 'Apply'}
+                      </button>
+                    </div>
+                    {couponError && <p className="text-error text-xs mt-2">{couponError}</p>}
+                  </div>
                 </div>
+
+                {/* Available Offers */}
+                {(!availablePromotions || availablePromotions.length === 0) ? (
+                  <div>
+                    <p className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant/70 mb-2 font-medium">Available Offers</p>
+                    <p className="text-sm text-on-surface-variant italic">No offers available for this order</p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant mb-3 font-medium">Available Offers</p>
+                    <div className="space-y-3">
+                      {availablePromotions.map((promo: any) => (
+                        <div key={promo.id} className="bg-surface-container-lowest border border-outline-variant/50 p-4 rounded-sm flex items-start gap-3">
+                          <span className="text-xl mt-0.5" aria-hidden="true">{getPromoIcon(promo)}</span>
+                          <div className="flex-grow min-w-0">
+                            <div className="font-label-md text-sm text-on-surface font-semibold mb-0.5">{promo.code || getPromoHeadline(promo)}</div>
+                            <div className="text-xs text-on-surface-variant leading-relaxed">{promo.description || getPromoHeadline(promo)}</div>
+                            <div className="mt-2.5">
+                              {promo.code ? (
+                                <button
+                                  onClick={() => handleApplyCoupon(promo.code || '')}
+                                  disabled={isApplyingCoupon}
+                                  className="text-[11px] font-label-md text-primary hover:underline uppercase tracking-wider font-medium"
+                                >
+                                  Apply
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => applyPromotion(promo.id)}
+                                  className="text-[11px] font-label-md text-primary hover:underline uppercase tracking-wider font-medium"
+                                >
+                                  Apply
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
-
-          {/* Savings highlight */}
-          {totalSavings > 0 && (
-            <div className="mb-6 bg-primary/[0.04] border border-primary/10 rounded-lg p-4 text-center">
-              <p className="text-[10px] font-label-sm uppercase tracking-[0.2em] text-on-surface-variant mb-1">You Save</p>
-              <p className="font-headline-md text-primary">{formatPrice(totalSavings)}</p>
-            </div>
-          )}
 
           <div className="flex justify-between items-center mb-8 pt-4 border-t border-outline-variant/30">
             <span className="font-headline-md text-headline-md text-on-surface">Total</span>

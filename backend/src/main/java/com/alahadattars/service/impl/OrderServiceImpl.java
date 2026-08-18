@@ -88,6 +88,7 @@ public class OrderServiceImpl implements OrderService {
     private final PromotionRedemptionRepository promotionRedemptionRepository;
     private final EmailService emailService;
     private final RefundTransactionSupport refundTransactionSupport;
+    private final com.alahadattars.service.StorageService storageService;
 
     private static final DateTimeFormatter EMAIL_DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
 
@@ -746,6 +747,26 @@ public class OrderServiceImpl implements OrderService {
     }
 
 
+    private String resolveOrderItemImage(com.alahadattars.entity.ProductVariant variant) {
+        if (variant == null) return null;
+        if (variant.getImage() != null && !variant.getImage().isBlank()) {
+            return variant.getImage();
+        }
+        com.alahadattars.entity.Product product = variant.getProduct();
+        if (product == null || product.getImages() == null || product.getImages().isEmpty()) {
+            return null;
+        }
+        com.alahadattars.entity.ProductImage primary = product.getImages().stream()
+                .filter(img -> img.isActive() && img.isPrimary())
+                .findFirst()
+                .orElseGet(() -> product.getImages().stream()
+                        .filter(com.alahadattars.entity.ProductImage::isActive)
+                        .findFirst()
+                        .orElse(product.getImages().isEmpty() ? null : product.getImages().get(0)));
+        if (primary == null) return null;
+        return storageService.resolveUrl(primary.getImageUrl(), "/api/images/" + primary.getId() + "/file");
+    }
+
     private OrderItemResponse mapItemToResponse(OrderItem item) {
         return OrderItemResponse.builder()
                 .id(item.getId())
@@ -757,6 +778,7 @@ public class OrderServiceImpl implements OrderService {
                 .subtotal(item.getSubtotal())
                 .productName(item.getProductName())
                 .variantSize(item.getVariantSize())
+                .productImage(resolveOrderItemImage(item.getVariant()))
                 .build();
     }
 }

@@ -103,11 +103,12 @@ public class ProductImageServiceImpl implements ProductImageService {
             log.warn("Could not delete physical file for image {}: {}", imageId, e.getMessage());
         }
         
-        // If it was primary, try to set another one as primary
-        if (image.isPrimary()) {
-            Product product = image.getProduct();
-            List<ProductImage> remaining = productImageRepository.findByProductAndActiveTrueOrderByDisplayOrderAsc(product);
-            if (!remaining.isEmpty()) {
+        // Ensure exactly one primary image exists if there are any active images left
+        Product product = image.getProduct();
+        List<ProductImage> remaining = productImageRepository.findByProductAndActiveTrueOrderByDisplayOrderAsc(product);
+        if (!remaining.isEmpty()) {
+            boolean hasPrimary = remaining.stream().anyMatch(ProductImage::isPrimary);
+            if (!hasPrimary) {
                 ProductImage newPrimary = remaining.get(0);
                 newPrimary.setPrimary(true);
                 productImageRepository.save(newPrimary);
@@ -155,11 +156,13 @@ public class ProductImageServiceImpl implements ProductImageService {
 
         Product product = newPrimary.getProduct();
         
-        productImageRepository.findByProductAndIsPrimaryAndActiveTrue(product, true)
-            .ifPresent(oldPrimary -> {
+        List<ProductImage> oldPrimaries = productImageRepository.findByProductAndIsPrimaryAndActiveTrue(product, true);
+        for (ProductImage oldPrimary : oldPrimaries) {
+            if (!oldPrimary.getId().equals(newPrimary.getId())) {
                 oldPrimary.setPrimary(false);
-                productImageRepository.save(oldPrimary);
-            });
+            }
+        }
+        productImageRepository.saveAll(oldPrimaries);
 
         newPrimary.setPrimary(true);
         ProductImage savedImage = productImageRepository.save(newPrimary);

@@ -63,8 +63,21 @@ public class StoreSettingsServiceImpl implements StoreSettingsService {
     public StoreSettingsResponse updateSettings(StoreSettingsRequest request) {
         StoreSettings settings = getSettingsEntity();
         
-        // Don't update brandLogoUrl from request, as it's handled by uploadLogo
-        // Wait, what if they clear it? We can allow it if they send empty.
+        if (request.getBrandLogoUrl() != null && request.getBrandLogoUrl().isEmpty()) {
+            if (settings.getLogoFilePath() != null) {
+                storageService.deleteFile(settings.getLogoFilePath());
+            }
+            settings.setLogoFilePath(null);
+            settings.setBrandLogoUrl(null);
+        }
+
+        if (request.getNavbarLogoUrl() != null && request.getNavbarLogoUrl().isEmpty()) {
+            if (settings.getNavbarLogoFilePath() != null) {
+                storageService.deleteFile(settings.getNavbarLogoFilePath());
+            }
+            settings.setNavbarLogoFilePath(null);
+            settings.setNavbarLogoUrl(null);
+        }
         
         settings.setStoreName(request.getStoreName());
         settings.setWhatsappNumber(request.getWhatsappNumber());

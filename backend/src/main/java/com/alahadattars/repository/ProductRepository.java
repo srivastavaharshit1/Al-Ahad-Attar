@@ -15,6 +15,7 @@ import java.util.Optional;
 public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpecificationExecutor<Product> {
     Optional<Product> findBySlug(String slug);
     boolean existsBySlug(String slug);
+
     // Unfiltered on purpose — CategoryServiceImpl uses this to check "does this category still
     // have ANY products" (active or not) before allowing a category delete, since an inactive
     // product row still holds a real FK to it. Public-facing category browsing uses the

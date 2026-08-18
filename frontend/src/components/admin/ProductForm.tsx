@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import type { Category } from '../../types';
 import { ImageManager, type ManagedImage } from './ImageManager';
-import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Plus, Trash2 } from 'lucide-react';
+
 
 export interface ProductFormData {
   name: string;
@@ -71,6 +72,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     setImages(initialImages);
   }, [initialImages]);
 
+
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
@@ -80,11 +83,14 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       [name]: type === 'checkbox' ? checked : value
     }));
 
-    if (name === 'name' && !formData.slug && !productId) {
-      setFormData(prev => ({
-        ...prev,
-        slug: value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
-      }));
+    if (name === 'name' && !productId) {
+      const expectedSlug = formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      if (!formData.slug || formData.slug === expectedSlug) {
+        setFormData(prev => ({
+          ...prev,
+          slug: value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+        }));
+      }
     }
   };
 
@@ -115,19 +121,32 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             { sku: '', size: '12 ml', price: 0, stock: 0, active: true }
           ]);
         } else if (cat.type === 'BAKHOOR') {
-          setVariants([
-            { sku: '', size: '40 g', price: 0, stock: 0, active: true }
-          ]);
+          if (formData.subcategory === 'Incense Sticks') {
+            setVariants([
+              { sku: '', size: '100 gm', price: 0, stock: 0, active: true },
+              { sku: '', size: '250 gm', price: 0, stock: 0, active: true }
+            ]);
+          } else {
+            setVariants([
+              { sku: '', size: '40 g', price: 0, stock: 0, active: true }
+            ]);
+          }
         } else if (cat.type === 'PERFUMES') {
-          setVariants([
-            { sku: '', size: '30 ml', price: 0, stock: 0, active: true },
-            { sku: '', size: '60 ml', price: 0, stock: 0, active: true },
-            { sku: '', size: '100 ml', price: 0, stock: 0, active: true }
-          ]);
+          if (formData.subcategory === 'Car Perfumes') {
+            setVariants([
+              { sku: '', size: '1 pc', price: 0, stock: 0, active: true }
+            ]);
+          } else {
+            setVariants([
+              { sku: '', size: '30 ml', price: 0, stock: 0, active: true },
+              { sku: '', size: '60 ml', price: 0, stock: 0, active: true },
+              { sku: '', size: '100 ml', price: 0, stock: 0, active: true }
+            ]);
+          }
         }
       }
     }
-  }, [formData.categoryId, categories, productId]);
+  }, [formData.categoryId, formData.subcategory, categories, productId]);
 
 
   return (
@@ -165,19 +184,31 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 ))}
               </select>
             </div>
-            {selectedCategory?.type === 'BAKHOOR' && (
+            {selectedCategory?.name?.toLowerCase() === 'bakhoor' && (
               <div>
                 <label className="field-label">Subcategory</label>
                 <select
                   name="subcategory"
                   value={formData.subcategory}
                   onChange={handleInputChange}
-                  required
                   className="field-input font-body-md text-body-md"
                 >
-                  <option value="">Select Subcategory</option>
-                  <option value="BAKHOOR">Bakhoor</option>
-                  <option value="FRESHENERS">Fresheners</option>
+                  <option value="">None / Bakhoor</option>
+                  <option value="Incense Sticks">Incense Sticks</option>
+                </select>
+              </div>
+            )}
+            {selectedCategory?.name?.toLowerCase() === 'perfumes' && (
+              <div>
+                <label className="field-label">Subcategory</label>
+                <select
+                  name="subcategory"
+                  value={formData.subcategory}
+                  onChange={handleInputChange}
+                  className="field-input font-body-md text-body-md"
+                >
+                  <option value="">None / Perfumes</option>
+                  <option value="Car Perfumes">Car Perfumes</option>
                 </select>
               </div>
             )}
@@ -221,10 +252,24 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface mb-6">Pricing &amp; Inventory</h3>
         <div className="grid grid-cols-1 gap-4">
           {variants.map((v, idx) => (
-            <div key={idx} className="bg-surface-container border border-outline-variant rounded-lg p-6 flex flex-col md:flex-row md:items-center gap-6 transition-colors hover:border-accent/40">
-              <div className="md:w-1/4">
-                <div className="field-label mb-1">Variant Size</div>
-                <div className="font-headline-sm text-headline-sm text-accent">{v.size}</div>
+            <div key={idx} className="bg-surface-container border border-outline-variant rounded-lg p-6 flex flex-col md:flex-row md:items-center gap-6 transition-colors hover:border-accent/40 relative">
+              <button
+                type="button"
+                onClick={() => setVariants(prev => prev.filter((_, i) => i !== idx))}
+                className="absolute top-2 right-2 p-2 text-on-surface-variant hover:text-error transition-colors"
+                title="Remove Variant"
+              >
+                <Trash2 size={18} />
+              </button>
+              <div className="md:w-1/4 pt-4 md:pt-0">
+                <label className="field-label mb-1">Variant Size <span className="text-error">*</span></label>
+                <input
+                  className="field-input font-body-lg text-body-lg text-accent"
+                  type="text"
+                  required
+                  value={v.size}
+                  onChange={e => handleVariantChange(idx, 'size', e.target.value)}
+                />
               </div>
               <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
@@ -267,6 +312,15 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               Select a category to populate variant options.
             </div>
           )}
+          
+          <button
+            type="button"
+            onClick={() => setVariants(prev => [...prev, { sku: '', size: '', price: 0, stock: 0, active: true }])}
+            className="flex items-center justify-center gap-2 py-3 border-2 border-dashed border-outline-variant rounded-lg text-on-surface-variant hover:text-accent hover:border-accent/50 transition-colors font-label-lg"
+          >
+            <Plus size={20} />
+            Add Variant
+          </button>
         </div>
       </div>
 

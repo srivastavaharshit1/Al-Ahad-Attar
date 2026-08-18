@@ -23,4 +23,5 @@ public class OrderItemResponse {
     private BigDecimal subtotal;
     private String productName;
     private String variantSize;
+    private String productImage;
 }

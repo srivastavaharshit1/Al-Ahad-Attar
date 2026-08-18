@@ -30,6 +30,7 @@ public class ProductMapper {
         List<VariantResponse> variantResponses = null;
         if (product.getVariants() != null) {
             variantResponses = product.getVariants().stream()
+                    .filter(ProductVariant::isActive)
                     .map(productVariantMapper::toResponse)
                     .collect(Collectors.toList());
         }
@@ -37,6 +38,7 @@ public class ProductMapper {
         List<com.alahadattars.dto.product.ProductImageResponse> imageResponses = null;
         if (product.getImages() != null) {
             imageResponses = product.getImages().stream()
+                    .filter(img -> img.isActive())
                     .map(img -> com.alahadattars.dto.product.ProductImageResponse.builder()
                             .id(img.getId())
                             .imageUrl(storageService.resolveUrl(img.getImageUrl(), "/api/images/" + img.getId() + "/file"))
@@ -118,14 +120,22 @@ public class ProductMapper {
 
         if (product.getVariants() != null && !product.getVariants().isEmpty()) {
             minPrice = product.getVariants().stream()
+                    .filter(ProductVariant::isActive)
                     .map(ProductVariant::getPrice)
                     .min(BigDecimal::compareTo)
                     .orElse(null);
             
-            defaultVariantId = product.getVariants().get(0).getId();
-            defaultVariantSize = product.getVariants().get(0).getSize();
+            ProductVariant defaultVariant = product.getVariants().stream()
+                    .filter(ProductVariant::isActive)
+                    .findFirst()
+                    .orElse(null);
+            if (defaultVariant != null) {
+                defaultVariantId = defaultVariant.getId();
+                defaultVariantSize = defaultVariant.getSize();
+            }
             
             totalStock = product.getVariants().stream()
+                    .filter(ProductVariant::isActive)
                     .mapToInt(v -> v.getStock() != null ? v.getStock() : 0)
                     .sum();
                     
@@ -137,10 +147,15 @@ public class ProductMapper {
 
         if (product.getImages() != null && !product.getImages().isEmpty()) {
             com.alahadattars.entity.ProductImage thumbImage = product.getImages().stream()
-                    .filter(com.alahadattars.entity.ProductImage::isPrimary)
+                    .filter(img -> img.isActive() && img.isPrimary())
                     .findFirst()
-                    .orElse(product.getImages().get(0));
-            thumb = storageService.resolveUrl(thumbImage.getImageUrl(), "/api/images/" + thumbImage.getId() + "/file");
+                    .orElseGet(() -> product.getImages().stream()
+                            .filter(com.alahadattars.entity.ProductImage::isActive)
+                            .findFirst()
+                            .orElse(null));
+            if (thumbImage != null) {
+                thumb = storageService.resolveUrl(thumbImage.getImageUrl(), "/api/images/" + thumbImage.getId() + "/file");
+            }
         }
 
         return ProductSummaryResponse.builder()
@@ -148,11 +163,11 @@ public class ProductMapper {
                 .name(product.getName())
                 .slug(product.getSlug())
                 .brand(product.getBrand())
-                .subcategory(product.getSubcategory())
                 .gender(product.getGender())
                 .featured(product.isFeatured())
                 .featuredInCollection(product.getCollections() != null && product.getCollections().contains("COLLECTIONS"))
                 .categoryName(categoryName)
+                .subcategory(product.getSubcategory())
                 .minimumPrice(minPrice)
                 .thumbnail(thumb)
                 .totalStock(totalStock)
@@ -161,6 +176,7 @@ public class ProductMapper {
                 .availableSizes(availableSizesList)
                 .averageRating(product.getAverageRating())
                 .reviewCount(product.getReviewCount())
+                .active(product.isActive())
                 .build();
     }
 

@@ -56,7 +56,8 @@ public class SecurityConfig {
                 // Razorpay calls this directly — it can't send our JWT. Authenticity comes from
                 // the X-Razorpay-Signature check inside PaymentController/handleWebhookEvent, not
                 // from Spring Security's auth layer.
-                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/payment/webhook").permitAll();
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/payment/webhook").permitAll()
+                .requestMatchers("/cleanup-sizes").permitAll();
 
                 // The OpenAPI document describes every endpoint and its request shapes, so it is closed to
                 // anonymous callers by default. Set app.swagger.public=true for local development only.
@@ -68,12 +69,14 @@ public class SecurityConfig {
                 }
 
                 auth
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/cart/evaluate-guest").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/products/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/categories/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/variants/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/images/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/promotions/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/homepage/**").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/public/cms/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/settings/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/gift-services/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/reviews/product/**").permitAll()

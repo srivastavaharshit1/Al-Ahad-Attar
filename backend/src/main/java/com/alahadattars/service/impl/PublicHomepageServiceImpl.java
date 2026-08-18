@@ -8,6 +8,7 @@ import com.alahadattars.mapper.CategoryMapper;
 import com.alahadattars.repository.*;
 import com.alahadattars.service.ProductService;
 import com.alahadattars.service.PublicHomepageService;
+import com.alahadattars.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -35,6 +36,7 @@ public class PublicHomepageServiceImpl implements PublicHomepageService {
     // boundary (needed to lazy-load variants/images during mapping) even when called from a
     // worker thread that has no transaction of its own — see the CompletableFuture below.
     private final ProductService productService;
+    private final StorageService storageService;
 
     // Two Executor beans exist (this one and emailTaskExecutor, see AsyncConfig) — disambiguated
     // by Spring's by-name fallback since the field name matches the @Bean name exactly. A
@@ -127,6 +129,7 @@ public class PublicHomepageServiceImpl implements PublicHomepageService {
                 .visible(s.isVisible())
                 .displayOrder(s.getDisplayOrder())
                 .maxItems(s.getMaxItems())
+                .imageUrl(storageService.resolveUrl(s.getImageUrl(), "/api/homepage/sections/" + s.getSectionKey() + "/image"))
                 .build();
     }
 
@@ -139,8 +142,8 @@ public class PublicHomepageServiceImpl implements PublicHomepageService {
                 .buttonText(h.getButtonText())
                 .buttonUrl(h.getButtonUrl())
                 .badge(h.getBadge())
-                .imageUrl(resolveImageUrl(h.getImageUrl(), "/api/homepage/heroes/" + h.getId() + "/image"))
-                .mobileImageUrl(resolveImageUrl(h.getMobileImageUrl(), "/api/homepage/heroes/" + h.getId() + "/mobile-image"))
+                .imageUrl(storageService.resolveUrl(h.getImageUrl(), "/api/homepage/heroes/" + h.getId() + "/image"))
+                .mobileImageUrl(storageService.resolveUrl(h.getMobileImageUrl(), "/api/homepage/heroes/" + h.getId() + "/mobile-image"))
                 .active(h.isActive())
                 .displayOrder(h.getDisplayOrder())
                 .build();
@@ -152,7 +155,7 @@ public class PublicHomepageServiceImpl implements PublicHomepageService {
                 .id(p.getId())
                 .title(p.getTitle())
                 .subtitle(p.getSubtitle())
-                .imageUrl(resolveImageUrl(p.getImageUrl(), "/api/homepage/banners/" + p.getId() + "/image"))
+                .imageUrl(storageService.resolveUrl(p.getImageUrl(), "/api/homepage/banners/" + p.getId() + "/image"))
                 .buttonText(p.getButtonText())
                 .buttonUrl(p.getButtonUrl())
                 .backgroundColor(p.getBackgroundColor())
@@ -167,7 +170,7 @@ public class PublicHomepageServiceImpl implements PublicHomepageService {
         return TestimonialResponse.builder()
                 .id(t.getId())
                 .customerName(t.getCustomerName())
-                .photoUrl(resolveImageUrl(t.getPhotoUrl(), "/api/homepage/testimonials/" + t.getId() + "/photo"))
+                .photoUrl(storageService.resolveUrl(t.getPhotoUrl(), "/api/homepage/testimonials/" + t.getId() + "/photo"))
                 .rating(t.getRating())
                 .review(t.getReview())
                 .displayOrder(t.getDisplayOrder())
@@ -175,21 +178,6 @@ public class PublicHomepageServiceImpl implements PublicHomepageService {
                 .build();
     }
 
-    /**
-     * Locally-uploaded images are stored as a relative filename and must be proxied through
-     * this controller's serve-file endpoints. Images that already live on external storage
-     * (e.g. Supabase Storage public URLs, or seed-data placeholder URLs) are absolute and
-     * should be returned as-is — see ProductMapper.resolveImageUrl for the same pattern.
-     */
-    private String resolveImageUrl(String rawUrl, String proxyPath) {
-        if (rawUrl == null || rawUrl.isBlank()) {
-            return null;
-        }
-        if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://") || rawUrl.startsWith("data:")) {
-            return rawUrl;
-        }
-        return proxyPath;
-    }
 
     private WhyChooseUsItemResponse mapWhyChoose(WhyChooseUsItem w) {
         return WhyChooseUsItemResponse.builder()

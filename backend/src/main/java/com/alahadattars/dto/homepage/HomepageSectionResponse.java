@@ -18,4 +18,5 @@ public class HomepageSectionResponse {
     private boolean visible;
     private int displayOrder;
     private Integer maxItems;
+    private String imageUrl;
 }

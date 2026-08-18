@@ -62,14 +62,20 @@ const CancellationSection: React.FC<CancellationSectionProps> = ({
               </div>
             )}
             {!showConfirm ? (
-              <button
-                id="cancel-order-btn"
-                onClick={() => setShowConfirm(true)}
-                className="btn flex items-center gap-2 rounded-DEFAULT border border-error !bg-transparent text-error hover:bg-error hover:text-white focus-visible:outline-error transition-all duration-200"
-              >
-                <span className="material-symbols-outlined text-[20px]">cancel</span>
-                Cancel Order
-              </button>
+              <>
+                <p className="text-sm text-on-surface-variant mb-4 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px]">info</span>
+                  You can cancel your order before it is packed. Once packed, it cannot be cancelled.
+                </p>
+                <button
+                  id="cancel-order-btn"
+                  onClick={() => setShowConfirm(true)}
+                  className="btn flex items-center gap-2 rounded-DEFAULT border border-error !bg-transparent text-error hover:bg-error hover:text-white focus-visible:outline-error transition-all duration-200"
+                >
+                  <span className="material-symbols-outlined text-[20px]">cancel</span>
+                  Cancel Order
+                </button>
+              </>
             ) : (
               <div className="bg-error-container/10 border border-error/20 rounded-lg p-5">
                 <div className="flex items-start gap-3 mb-5">

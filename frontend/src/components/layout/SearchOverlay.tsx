@@ -1,5 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { productService } from '../../services/productService';
+import { getImageUrl } from '../../utils/getImageUrl';
 
 interface SearchOverlayProps {
   isOpen: boolean;
@@ -10,9 +12,16 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
+  const [suggestedProducts, setSuggestedProducts] = useState<any[]>([]);
+
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 100);
+    if (isOpen) {
+      if (inputRef.current) {
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
+      productService.getProducts({ size: 3, sort: 'createdAt,desc' })
+        .then(res => setSuggestedProducts(res.content || []))
+        .catch(console.error);
     }
   }, [isOpen]);
 
@@ -106,36 +115,33 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
               Suggested Products
             </h3>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Product 1 */}
-              <Link to="/product/1" onClick={onClose} className="group flex flex-col gap-4 p-4 rounded-xl hover:bg-surface-container-lowest transition-colors border border-transparent hover:border-outline-variant/30 shadow-none hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                <div className="aspect-square bg-surface-container rounded-lg overflow-hidden relative">
-                  <img className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuOdZxuYCsRAQDrwiP9u564frCby7WeqS8uDAh_NZDsbytOknjvn3sjuQwgUJxRcgO7lPL7RN5KVzX_lTDo_7b09StwdlpppG68Bpk-JpwCIk8L4H2XPCR0e6l2_v__V0adNZjcrc3PBsHaaDTGn8Qf00KwrsB8QixyrfJu5jeSd1L1O-eko-V4Rl1PLuBRvv-KorN0yyPfb-BorJBePi1sJ-XB0myvvOfwUE2bP2L1UJeF78vRxnTNFqWBEiPf8738UyHgtSDCw" alt="Royal Amber" />
-                </div>
-                <div>
-                  <h4 className="font-headline-md text-headline-md text-on-surface group-hover:text-accent transition-colors line-clamp-1">Royal Amber</h4>
-                  <p className="font-body-md text-body-md text-on-surface-variant mt-1">Rich, woody, sweet</p>
-                </div>
-              </Link>
-              {/* Product 2 */}
-              <Link to="/product/2" onClick={onClose} className="group flex flex-col gap-4 p-4 rounded-xl hover:bg-surface-container-lowest transition-colors border border-transparent hover:border-outline-variant/30 shadow-none hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                <div className="aspect-square bg-surface-container rounded-lg overflow-hidden relative">
-                  <img className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDggE1VejinBFl-z2Be3SIcvFDlNyZoBqIfH4S_BYpLUex3RhMWgFQYETU7kjdSaENIfoquDU6e9fTzy_p0jj6j66Ypxn0DKxJcM0kGVFVv45s9t9qYP30x7GZaARoUNONqAqmlZmvPm8ugr5jPGfNeQ--5K3B_8Xr_U5lNNA8JG-ZJyPoSYwu5VBoSvWM3RRM_Ku_4tdAvhFSlWo-BcZTRpHhBnB8DdeMH95jgeKq_hXp7fUviAxJZK46T_QRip6p9xBpiD8n2zQ" alt="White Musk Pure" />
-                </div>
-                <div>
-                  <h4 className="font-headline-md text-headline-md text-on-surface group-hover:text-accent transition-colors line-clamp-1">White Musk Pure</h4>
-                  <p className="font-body-md text-body-md text-on-surface-variant mt-1">Clean, powdery, soft</p>
-                </div>
-              </Link>
-              {/* Product 3 */}
-              <Link to="/product/3" onClick={onClose} className="group flex flex-col gap-4 p-4 rounded-xl hover:bg-surface-container-lowest transition-colors border border-transparent hover:border-outline-variant/30 shadow-none hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent hidden lg:flex">
-                <div className="aspect-square bg-surface-container rounded-lg overflow-hidden relative">
-                  <img className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDusrs-FBPzVwTnUiaZDTgIkTHiilq_O_cJnhkS72TiMiNALfBD1e_piDt38OtFTWDNiFeoUlsHnFTBnOVlhz_qTyt6fShkXYtaEhwnT0aHT0PxGNWA1OsL65aYn4yrEzlXLm6MzD8-g3DEom0lrSMm3wCNKJF0Sz6ignPfKJdAZM6HUO00ZE8Tv4Wd82NIrjkBNMyVnnlmSb4t2YH8oKy-v7ctIRsWhqqrTr43-OqzBb90FgMiKp6iMa5Pzp6HlWkt_DVFktS8eQ" alt="Oud Al Layl" />
-                </div>
-                <div>
-                  <h4 className="font-headline-md text-headline-md text-on-surface group-hover:text-accent transition-colors line-clamp-1">Oud Al Layl</h4>
-                  <p className="font-body-md text-body-md text-on-surface-variant mt-1">Deep, smoky, intense</p>
-                </div>
-              </Link>
+              {suggestedProducts.map((product: any) => {
+                const primaryImage = product.thumbnail || product.variants?.[0]?.image || '';
+                return (
+                  <Link key={product.id} to={`/product/${product.id}`} onClick={onClose} className="group flex flex-col gap-4 p-4 rounded-xl hover:bg-surface-container-lowest transition-colors border border-transparent hover:border-outline-variant/30 shadow-none hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                    <div className="aspect-square bg-surface-container rounded-lg overflow-hidden relative">
+                      {primaryImage ? (
+                        <img 
+                          className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out" 
+                          src={getImageUrl(primaryImage)} 
+                          alt={product.name}
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                          }} 
+                        />
+                      ) : null}
+                      <div className={`w-full h-full flex items-center justify-center text-on-surface-variant bg-surface-container ${primaryImage ? 'hidden' : ''}`}>
+                        <span className="material-symbols-outlined text-4xl opacity-20">inventory_2</span>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-headline-md text-headline-md text-on-surface group-hover:text-accent transition-colors line-clamp-1">{product.name}</h4>
+                      <p className="font-body-md text-body-md text-on-surface-variant mt-1 line-clamp-1">{product.shortDescription || product.category?.name || 'Fragrance'}</p>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </div>

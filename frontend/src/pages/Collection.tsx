@@ -50,16 +50,28 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
   // network call, so nothing here can race with a slower in-flight request from a category the
   // user has already navigated away from.
   useEffect(() => {
-    if (!activeCategory) {
-      setSelectedCategoryId('');
-      return;
+    // If activeCategory maps to a specific subcategory directly from the URL
+    if (activeCategory === 'incense-sticks') {
+      const bakhoorCat = categories.find(c => c.type === 'BAKHOOR');
+      setSelectedCategoryId(bakhoorCat ? bakhoorCat.id : '');
+      setSelectedSubcategory('Incense Sticks');
+    } else if (activeCategory === 'car-perfumes') {
+      const perfumeCat = categories.find(c => c.type === 'PERFUMES');
+      setSelectedCategoryId(perfumeCat ? perfumeCat.id : '');
+      setSelectedSubcategory('Car Perfumes');
+    } else {
+      // Map back to category normally
+      const normalizedActive = activeCategory.toLowerCase().replace(/\s+/g, '-');
+      const match = categories.find(
+        (c: Category) => c.name.toLowerCase().replace(/\s+/g, '-') === normalizedActive
+      );
+      setSelectedCategoryId(match ? match.id : '');
+      if (match && (match.type === 'BAKHOOR' || match.type === 'PERFUMES')) {
+        setSelectedSubcategory('none');
+      } else {
+        setSelectedSubcategory('');
+      }
     }
-    const normalizedActive = activeCategory.toLowerCase().replace(/\s+/g, '-');
-    const match = categories.find(
-      (c: Category) => c.name.toLowerCase().replace(/\s+/g, '-') === normalizedActive
-    );
-    setSelectedCategoryId(match ? match.id : '');
-    setSelectedSubcategory('');
   }, [activeCategory, categories]);
 
   useEffect(() => {
@@ -181,24 +193,14 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
         </div>
       </header>
 
-      {/* Bakhoor Subcategories */}
-      {(activeCategory === 'bakhoor' || categories.find(c => c.id === selectedCategoryId)?.type === 'BAKHOOR') && (
-        <div className="flex justify-center mb-12">
-          <div className="inline-flex bg-surface-container-lowest border border-outline-variant/30 rounded-full p-1">
+      {/* Custom Subcategory Tabs for Bakhoor and Perfumes */}
+      {selectedCategoryId !== '' && categories.find(c => c.id === selectedCategoryId)?.name.toLowerCase() === 'bakhoor' && (
+        <div className="flex justify-center mb-12 flex-wrap gap-2">
+          <div className="inline-flex flex-wrap justify-center bg-surface-container-lowest border border-outline-variant/30 rounded-full p-1 max-w-full">
             <button
-              onClick={() => { setSelectedSubcategory(''); setSearchParams(prev => { prev.delete('page'); return prev; }); }}
-              className={`px-8 py-2.5 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-                selectedSubcategory === ''
-                  ? 'bg-accent-soft text-accent-hover'
-                  : 'text-on-surface-variant hover:text-accent'
-              }`}
-            >
-              All Bakhoor
-            </button>
-            <button
-              onClick={() => { setSelectedSubcategory('BAKHOOR'); setSearchParams(prev => { prev.delete('page'); return prev; }); }}
-              className={`px-8 py-2.5 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-                selectedSubcategory === 'BAKHOOR'
+              onClick={() => { setSelectedSubcategory('none'); resetPage(); }}
+              className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+                selectedSubcategory === 'none'
                   ? 'bg-accent-soft text-accent-hover'
                   : 'text-on-surface-variant hover:text-accent'
               }`}
@@ -206,14 +208,40 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
               Bakhoor
             </button>
             <button
-              onClick={() => { setSelectedSubcategory('FRESHENERS'); setSearchParams(prev => { prev.delete('page'); return prev; }); }}
-              className={`px-8 py-2.5 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-                selectedSubcategory === 'FRESHENERS'
+              onClick={() => { setSelectedSubcategory('Incense Sticks'); resetPage(); }}
+              className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+                selectedSubcategory === 'Incense Sticks'
                   ? 'bg-accent-soft text-accent-hover'
                   : 'text-on-surface-variant hover:text-accent'
               }`}
             >
-              Fresheners
+              Incense Sticks
+            </button>
+          </div>
+        </div>
+      )}
+      {selectedCategoryId !== '' && categories.find(c => c.id === selectedCategoryId)?.name.toLowerCase() === 'perfumes' && (
+        <div className="flex justify-center mb-12 flex-wrap gap-2">
+          <div className="inline-flex flex-wrap justify-center bg-surface-container-lowest border border-outline-variant/30 rounded-full p-1 max-w-full">
+            <button
+              onClick={() => { setSelectedSubcategory('none'); resetPage(); }}
+              className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+                selectedSubcategory === 'none'
+                  ? 'bg-accent-soft text-accent-hover'
+                  : 'text-on-surface-variant hover:text-accent'
+              }`}
+            >
+              Perfumes
+            </button>
+            <button
+              onClick={() => { setSelectedSubcategory('Car Perfumes'); resetPage(); }}
+              className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+                selectedSubcategory === 'Car Perfumes'
+                  ? 'bg-accent-soft text-accent-hover'
+                  : 'text-on-surface-variant hover:text-accent'
+              }`}
+            >
+              Car Perfumes
             </button>
           </div>
         </div>
@@ -227,28 +255,43 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
           <div>
             <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-6 border-b border-outline-variant/30 pb-2">Category</h3>
             <div className="space-y-3">
-              <label className="flex items-center group cursor-pointer">
-                <input
-                  type="radio"
-                  name="category"
-                  checked={selectedCategoryId === ''}
-                  onChange={() => handleCategoryChange('')}
-                  className="w-4 h-4 border-outline-variant text-accent focus:ring-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 cursor-pointer"
-                />
-                <span className="ml-3 font-body-md text-body-md text-on-surface-variant group-hover:text-accent transition-colors">All</span>
-              </label>
-              {categories.map(cat => (
-                <label key={cat.id} className="flex items-center group cursor-pointer">
-                  <input
-                    type="radio"
-                    name="category"
-                    checked={selectedCategoryId === cat.id}
-                    onChange={() => handleCategoryChange(cat.id)}
-                    className="w-4 h-4 border-outline-variant text-accent focus:ring-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 cursor-pointer"
-                  />
-                  <span className="ml-3 font-body-md text-body-md text-on-surface-variant group-hover:text-accent transition-colors">{cat.name}</span>
-                </label>
-              ))}
+              {/* Hardcoded filter list exactly as requested */}
+              {[
+                { id: 'all', name: 'All' },
+                { id: 'attars', name: 'Attars' },
+                { id: 'bakhoor', name: 'Bakhoor' },
+                { id: 'incense-sticks', name: 'Incense Sticks' },
+                { id: 'perfumes', name: 'Perfumes' },
+                { id: 'car-perfumes', name: 'Car Perfumes' }
+              ].map(cat => {
+                let isChecked = false;
+                if (cat.id === 'all') isChecked = selectedCategoryId === '';
+                else if (cat.id === 'attars') isChecked = selectedCategoryId === categories.find(c => c.type === 'ATTARS')?.id;
+                else if (cat.id === 'bakhoor') isChecked = selectedCategoryId === categories.find(c => c.type === 'BAKHOOR')?.id && selectedSubcategory === 'none';
+                else if (cat.id === 'incense-sticks') isChecked = selectedCategoryId === categories.find(c => c.type === 'BAKHOOR')?.id && selectedSubcategory === 'Incense Sticks';
+                else if (cat.id === 'perfumes') isChecked = selectedCategoryId === categories.find(c => c.type === 'PERFUMES')?.id && selectedSubcategory === 'none';
+                else if (cat.id === 'car-perfumes') isChecked = selectedCategoryId === categories.find(c => c.type === 'PERFUMES')?.id && selectedSubcategory === 'Car Perfumes';
+
+                return (
+                  <label key={cat.id} className="flex items-center group cursor-pointer">
+                    <input
+                      type="radio"
+                      name="category"
+                      checked={isChecked}
+                      onChange={() => {
+                        if (cat.id === 'all') { handleCategoryChange(''); setSelectedSubcategory(''); }
+                        else if (cat.id === 'attars') { handleCategoryChange(categories.find(c => c.type === 'ATTARS')?.id || ''); setSelectedSubcategory(''); }
+                        else if (cat.id === 'bakhoor') { handleCategoryChange(categories.find(c => c.type === 'BAKHOOR')?.id || ''); setSelectedSubcategory('none'); }
+                        else if (cat.id === 'incense-sticks') { handleCategoryChange(categories.find(c => c.type === 'BAKHOOR')?.id || ''); setSelectedSubcategory('Incense Sticks'); }
+                        else if (cat.id === 'perfumes') { handleCategoryChange(categories.find(c => c.type === 'PERFUMES')?.id || ''); setSelectedSubcategory('none'); }
+                        else if (cat.id === 'car-perfumes') { handleCategoryChange(categories.find(c => c.type === 'PERFUMES')?.id || ''); setSelectedSubcategory('Car Perfumes'); }
+                      }}
+                      className="w-4 h-4 border-outline-variant text-accent focus:ring-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 cursor-pointer"
+                    />
+                    <span className="ml-3 font-body-md text-body-md text-on-surface-variant group-hover:text-accent transition-colors">{cat.name}</span>
+                  </label>
+                );
+              })}
             </div>
           </div>
 

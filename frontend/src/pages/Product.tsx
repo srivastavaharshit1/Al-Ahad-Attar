@@ -200,9 +200,9 @@ export const ProductPage: React.FC = () => {
           label: product.category.name, 
           href: `/collection?category=${product.category.name.toLowerCase()}` 
         }] : []),
-        ...(product.subcategory ? [{ 
-          label: product.subcategory.charAt(0).toUpperCase() + product.subcategory.slice(1).toLowerCase(), 
-          href: `/collection?category=${product.category?.name.toLowerCase()}&subcategory=${product.subcategory}` 
+        ...(product.subCategory ? [{ 
+          label: product.subCategory.name, 
+          href: `/collection?category=${product.category?.name.toLowerCase()}&subcategory=${product.subCategory.id}` 
         }] : []),
         { label: product.name }
       ]} />
@@ -222,7 +222,11 @@ export const ProductPage: React.FC = () => {
                   aria-label={`View image ${idx + 1}`}
                   aria-current={mainImage === img}
                 >
-                  <img src={getImageUrl(img)} alt={`Thumbnail ${idx+1}`} className="w-full h-full object-cover" />
+                  <img 
+                    src={getImageUrl(img)} 
+                    alt={`Thumbnail ${idx+1}`} 
+                    className="w-full h-full object-cover" 
+                  />
                 </button>
               ))}
             </div>
@@ -231,11 +235,13 @@ export const ProductPage: React.FC = () => {
           {/* Main Image */}
           <div className="order-1 md:order-2 w-full h-auto aspect-[4/5] max-h-[560px] rounded-2xl overflow-hidden bg-surface border border-outline-variant/50 shadow-[0_10px_30px_rgba(18,28,42,0.05)] relative group cursor-zoom-in flex items-center justify-center">
             {mainImage ? (
-              <img 
-                src={getImageUrl(mainImage)} 
-                alt={product.name} 
-                className="w-full h-full object-contain p-4 md:p-[16px] lg:p-[20px] transition-transform duration-700 group-hover:scale-105" 
-              />
+              <>
+                <img 
+                  src={getImageUrl(mainImage)} 
+                  alt={product.name} 
+                  className="w-full h-full object-contain p-4 md:p-[16px] lg:p-[20px] transition-transform duration-700 group-hover:scale-105" 
+                />
+              </>
             ) : (
                <div className="w-full h-full flex items-center justify-center text-on-surface-variant">
                  <span className="material-symbols-outlined text-6xl">image</span>

@@ -255,21 +255,22 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
             }
         }
 
-        // Populate available/locked lists (exclude FREE_PRODUCT — handled separately)
-        for (Promotion p : automaticPromotions) {
+        // Populate available/locked lists from ALL active promotions (exclude FREE_PRODUCT — handled separately)
+        List<Promotion> allActive = promotionRepository.findAllActivePromotions(now);
+        for (Promotion p : allActive) {
             if (p.getPromotionType() == PromotionType.FREE_PRODUCT) continue;
-            if (!appliedPromos.contains(p) && !lockedPromos.contains(p)) availablePromos.add(p);
-        }
-        if (manualPromo != null && !appliedPromos.contains(manualPromo) && !lockedPromos.contains(manualPromo)) {
-            availablePromos.add(manualPromo);
-        }
-        if (couponFound && cleanCoupon != null) {
-            Optional<Promotion> couponOpt = promotionRepository.findActivePromotionByCode(cleanCoupon, now);
-            if (couponOpt.isPresent()) {
-                Promotion cp = couponOpt.get();
-                if (cp.getPromotionType() != PromotionType.FREE_PRODUCT
-                        && !appliedPromos.contains(cp) && !lockedPromos.contains(cp)) {
-                    availablePromos.add(cp);
+            if (appliedPromos.contains(p) || lockedPromos.contains(p)) continue;
+
+            if (isRedeemable(p, cart, now)) {
+                if (p.getMinCartValue() != null && subtotalAfterItemDiscounts.compareTo(p.getMinCartValue()) < 0) {
+                    BigDecimal diff = p.getMinCartValue().subtract(subtotalAfterItemDiscounts);
+                    if (diff.compareTo(new BigDecimal("500")) <= 0) {
+                        unlockMessages.add("Spend ₹" + diff.setScale(0, java.math.RoundingMode.HALF_UP)
+                                + " more to unlock " + p.getName());
+                    }
+                    lockedPromos.add(p);
+                } else {
+                    availablePromos.add(p);
                 }
             }
         }
@@ -438,9 +439,13 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
             return null;
         }
         com.alahadattars.entity.ProductImage primary = product.getImages().stream()
-                .filter(com.alahadattars.entity.ProductImage::isPrimary)
+                .filter(img -> img.isActive() && img.isPrimary())
                 .findFirst()
-                .orElse(product.getImages().get(0));
+                .orElseGet(() -> product.getImages().stream()
+                        .filter(com.alahadattars.entity.ProductImage::isActive)
+                        .findFirst()
+                        .orElse(product.getImages().isEmpty() ? null : product.getImages().get(0)));
+        if (primary == null) return null;
         return storageService.resolveUrl(primary.getImageUrl(), "/api/images/" + primary.getId() + "/file");
     }
 

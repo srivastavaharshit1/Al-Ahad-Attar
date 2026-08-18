@@ -304,7 +304,10 @@ export const CategoriesTab: React.FC = () => {
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-surface-container-lowest border border-outline-variant rounded p-4 text-center">
-                <p className="font-label-sm mb-2">Desktop Image (3:4 Ratio)</p>
+                <div className="flex flex-col items-center mb-2">
+                  <p className="font-label-sm">Desktop Image</p>
+                  <span className="text-[10px] text-on-surface-variant/70">Rec: 800x800 (1:1)</span>
+                </div>
                 {editingCategory?.desktopImageUrl && (
                   <img src={getImageUrl(editingCategory.desktopImageUrl)} alt="" className="w-24 h-32 object-cover mx-auto mb-2 rounded" />
                 )}
@@ -317,7 +320,10 @@ export const CategoriesTab: React.FC = () => {
               </div>
 
               <div className="bg-surface-container-lowest border border-outline-variant rounded p-4 text-center">
-                <p className="font-label-sm mb-2">Mobile Image (Optional)</p>
+                <div className="flex flex-col items-center mb-2">
+                  <p className="font-label-sm">Mobile Image (Optional)</p>
+                  <span className="text-[10px] text-on-surface-variant/70">Rec: 800x800 (1:1)</span>
+                </div>
                 {editingCategory?.mobileImageUrl && (
                   <img src={getImageUrl(editingCategory.mobileImageUrl)} alt="" className="w-24 h-32 object-cover mb-2 rounded mx-auto" />
                 )}

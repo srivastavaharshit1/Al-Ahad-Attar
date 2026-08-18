@@ -39,6 +39,12 @@ public class AdminHomepageController {
         return ResponseEntity.ok(ApiResponse.success(null, "Sections reordered successfully"));
     }
 
+    @PostMapping("/sections/{sectionKey}/image")
+    public ResponseEntity<ApiResponse<HomepageSectionResponse>> uploadSectionImage(
+            @PathVariable String sectionKey, @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(ApiResponse.success(homepageService.uploadSectionImage(sectionKey, file)));
+    }
+
     // --- Hero Banners ---
 
     @GetMapping("/heroes")

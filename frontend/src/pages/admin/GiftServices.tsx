@@ -288,7 +288,10 @@ export const GiftServices: React.FC = () => {
             <form onSubmit={handleSubmit} className="px-8 py-6 space-y-5">
               {/* Image */}
               <div>
-                <label className="field-label">Image</label>
+                <div className="flex flex-col mb-4">
+                  <label className="field-label mb-0">Image</label>
+                  <span className="text-[10px] text-on-surface-variant/70">Recommended: 800x800 (1:1 ratio)</span>
+                </div>
                 <div className="flex items-center gap-4">
                   <div className="w-20 h-20 rounded-xl bg-surface-container border border-outline-variant overflow-hidden flex items-center justify-center flex-shrink-0">
                     {form.imageUrl ? (

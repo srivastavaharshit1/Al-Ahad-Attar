@@ -33,6 +33,13 @@ public class ProductVariantServiceImpl implements ProductVariantService {
 
     @Override
     @Transactional
+    public void cleanupSizes() {
+        // Disabled size cleanup to allow custom sizes created by admin
+        log.info("cleanupSizes() is disabled to allow flexible admin sizes");
+    }
+
+    @Override
+    @Transactional
     public VariantResponse createVariant(Long productId, CreateVariantRequest request) {
         log.debug("Attempting to create variant for product ID: {}", productId);
         if (productVariantRepository.existsBySku(request.getSku())) {
@@ -157,29 +164,9 @@ public class ProductVariantServiceImpl implements ProductVariantService {
     }
 
     private void validateVariantSize(com.alahadattars.enums.CategoryType categoryType, String size) {
-        if (size == null) {
-            throw new BadRequestException("Variant size cannot be null");
+        if (size == null || size.trim().isEmpty()) {
+            throw new BadRequestException("Variant size cannot be null or empty");
         }
-        String normalizedSize = size.toLowerCase().replace(" ", "");
-
-        switch (categoryType) {
-            case ATTARS:
-                if (!List.of("3ml", "6ml", "12ml").contains(normalizedSize)) {
-                    throw new BadRequestException("Invalid size for Attars. Allowed sizes: 3 ml, 6 ml, 12 ml");
-                }
-                break;
-            case BAKHOOR:
-                if (!List.of("40g").contains(normalizedSize)) {
-                    throw new BadRequestException("Invalid size for Bakhoor. Allowed size: 40 g");
-                }
-                break;
-            case PERFUMES:
-                if (!List.of("30ml", "60ml", "100ml").contains(normalizedSize)) {
-                    throw new BadRequestException("Invalid size for Perfumes. Allowed sizes: 30 ml, 60 ml, 100 ml");
-                }
-                break;
-            default:
-                break;
-        }
+        // Disabled strict size validation so the admin can specify arbitrary variant sizes (e.g., 100 gm, 1 pc).
     }
 }

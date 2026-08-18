@@ -138,11 +138,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               loading="lazy"
               decoding="async"
             />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-on-surface-variant bg-surface-container">
-              <span className="material-symbols-outlined text-4xl opacity-20">inventory_2</span>
-            </div>
-          )}
+          ) : null}
         </Link>
 
         {/* Floating Actions on Hover */}

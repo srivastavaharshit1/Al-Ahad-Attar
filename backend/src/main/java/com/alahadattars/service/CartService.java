@@ -2,8 +2,10 @@ package com.alahadattars.service;
 
 import com.alahadattars.dto.cart.CartItemRequest;
 import com.alahadattars.dto.cart.CartResponse;
+import com.alahadattars.dto.cart.GuestCartRequest;
 
 public interface CartService {
+    CartResponse evaluateGuestCart(GuestCartRequest request);
     CartResponse getCart(String email);
     CartResponse addToCart(String email, CartItemRequest request);
     CartResponse updateQuantity(String email, Long cartItemId, Integer quantity);

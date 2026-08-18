@@ -43,6 +43,12 @@ public class CartController {
 
     // ─── Standard Cart Endpoints ──────────────────────────────────────────────
 
+    @Operation(summary = "Evaluate an unsaved guest cart to calculate discounts and show available promotions")
+    @PostMapping("/evaluate-guest")
+    public ResponseEntity<ApiResponse<CartResponse>> evaluateGuestCart(@Valid @RequestBody com.alahadattars.dto.cart.GuestCartRequest request) {
+        return ok(cartService.evaluateGuestCart(request), "Guest cart evaluated");
+    }
+
     @Operation(summary = "Get current user's cart with pricing and free product options")
     @GetMapping
     public ResponseEntity<ApiResponse<CartResponse>> getCart() {

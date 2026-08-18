@@ -310,7 +310,10 @@ export const Categories: React.FC = () => {
                 </div>
 
                 <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
-                  <label className="field-label">Desktop Image (16:9)</label>
+                  <div className="flex flex-col mb-2">
+                    <label className="field-label mb-0">Desktop Image</label>
+                    <span className="text-[10px] text-on-surface-variant/70">Recommended: 800x800 (1:1)</span>
+                  </div>
                   {currentCategory.desktopImageUrl && (
                     <img src={getImageUrl(currentCategory.desktopImageUrl)} alt="" className="w-full h-24 object-cover mb-2 rounded" />
                   )}
@@ -318,7 +321,10 @@ export const Categories: React.FC = () => {
                 </div>
 
                 <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
-                  <label className="field-label">Mobile Image (4:5)</label>
+                  <div className="flex flex-col mb-2">
+                    <label className="field-label mb-0">Mobile Image (Optional)</label>
+                    <span className="text-[10px] text-on-surface-variant/70">Recommended: 800x800 (1:1)</span>
+                  </div>
                   {currentCategory.mobileImageUrl && (
                     <img src={getImageUrl(currentCategory.mobileImageUrl)} alt="" className="w-24 h-32 object-cover mb-2 rounded" />
                   )}

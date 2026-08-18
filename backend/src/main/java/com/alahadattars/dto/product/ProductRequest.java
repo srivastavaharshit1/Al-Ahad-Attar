@@ -34,7 +34,7 @@ public class ProductRequest {
     @Schema(description = "Brand name", example = "Al Ahad")
     private String brand;
 
-    @Schema(description = "Subcategory (e.g., Fresheners for Bakhoor)", example = "Fresheners")
+    @Schema(description = "Subcategory ID (e.g., for Fresheners or Car Perfumes)", example = "1")
     private String subcategory;
 
     @Schema(description = "Fragrance family classification", example = "Woody Oriental")
