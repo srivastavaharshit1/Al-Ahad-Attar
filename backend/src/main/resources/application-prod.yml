@@ -2,9 +2,17 @@
 # which log every SQL statement and its bound parameter values (customer names, emails, phone
 # numbers, addresses, and the bcrypt hash on every user save) at DEBUG/TRACE — safe for local
 # development, not for a shared production log aggregator.
+
+server:
+  tomcat:
+    threads:
+      max: 50
+
 spring:
   jpa:
     show-sql: false
+    hibernate:
+      ddl-auto: validate
 
 logging:
   level:
