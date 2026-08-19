@@ -226,17 +226,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               placeholder="Brief summary for product cards..."
             />
           </div>
-          <div>
-            <label className="field-label">Description <span className="text-error">*</span></label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              required
-              className="field-input font-body-md text-body-md resize-y min-h-[120px]"
-              placeholder="Detailed product description..."
-            />
-          </div>
         </div>
       </div>
 

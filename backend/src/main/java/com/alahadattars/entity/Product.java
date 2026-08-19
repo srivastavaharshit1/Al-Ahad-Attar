@@ -66,9 +66,9 @@ public class Product extends BaseEntity {
     @Column(name = "short_description", length = 500, nullable = false)
     private String shortDescription;
 
-    @NotBlank
     @Column(columnDefinition = "TEXT", nullable = false)
-    private String description;
+    @Builder.Default
+    private String description = "";
 
     // Brand, fragrance pyramid, longevity and projection are admin-facing "advanced details" —
     // optional by design (not every product has notes/projection data on hand at listing time).
