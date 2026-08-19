@@ -27,7 +27,6 @@ public class ProductRequest {
     @Schema(description = "Brief product summary", example = "A majestic blend of pure oud")
     private String shortDescription;
 
-    @NotBlank(message = "Description is required")
     @Schema(description = "Detailed product description", example = "Experience the luxury of true aged oud...")
     private String description;
 
