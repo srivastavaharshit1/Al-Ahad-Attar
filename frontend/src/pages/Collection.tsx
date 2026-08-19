@@ -98,6 +98,9 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
         size: 24,
         page: currentPage
       };
+      
+      const type = searchParams.get('type');
+      if (type) params.type = type;
       if (selectedCategoryId) params.categoryId = selectedCategoryId;
       if (selectedSubcategory) params.subcategory = selectedSubcategory;
       if (selectedGender) params.gender = selectedGender;
@@ -361,7 +364,11 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
                 className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8 reveal ${gridInView ? 'in-view' : ''}`}
               >
                 {products.map(product => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard 
+                    key={product.id} 
+                    product={product} 
+                    defaultType={searchParams.get('type') || (activeCategory?.type === 'PERFUMES' ? 'perfume' : undefined)}
+                  />
                 ))}
               </div>
             </>

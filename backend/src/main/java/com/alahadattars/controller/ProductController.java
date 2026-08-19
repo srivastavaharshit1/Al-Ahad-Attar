@@ -207,11 +207,12 @@ public class ProductController {
             @Parameter(description = "Filter by featured status") @RequestParam(required = false) Boolean featured,
             @Parameter(description = "Filter by active status") @RequestParam(required = false) Boolean active,
             @Parameter(description = "Filter by featured in collection status") @RequestParam(required = false) Boolean featuredInCollection,
+            @Parameter(description = "Filter by product variant type") @RequestParam(required = false) String type,
             @Parameter(name = "sort", description = "Sorting criteria in the format: property,asc|desc.", example = "createdAt,desc")
             @PageableDefault(size = 10, page = 0, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         
         log.info("Received request to search/filter products with pageable: {}", pageable);
-        Page<ProductSummaryResponse> response = productService.getProducts(search, categoryId, subcategory, gender, brand, featured, active, featuredInCollection, pageable);
+        Page<ProductSummaryResponse> response = productService.getProducts(search, categoryId, subcategory, gender, brand, featured, active, featuredInCollection, type, pageable);
         return ResponseEntity.ok(ApiResponse.<Page<ProductSummaryResponse>>builder()
                 .success(true)
                 .message("Products retrieved successfully")

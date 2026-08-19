@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Breadcrumb } from '../components/ui/Breadcrumb';
 import { Loader } from '../components/ui/Loader';
 import { productService } from '../services/productService';
@@ -18,6 +18,7 @@ import { useInView } from '../hooks/useInView';
 export const ProductPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { addItem } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { activePromotions } = usePromotions();
@@ -28,6 +29,8 @@ export const ProductPage: React.FC = () => {
 
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
   const [mainImage, setMainImage] = useState<string>('');
+  
+  const [activeType, setActiveType] = useState<string>('ATTAR');
 
   // Scroll-reveal refs for below-the-fold sections (must be called unconditionally, before any early returns)
   const { ref: reviewsRef, inView: reviewsInView } = useInView<HTMLElement>();
@@ -47,7 +50,19 @@ export const ProductPage: React.FC = () => {
           }
           
           if (res.data.variants && res.data.variants.length > 0) {
-            setSelectedVariant(res.data.variants[0]);
+            const requestedType = searchParams.get('type')?.toUpperCase();
+            let initialType = 'ATTAR';
+            if (requestedType === 'PERFUME' && res.data.variants.some((v: Variant) => v.productType === 'PERFUME')) {
+              initialType = 'PERFUME';
+            } else if (requestedType === 'ATTAR' && res.data.variants.some((v: Variant) => v.productType === 'ATTAR')) {
+              initialType = 'ATTAR';
+            } else if (!res.data.variants.some((v: Variant) => v.productType === 'ATTAR') && res.data.variants.some((v: Variant) => v.productType === 'PERFUME')) {
+              initialType = 'PERFUME';
+            }
+            
+            setActiveType(initialType);
+            const initialVariants = res.data.variants.filter((v: Variant) => v.productType === initialType);
+            setSelectedVariant(initialVariants.length > 0 ? initialVariants[0] : res.data.variants[0]);
           }
         }
       } catch (err: any) {
@@ -87,10 +102,23 @@ export const ProductPage: React.FC = () => {
   const sortedImages = [...(product.images || [])].sort((a, b) => a.displayOrder - b.displayOrder);
   const allImages = sortedImages.map(img => img.imageUrl);
 
+  const hasAttar = product.variants?.some(v => v.productType === 'ATTAR');
+  const hasPerfume = product.variants?.some(v => v.productType === 'PERFUME');
+  const showTypeToggle = hasAttar && hasPerfume;
+  const filteredVariants = product.variants?.filter(v => v.productType === activeType) || [];
+
   const handleVariantChange = (variant: Variant) => {
     setSelectedVariant(variant);
     // Note: In the new architecture, images are tied to Product, not Variant.
     // Changing variant size no longer changes the image.
+  };
+  
+  const handleTypeChange = (type: string) => {
+    setActiveType(type);
+    const newVariants = product.variants?.filter(v => v.productType === type) || [];
+    if (newVariants.length > 0) {
+      setSelectedVariant(newVariants[0]);
+    }
   };
 
   const handleAddToCart = () => {
@@ -271,18 +299,46 @@ export const ProductPage: React.FC = () => {
             </p>
             
             <div className="space-y-6">
-              {product.category?.name === 'Bakhoor' || product.variants.length === 1 ? (
+                {showTypeToggle && (
+                  <div className="mb-6">
+                    <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-3">Select Type</h3>
+                    <div className="inline-flex flex-wrap bg-surface-container-lowest border border-outline-variant/30 rounded-full p-1 max-w-full">
+                      <button
+                        onClick={() => handleTypeChange('ATTAR')}
+                        className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+                          activeType === 'ATTAR' 
+                            ? 'bg-accent-soft text-accent-hover' 
+                            : 'text-on-surface-variant hover:text-accent'
+                        }`}
+                      >
+                        Attar
+                      </button>
+                      <button
+                        onClick={() => handleTypeChange('PERFUME')}
+                        className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+                          activeType === 'PERFUME' 
+                            ? 'bg-accent-soft text-accent-hover' 
+                            : 'text-on-surface-variant hover:text-accent'
+                        }`}
+                      >
+                        Perfume
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+              {product.category?.name === 'Bakhoor' || filteredVariants.length === 1 ? (
                 <div>
                   <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-3">Weight</h3>
                   <div className="px-6 py-3 border border-outline-variant rounded-DEFAULT font-label-md text-label-md text-on-surface inline-block bg-surface-bright">
-                    {product.variants[0].size} Pack
+                    {filteredVariants[0]?.size} Pack
                   </div>
                 </div>
               ) : (
                 <div>
                   <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-3">Select Size</h3>
                   <div className="flex flex-wrap gap-4">
-                    {product.variants.map((variant) => (
+                    {filteredVariants.map((variant) => (
                       <label key={variant.id} className="cursor-pointer">
                         <input
                           type="radio"
