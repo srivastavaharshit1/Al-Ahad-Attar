@@ -73,13 +73,14 @@ export const AddProduct: React.FC = () => {
       // 2. Create Variants
       for (const variant of variants) {
         if (variant.price > 0 || variant.stock > 0) {
-          const variantPayload = {
-            sku: variant.sku || `${formData.slug}-${variant.size.replace(/\s+/g, '')}`,
-            size: variant.size,
-            price: Number(variant.price),
-            stock: Number(variant.stock),
-            active: variant.active
-          };
+            const variantPayload = {
+              productType: variant.productType,
+              sku: variant.sku || `${formData.slug}-${variant.size.replace(/\s+/g, '')}`,
+              size: variant.size,
+              price: Number(variant.price),
+              stock: Number(variant.stock),
+              active: variant.active
+            };
           await apiClient.post(`/products/${productId}/variants`, variantPayload);
         }
       }

@@ -85,8 +85,9 @@ export const EditProduct: React.FC = () => {
       setInitialImages(product.images || []);
 
       if (product.variants && product.variants.length > 0) {
-        setInitialVariants(product.variants.map((pv: any) => ({
+        setInitialVariants(res.data.variants.map((pv: any) => ({
           id: pv.id,
+          productType: pv.productType,
           sku: pv.sku,
           size: pv.size,
           price: pv.price,
@@ -125,6 +126,7 @@ export const EditProduct: React.FC = () => {
         if (variant.id) {
           // Update existing variant
           await apiClient.put(`/variants/${variant.id}`, {
+            productType: variant.productType,
             sku: variant.sku || `${formData.slug}-${variant.size.replace(/\s+/g, '')}`,
             size: variant.size,
             price: Number(variant.price),
@@ -135,13 +137,15 @@ export const EditProduct: React.FC = () => {
           });
         } else if (variant.price > 0 || variant.stock > 0) {
           // Create new variant
-          await apiClient.post(`/products/${id}/variants`, {
+          const variantPayload = {
+            productType: variant.productType,
             sku: variant.sku || `${formData.slug}-${variant.size.replace(/\s+/g, '')}`,
             size: variant.size,
             price: Number(variant.price),
             stock: Number(variant.stock),
             active: variant.active
-          });
+          };
+          await apiClient.post(`/products/${id}/variants`, variantPayload);
         }
       }
 
