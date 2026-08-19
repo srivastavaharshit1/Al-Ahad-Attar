@@ -53,24 +53,11 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  # SMTP for transactional email (EmailService). Deliberately defaults to blank/disabled
-  # rather than failing fast like the datasource — a missing/misconfigured mail server must
-  # never stop the app from booting or block an order/registration. EmailServiceImpl checks
-  # app.mail.enabled and no-ops (with a log line) when SMTP isn't configured.
-  mail:
-    host: ${MAIL_HOST:}
-    port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-          connectiontimeout: 5000
-          timeout: 5000
-          writetimeout: 5000
+  # Resend HTTP API for transactional email (EmailService).
+  # Set RESEND_API_KEY in your deployment environment (e.g. Railway Variables).
+  # EmailServiceImpl will safely no-op if this is missing or mail is disabled.
+resend:
+  api-key: ${RESEND_API_KEY:}
 
 app:
   admin:
