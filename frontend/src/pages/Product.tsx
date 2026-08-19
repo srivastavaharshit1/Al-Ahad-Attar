@@ -105,7 +105,9 @@ export const ProductPage: React.FC = () => {
   const hasAttar = product.variants?.some(v => v.productType === 'ATTAR');
   const hasPerfume = product.variants?.some(v => v.productType === 'PERFUME');
   const showTypeToggle = hasAttar && hasPerfume;
-  const filteredVariants = product.variants?.filter(v => v.productType === activeType) || [];
+  const filteredVariants = (product.variants?.filter(v => v.productType === activeType) || [])
+    .sort((a, b) => a.price - b.price);
+  console.log("DEBUG Product:", { hasAttar, hasPerfume, showTypeToggle, variants: product.variants });
 
   const handleVariantChange = (variant: Variant) => {
     setSelectedVariant(variant);
