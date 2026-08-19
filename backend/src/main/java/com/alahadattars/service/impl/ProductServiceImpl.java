@@ -201,7 +201,16 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ProductSummaryResponse> getProducts(String search, Long categoryId, String subcategory, Gender gender, String brand, Boolean featured, Boolean active, Boolean featuredInCollection, Pageable pageable) {
+    public Page<ProductSummaryResponse> getProducts(String search, Long categoryId, String subcategory, Gender gender, String brand, Boolean featured, Boolean active, Boolean featuredInCollection, String type, Pageable pageable) {
+        String categoryNameOpt = null;
+        if (categoryId != null) {
+            Category cat = categoryRepository.findById(categoryId).orElse(null);
+            if (cat != null) {
+                categoryNameOpt = cat.getName();
+            }
+        }
+        final String categoryName = categoryNameOpt;
+
         Specification<Product> spec = (root, query, cb) -> {
             // category is a ManyToOne (to-one), safe to JOIN FETCH alongside pagination — unlike
             // variants/images (to-many, handled via @BatchSize instead), a to-one fetch join can't
@@ -220,7 +229,15 @@ public class ProductServiceImpl implements ProductService {
                 predicates.add(cb.or(namePredicate, brandPredicate, familyPredicate));
             }
             if (categoryId != null) {
-                predicates.add(cb.equal(root.get("category").get("id"), categoryId));
+                if (categoryName != null && "Perfumes".equalsIgnoreCase(categoryName)) {
+                    jakarta.persistence.criteria.Join<Product, ProductVariant> variantJoin = root.join("variants", jakarta.persistence.criteria.JoinType.LEFT);
+                    Predicate catMatch = cb.equal(root.get("category").get("id"), categoryId);
+                    Predicate variantMatch = cb.equal(variantJoin.get("productType"), com.alahadattars.enums.ProductType.PERFUME);
+                    query.distinct(true);
+                    predicates.add(cb.or(catMatch, variantMatch));
+                } else {
+                    predicates.add(cb.equal(root.get("category").get("id"), categoryId));
+                }
             }
             if (subcategory != null && !subcategory.trim().isEmpty()) {
                 if (subcategory.equalsIgnoreCase("none")) {
@@ -243,6 +260,16 @@ public class ProductServiceImpl implements ProductService {
             }
             if (featuredInCollection != null && featuredInCollection) {
                 predicates.add(cb.isMember("COLLECTIONS", root.get("collections")));
+            }
+            if (type != null && !type.trim().isEmpty()) {
+                jakarta.persistence.criteria.Join<Product, ProductVariant> variantJoinTypeFilter = root.join("variants", jakarta.persistence.criteria.JoinType.INNER);
+                try {
+                    com.alahadattars.enums.ProductType pt = com.alahadattars.enums.ProductType.valueOf(type.toUpperCase());
+                    predicates.add(cb.equal(variantJoinTypeFilter.get("productType"), pt));
+                    query.distinct(true);
+                } catch (IllegalArgumentException e) {
+                    // Invalid type provided, ignore or log
+                }
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

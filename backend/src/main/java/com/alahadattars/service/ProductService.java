@@ -19,7 +19,7 @@ public interface ProductService {
     List<ProductSummaryResponse> getFeaturedProducts();
     List<ProductSummaryResponse> getProductsByCategory(Long categoryId);
     List<ProductSummaryResponse> getActiveProducts();
-    Page<ProductSummaryResponse> getProducts(String search, Long categoryId, String subcategory, Gender gender, String brand, Boolean featured, Boolean active, Boolean featuredInCollection, Pageable pageable);
+    Page<ProductSummaryResponse> getProducts(String search, Long categoryId, String subcategory, Gender gender, String brand, Boolean featured, Boolean active, Boolean featuredInCollection, String type, Pageable pageable);
     void activateProduct(Long id);
     void deactivateProduct(Long id);
     List<ProductSummaryResponse> getRelatedProducts(Long id);

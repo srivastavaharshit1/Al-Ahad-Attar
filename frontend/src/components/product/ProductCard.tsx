@@ -11,9 +11,10 @@ import { StarRating } from '../common/StarRating';
 
 interface ProductCardProps {
   product: Product;
+  defaultType?: string;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }) => {
   const navigate = useNavigate();
   // For Product details (ProductResponse)
   const defaultVariant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
@@ -67,7 +68,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const handleQuickView = (e: React.MouseEvent) => {
     e.preventDefault();
     // For this phase, link Quick View to the product detail page, but in a real implementation this would open a modal.
-    navigate(`/product/${product.id}`);
+    navigate(`/product/${product.id}${defaultType ? `?type=${defaultType}` : ''}`);
   };
 
   const handleToggleWishlist = (e: React.MouseEvent) => {
@@ -127,7 +128,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         )}
 
         <Link
-          to={`/product/${product.id}`}
+          to={`/product/${product.id}${defaultType ? `?type=${defaultType}` : ''}`}
           className="block w-full h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
         >
           {image ? (
@@ -166,7 +167,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </span>
 
         <Link
-          to={`/product/${product.id}`}
+          to={`/product/${product.id}${defaultType ? `?type=${defaultType}` : ''}`}
           className="mb-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <h3 className="font-headline-md text-lg text-ink group-hover:text-accent transition-colors line-clamp-1 font-normal tracking-wide">

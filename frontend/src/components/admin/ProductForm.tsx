@@ -26,6 +26,7 @@ export interface ProductFormData {
 
 export interface VariantData {
   id?: number;
+  productType?: string;
   sku: string;
   size: string;
   price: number;
@@ -116,31 +117,34 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       if (cat) {
         if (cat.type === 'ATTARS') {
           setVariants([
-            { sku: '', size: '3 ml', price: 0, stock: 0, active: true },
-            { sku: '', size: '6 ml', price: 0, stock: 0, active: true },
-            { sku: '', size: '12 ml', price: 0, stock: 0, active: true }
+            { sku: '', size: '3ml', price: 0, stock: 0, active: true, productType: 'ATTAR' },
+            { sku: '', size: '6ml', price: 0, stock: 0, active: true, productType: 'ATTAR' },
+            { sku: '', size: '12ml', price: 0, stock: 0, active: true, productType: 'ATTAR' },
+            { sku: '', size: '30ml', price: 0, stock: 0, active: true, productType: 'PERFUME' },
+            { sku: '', size: '60ml', price: 0, stock: 0, active: true, productType: 'PERFUME' },
+            { sku: '', size: '100ml', price: 0, stock: 0, active: true, productType: 'PERFUME' }
           ]);
         } else if (cat.type === 'BAKHOOR') {
           if (formData.subcategory === 'Incense Sticks') {
             setVariants([
-              { sku: '', size: '100 gm', price: 0, stock: 0, active: true },
-              { sku: '', size: '250 gm', price: 0, stock: 0, active: true }
+              { sku: '', size: '100 gm', price: 0, stock: 0, active: true, productType: 'ATTAR' },
+              { sku: '', size: '250 gm', price: 0, stock: 0, active: true, productType: 'ATTAR' }
             ]);
           } else {
             setVariants([
-              { sku: '', size: '40 g', price: 0, stock: 0, active: true }
+              { sku: '', size: '40 g', price: 0, stock: 0, active: true, productType: 'ATTAR' }
             ]);
           }
         } else if (cat.type === 'PERFUMES') {
           if (formData.subcategory === 'Car Perfumes') {
             setVariants([
-              { sku: '', size: '1 pc', price: 0, stock: 0, active: true }
+              { sku: '', size: '1 pc', price: 0, stock: 0, active: true, productType: 'PERFUME' }
             ]);
           } else {
             setVariants([
-              { sku: '', size: '30 ml', price: 0, stock: 0, active: true },
-              { sku: '', size: '60 ml', price: 0, stock: 0, active: true },
-              { sku: '', size: '100 ml', price: 0, stock: 0, active: true }
+              { sku: '', size: '30ml', price: 0, stock: 0, active: true, productType: 'PERFUME' },
+              { sku: '', size: '60ml', price: 0, stock: 0, active: true, productType: 'PERFUME' },
+              { sku: '', size: '100ml', price: 0, stock: 0, active: true, productType: 'PERFUME' }
             ]);
           }
         }
@@ -249,15 +253,29 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               >
                 <Trash2 size={18} />
               </button>
-              <div className="md:w-1/4 pt-4 md:pt-0">
-                <label className="field-label mb-1">Variant Size <span className="text-error">*</span></label>
-                <input
-                  className="field-input font-body-lg text-body-lg text-accent"
-                  type="text"
-                  required
-                  value={v.size}
-                  onChange={e => handleVariantChange(idx, 'size', e.target.value)}
-                />
+              <div className="md:w-1/3 pt-4 md:pt-0 grid grid-cols-2 gap-4">
+                <div>
+                  <label className="field-label mb-1">Type <span className="text-error">*</span></label>
+                  <select
+                    className="field-input font-body-lg text-body-lg text-accent"
+                    required
+                    value={v.productType || 'ATTAR'}
+                    onChange={e => handleVariantChange(idx, 'productType', e.target.value)}
+                  >
+                    <option value="ATTAR">Attar</option>
+                    <option value="PERFUME">Perfume</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="field-label mb-1">Variant Size <span className="text-error">*</span></label>
+                  <input
+                    className="field-input font-body-lg text-body-lg text-accent"
+                    type="text"
+                    required
+                    value={v.size}
+                    onChange={e => handleVariantChange(idx, 'size', e.target.value)}
+                  />
+                </div>
               </div>
               <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
@@ -303,7 +321,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           
           <button
             type="button"
-            onClick={() => setVariants(prev => [...prev, { sku: '', size: '', price: 0, stock: 0, active: true }])}
+            onClick={() => setVariants(prev => [...prev, { sku: '', size: '', price: 0, stock: 0, active: true, productType: 'ATTAR' }])}
             className="flex items-center justify-center gap-2 py-3 border-2 border-dashed border-outline-variant rounded-lg text-on-surface-variant hover:text-accent hover:border-accent/50 transition-colors font-label-lg"
           >
             <Plus size={20} />
