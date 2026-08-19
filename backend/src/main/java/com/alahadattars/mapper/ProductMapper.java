@@ -105,6 +105,10 @@ public class ProductMapper {
     }
 
     public ProductSummaryResponse toSummaryResponse(Product product) {
+        return toSummaryResponse(product, null);
+    }
+
+    public ProductSummaryResponse toSummaryResponse(Product product, String requestedContextType) {
         if (product == null) {
             return null;
         }
@@ -119,28 +123,51 @@ public class ProductMapper {
         java.util.List<String> availableSizesList = java.util.Collections.emptyList();
 
         if (product.getVariants() != null && !product.getVariants().isEmpty()) {
-            minPrice = product.getVariants().stream()
+            java.util.List<ProductVariant> activeVariants = product.getVariants().stream()
                     .filter(ProductVariant::isActive)
+                    .collect(Collectors.toList());
+
+            java.util.List<ProductVariant> preferredVariants = activeVariants;
+            
+            // Determine preferred type based on context or product category
+            String preferredType = requestedContextType;
+            if (preferredType == null && categoryName != null) {
+                if (categoryName.equalsIgnoreCase("Perfumes")) {
+                    preferredType = "PERFUME";
+                } else if (categoryName.equalsIgnoreCase("Attars")) {
+                    preferredType = "ATTAR";
+                }
+            }
+
+            if (preferredType != null) {
+                final String finalPreferredType = preferredType;
+                java.util.List<ProductVariant> filtered = activeVariants.stream()
+                        .filter(v -> v.getProductType().name().equalsIgnoreCase(finalPreferredType))
+                        .collect(Collectors.toList());
+                if (!filtered.isEmpty()) {
+                    preferredVariants = filtered;
+                }
+            }
+
+            minPrice = preferredVariants.stream()
                     .map(ProductVariant::getPrice)
                     .min(BigDecimal::compareTo)
                     .orElse(null);
             
-            ProductVariant defaultVariant = product.getVariants().stream()
-                    .filter(ProductVariant::isActive)
+            ProductVariant defaultVariant = preferredVariants.stream()
                     .findFirst()
                     .orElse(null);
+                    
             if (defaultVariant != null) {
                 defaultVariantId = defaultVariant.getId();
                 defaultVariantSize = defaultVariant.getSize();
             }
             
-            totalStock = product.getVariants().stream()
-                    .filter(ProductVariant::isActive)
+            totalStock = preferredVariants.stream()
                     .mapToInt(v -> v.getStock() != null ? v.getStock() : 0)
                     .sum();
                     
-            availableSizesList = product.getVariants().stream()
-                    .filter(ProductVariant::isActive)
+            availableSizesList = preferredVariants.stream()
                     .map(ProductVariant::getSize)
                     .collect(Collectors.toList());
         }

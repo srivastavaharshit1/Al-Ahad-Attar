@@ -186,8 +186,16 @@ public class ProductServiceImpl implements ProductService {
                     log.warn("Products by category fetch failed: " + AppConstants.CATEGORY_NOT_FOUND_MSG + categoryId);
                     return new ResourceNotFoundException(AppConstants.CATEGORY_NOT_FOUND_MSG + categoryId);
                 });
+        String contextType = null;
+        if (category.getName().equalsIgnoreCase("Perfumes")) {
+            contextType = "PERFUME";
+        } else if (category.getName().equalsIgnoreCase("Attars")) {
+            contextType = "ATTAR";
+        }
+        final String finalContextType = contextType;
+
         return productRepository.findByCategoryAndActiveTrue(category).stream()
-                .map(productMapper::toSummaryResponse)
+                .map(p -> productMapper.toSummaryResponse(p, finalContextType))
                 .collect(Collectors.toList());
     }
 
@@ -274,7 +282,17 @@ public class ProductServiceImpl implements ProductService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return productRepository.findAll(spec, pageable).map(productMapper::toSummaryResponse);
+        String contextType = type;
+        if (contextType == null && categoryName != null) {
+            if (categoryName.equalsIgnoreCase("Perfumes")) {
+                contextType = "PERFUME";
+            } else if (categoryName.equalsIgnoreCase("Attars")) {
+                contextType = "ATTAR";
+            }
+        }
+        final String finalContextType = contextType;
+
+        return productRepository.findAll(spec, pageable).map(p -> productMapper.toSummaryResponse(p, finalContextType));
     }
 
     @Override
