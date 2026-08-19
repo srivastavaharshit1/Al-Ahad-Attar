@@ -367,7 +367,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
                   <ProductCard 
                     key={product.id} 
                     product={product} 
-                    defaultType={searchParams.get('type') || (activeCategory?.type === 'PERFUMES' ? 'perfume' : undefined)}
+                    defaultType={searchParams.get('type') || (categories.find(c => c.id === selectedCategoryId)?.type === 'PERFUMES' ? 'perfume' : undefined)}
                   />
                 ))}
               </div>
