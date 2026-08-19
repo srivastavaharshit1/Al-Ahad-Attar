@@ -12,19 +12,23 @@ import com.alahadattars.dto.email.RefundSuccessfulEmailData;
 import com.alahadattars.email.EmailConstants;
 import com.alahadattars.email.EmailTemplateBuilder;
 import com.alahadattars.service.EmailService;
-import jakarta.mail.internet.MimeMessage;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.List;
+import java.util.Map;
+
 /**
- * Sends every transactional email via SMTP (Spring Mail / JavaMailSender). Every public method
- * is {@code @Async} and wraps its entire body in a try/catch — a failure here (bad SMTP config,
+ * Sends every transactional email via Resend HTTP API. Every public method
+ * is {@code @Async} and wraps its entire body in a try/catch — a failure here (bad config,
  * network blip, provider outage) is logged and nothing else. It can never throw back into the
  * caller's transaction, so order placement, registration, etc. always succeed regardless of
  * whether email delivery does.
@@ -34,10 +38,10 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
 
-    private final JavaMailSender mailSender;
+    private final ObjectMapper objectMapper;
 
-    @Value("${spring.mail.host:}")
-    private String mailHost;
+    @Value("${resend.api-key:}")
+    private String resendApiKey;
 
     @Value("${app.mail.from}")
     private String fromAddress;
@@ -208,8 +212,8 @@ public class EmailServiceImpl implements EmailService {
             log.info("Email sending disabled (app.mail.enabled=false) — skipped '{}' to {}.", subject, to);
             return;
         }
-        if (mailHost == null || mailHost.isBlank()) {
-            log.warn("Email SMTP not configured (MAIL_HOST unset) — skipped '{}' to {}.", subject, to);
+        if (resendApiKey == null || resendApiKey.isBlank()) {
+            log.warn("Resend API key not configured (RESEND_API_KEY unset) — skipped '{}' to {}.", subject, to);
             return;
         }
         if (to == null || to.isBlank()) {
@@ -217,16 +221,31 @@ public class EmailServiceImpl implements EmailService {
             return;
         }
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
-            helper.setTo(to);
-            helper.setFrom(fromAddress);
-            helper.setSubject(subject);
-            helper.setText(html, true);
-            mailSender.send(message);
-            log.info("Sent email '{}' to {}.", subject, to);
-        } catch (MailException | jakarta.mail.MessagingException e) {
-            log.error("SMTP send failed for '{}' to {}: {}", subject, to, e.getMessage(), e);
+            Map<String, Object> payload = Map.of(
+                    "from", fromAddress,
+                    "to", List.of(to),
+                    "subject", subject,
+                    "html", html
+            );
+            
+            String json = objectMapper.writeValueAsString(payload);
+            
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.resend.com/emails"))
+                    .header("Authorization", "Bearer " + resendApiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(json))
+                    .build();
+                    
+            HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+            
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                log.info("Sent email '{}' via Resend to {}.", subject, to);
+            } else {
+                log.error("Resend API failed for '{}' to {}. Status: {}, Body: {}", subject, to, response.statusCode(), response.body());
+            }
+        } catch (Exception e) {
+            log.error("Failed to call Resend API for '{}' to {}: {}", subject, to, e.getMessage(), e);
         }
     }
 }
