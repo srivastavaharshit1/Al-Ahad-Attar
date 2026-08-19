@@ -149,6 +149,19 @@ export const EditProduct: React.FC = () => {
         }
       }
 
+      // Handle variant deletion
+      const currentVariantIds = variants.map(v => v.id).filter(id => id !== undefined);
+      const variantsToDelete = initialVariants.filter(v => v.id && !currentVariantIds.includes(v.id));
+      for (const variant of variantsToDelete) {
+        if (variant.id) {
+          try {
+            await apiClient.delete(`/variants/${variant.id}`);
+          } catch (e) {
+            console.error(`Failed to delete variant ${variant.id}`, e);
+          }
+        }
+      }
+
       // Reorder logic for images if they are remote (ProductForm triggers immediately, but we might have new order)
       if (images.every(img => typeof img.id === 'number')) {
         const orderedIds = images.map(img => img.id as number);
