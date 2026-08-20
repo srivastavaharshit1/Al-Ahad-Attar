@@ -230,11 +230,38 @@ public class ProductServiceImpl implements ProductService {
             }
             List<Predicate> predicates = new ArrayList<>();
             if (search != null && !search.trim().isEmpty()) {
-                String searchPattern = "%" + search.trim().toLowerCase() + "%";
+                String searchLower = search.trim().toLowerCase();
+                String searchPattern = "%" + searchLower + "%";
                 Predicate namePredicate = cb.like(cb.lower(root.get("name")), searchPattern);
                 Predicate brandPredicate = cb.like(cb.lower(root.get("brand")), searchPattern);
                 Predicate familyPredicate = cb.like(cb.lower(root.get("fragranceFamily")), searchPattern);
-                predicates.add(cb.or(namePredicate, brandPredicate, familyPredicate));
+                Predicate categoryPredicate = cb.like(cb.lower(root.get("category").get("name")), searchPattern);
+                Predicate subCategoryPredicate = cb.like(cb.lower(root.get("subcategory")), searchPattern);
+                
+                List<Predicate> orPredicates = new ArrayList<>();
+                orPredicates.add(namePredicate);
+                orPredicates.add(brandPredicate);
+                orPredicates.add(familyPredicate);
+                orPredicates.add(categoryPredicate);
+                orPredicates.add(subCategoryPredicate);
+                
+                if (searchLower.contains("car perfume")) {
+                    orPredicates.add(cb.equal(cb.lower(root.get("subcategory")), "fresheners"));
+                }
+                if (searchLower.contains("insence") || searchLower.contains("incense")) {
+                    orPredicates.add(cb.equal(cb.lower(root.get("category").get("name")), "bakhoor"));
+                }
+                if (searchLower.contains("attar")) {
+                    orPredicates.add(cb.equal(cb.lower(root.get("category").get("name")), "attars"));
+                }
+                if (searchLower.contains("perfume") && !searchLower.contains("car perfume")) {
+                    orPredicates.add(cb.equal(cb.lower(root.get("category").get("name")), "perfumes"));
+                }
+                if (searchLower.contains("bakhoor")) {
+                    orPredicates.add(cb.equal(cb.lower(root.get("category").get("name")), "bakhoor"));
+                }
+
+                predicates.add(cb.or(orPredicates.toArray(new Predicate[0])));
             }
             if (categoryId != null) {
                 if (categoryName != null && "Perfumes".equalsIgnoreCase(categoryName)) {

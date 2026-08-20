@@ -127,4 +127,24 @@ public class AuthController {
                 .message("Password reset successfully")
                 .build());
     }
+
+    @Operation(summary = "Authenticate user using Google Identity Services")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "User authenticated successfully or requires phone number completion"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid token or missing phone number")
+    })
+    @PostMapping("/google")
+    public ResponseEntity<com.alahadattars.response.ApiResponse<AuthenticationResponse>> googleLogin(
+            @Valid @RequestBody com.alahadattars.dto.GoogleAuthRequest request
+    ) {
+        log.info("Received google login request");
+        AuthenticationResponse response = authenticationService.googleLogin(request);
+        
+        log.info("User logged in via Google successfully");
+        return ResponseEntity.ok(com.alahadattars.response.ApiResponse.<AuthenticationResponse>builder()
+                .success(true)
+                .message("User logged in successfully")
+                .data(response)
+                .build());
+    }
 }

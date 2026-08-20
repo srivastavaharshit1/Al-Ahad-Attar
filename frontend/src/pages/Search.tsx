@@ -42,12 +42,24 @@ export const Search: React.FC = () => {
     const cat = searchParams.get('category') || '';
     const s = searchParams.get('sort') || 'createdAt,desc';
 
-    setQuery(q);
+    if (query !== q && document.activeElement !== document.getElementById('searchInput')) {
+      setQuery(q);
+    }
     setSelectedCategoryId(cat);
     setSort(s);
 
     performSearch(q, cat, s, currentPage);
   }, [searchParams]);
+
+  useEffect(() => {
+    const q = searchParams.get('q') || '';
+    if (query !== q) {
+      const timeoutId = setTimeout(() => {
+        updateUrlParams(query, selectedCategoryId, sort, 0);
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [query, selectedCategoryId, sort]);
 
   const performSearch = async (searchQuery: string, categoryId: string, sortVal: string, page: number) => {
     try {
@@ -138,6 +150,7 @@ export const Search: React.FC = () => {
         <h1 className="font-display-sm text-display-sm text-on-surface mb-6">Search Results</h1>
         <form onSubmit={handleSearch} className="max-w-2xl mx-auto relative">
           <input
+            id="searchInput"
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}

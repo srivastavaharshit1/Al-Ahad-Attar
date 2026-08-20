@@ -13,17 +13,36 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
   const navigate = useNavigate();
 
   const [suggestedProducts, setSuggestedProducts] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       if (inputRef.current) {
         setTimeout(() => inputRef.current?.focus(), 100);
       }
+      setSearchQuery('');
       productService.getProducts({ size: 3, sort: 'createdAt,desc' })
         .then(res => setSuggestedProducts(res.content || []))
         .catch(console.error);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const timeoutId = setTimeout(() => {
+      const query = searchQuery.trim();
+      const params: any = { size: 6, sort: 'createdAt,desc', active: true };
+      if (query) {
+        params.search = query;
+      }
+      productService.getProducts(params)
+        .then(res => setSuggestedProducts(res.content || []))
+        .catch(console.error);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, isOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -66,6 +85,8 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
               className="w-full border-b border-outline-variant py-6 pl-16 pr-6 font-headline-md text-headline-md text-on-surface placeholder:text-outline-variant/60 focus:border-accent focus:ring-0 transition-colors bg-surface-container-lowest/50 caret-accent focus:outline-none"
               placeholder="Search for attars, notes, or collections..."
               type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </form>
         </div>
@@ -81,12 +102,12 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
                 Trending Searches
               </h3>
               <ul className="space-y-4">
-                {['Oud Wood', 'Saffron Blends', 'White Musk', 'Rose Taifi'].map(term => (
+                {['Oud Wood', 'Attar', 'White Musk', 'Bakhoor'].map(term => (
                   <li key={term}>
-                    <Link to="/collection" onClick={onClose} className="font-body-lg text-body-lg text-on-surface hover:text-accent transition-colors flex items-center group rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                    <button onClick={() => setSearchQuery(term)} className="font-body-lg text-body-lg text-on-surface hover:text-accent transition-colors flex items-center group rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent text-left w-full">
                       <span className="material-symbols-outlined opacity-0 group-hover:opacity-100 -ml-6 mr-2 transition-all text-accent" aria-hidden="true">arrow_right</span>
                       {term}
-                    </Link>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -96,13 +117,13 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
             <div className="space-y-6 mt-4">
               <h3 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest flex items-center gap-2 border-b border-outline-variant pb-2">
                 <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>history</span>
-                Recent Searches
+                Quick Categories
               </h3>
               <div className="flex flex-wrap gap-2">
-                {['Sandalwood', 'Amber', 'Gift Sets'].map(term => (
-                  <Link key={term} to="/collection" onClick={onClose} className="px-4 py-2 bg-surface-container border border-outline-variant/30 rounded-full font-label-md text-label-md text-on-surface-variant hover:border-accent hover:text-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                {['Perfumes', 'Car Perfume', 'Gift Sets'].map(term => (
+                  <button key={term} onClick={() => setSearchQuery(term)} className="px-4 py-2 bg-surface-container border border-outline-variant/30 rounded-full font-label-md text-label-md text-on-surface-variant hover:border-accent hover:text-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                     {term}
-                  </Link>
+                  </button>
                 ))}
               </div>
             </div>
@@ -111,8 +132,8 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
           {/* Right Column: Suggested Products */}
           <div className="md:col-span-8 md:pl-12 border-t md:border-t-0 md:border-l border-outline-variant/30 pt-12 md:pt-0">
             <h3 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest flex items-center gap-2 border-b border-outline-variant pb-2 mb-8">
-              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>auto_awesome</span>
-              Suggested Products
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>{searchQuery.trim() ? 'search' : 'auto_awesome'}</span>
+              {searchQuery.trim() ? `Results for "${searchQuery.trim()}"` : 'Suggested Products'}
             </h3>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
               {suggestedProducts.map((product: any) => {

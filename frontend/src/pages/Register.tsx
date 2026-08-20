@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Input } from '../components/ui/Input';
 import { PhoneInput } from '../components/ui/PhoneInput';
+import { GoogleLogin } from '@react-oauth/google';
 
 export const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -16,8 +17,44 @@ export const Register: React.FC = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const { register } = useAuth();
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [googleToken, setGoogleToken] = useState('');
+  
+  const { register, googleLogin } = useAuth();
   const navigate = useNavigate();
+
+  const handleGoogleSuccess = async (credential: string) => {
+    setError('');
+    setIsSubmitting(true);
+    try {
+      await googleLogin(credential);
+      navigate('/account/dashboard', { replace: true });
+    } catch (err: any) {
+      if (err.response?.data?.message === 'REQUIRES_PHONE') {
+        setGoogleToken(credential);
+        setShowPhoneModal(true);
+      } else {
+        setError(err.response?.data?.message || 'Google signup failed.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePhoneSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsSubmitting(true);
+    try {
+      await googleLogin(googleToken, formData.phone);
+      setShowPhoneModal(false);
+      navigate('/account/dashboard', { replace: true });
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to complete registration.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -82,94 +119,139 @@ export const Register: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="First Name"
-                id="firstName"
-                name="firstName"
-                placeholder="First"
+          {showPhoneModal ? (
+            <form onSubmit={handlePhoneSubmit} className="space-y-5 relative z-10">
+              <p className="text-sm text-on-surface-variant mb-4">
+                Please enter your phone number to complete your Google registration.
+              </p>
+              <PhoneInput
+                label="Phone Number"
+                id="phone"
                 required
-                type="text"
-                value={formData.firstName}
-                onChange={handleChange}
+                value={formData.phone}
+                onChange={(phone) => setFormData({ ...formData, phone })}
               />
-              <Input
-                label="Last Name"
-                id="lastName"
-                name="lastName"
-                placeholder="Last"
-                required
-                type="text"
-                value={formData.lastName}
-                onChange={handleChange}
-              />
-            </div>
-
-            <Input
-              label="Email Address"
-              id="email"
-              name="email"
-              placeholder="Enter your email"
-              required
-              type="email"
-              value={formData.email}
-              onChange={handleChange}
-            />
-
-            <PhoneInput
-              label="Phone Number"
-              id="phone"
-              required
-              value={formData.phone}
-              onChange={(phone) => setFormData({ ...formData, phone })}
-            />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Password"
-                id="password"
-                name="password"
-                placeholder="••••••••"
-                required
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-              />
-              <Input
-                label="Confirm"
-                id="confirmPassword"
-                name="confirmPassword"
-                placeholder="••••••••"
-                required
-                type="password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="flex items-start gap-3 mt-1">
-              <div className="pt-1">
-                <input
-                  className="w-5 h-5 rounded-sm border-outline-variant text-accent focus:ring-0 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 bg-transparent cursor-pointer transition-shadow"
-                  id="newsletter"
-                  name="newsletter"
-                  type="checkbox"
+              <div className="pt-2 flex gap-4">
+                <button type="button" className="btn btn-outline flex-1" onClick={() => setShowPhoneModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary flex-1 disabled:opacity-45" disabled={isSubmitting}>
+                  {isSubmitting ? 'Submitting…' : 'Complete'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <div className="flex justify-center mb-6 relative z-10">
+                <GoogleLogin
+                  onSuccess={(res) => {
+                    if (res.credential) handleGoogleSuccess(res.credential);
+                  }}
+                  onError={() => setError('Google signup was unsuccessful.')}
+                  useOneTap
+                  theme="outline"
+                  shape="rectangular"
+                  width="100%"
+                  text="signup_with"
                 />
               </div>
-              <label className="font-body-md text-body-md text-on-surface-variant cursor-pointer select-none leading-relaxed" htmlFor="newsletter">
-                Join our exclusive olfactory journey to receive updates on new attars and private collections.
-              </label>
-            </div>
 
-            <button
-              className="btn btn-primary w-full mt-2 disabled:opacity-45"
-              type="submit"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Creating Account…' : 'Create Account'}
-            </button>
-          </form>
+              <div className="relative flex items-center py-5">
+                <div className="flex-grow border-t border-outline-variant"></div>
+                <span className="flex-shrink-0 mx-4 text-on-surface-variant font-label-md text-[11px] uppercase tracking-wider">or sign up with email</span>
+                <div className="flex-grow border-t border-outline-variant"></div>
+              </div>
+
+              <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    label="First Name"
+                    id="firstName"
+                    name="firstName"
+                    placeholder="First"
+                    required
+                    type="text"
+                    value={formData.firstName}
+                    onChange={handleChange}
+                  />
+                  <Input
+                    label="Last Name"
+                    id="lastName"
+                    name="lastName"
+                    placeholder="Last"
+                    required
+                    type="text"
+                    value={formData.lastName}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <Input
+                  label="Email Address"
+                  id="email"
+                  name="email"
+                  placeholder="Enter your email"
+                  required
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                />
+
+                <PhoneInput
+                  label="Phone Number"
+                  id="phone"
+                  required
+                  value={formData.phone}
+                  onChange={(phone) => setFormData({ ...formData, phone })}
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Password"
+                    id="password"
+                    name="password"
+                    placeholder="••••••••"
+                    required
+                    type="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                  />
+                  <Input
+                    label="Confirm"
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    placeholder="••••••••"
+                    required
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div className="flex items-start gap-3 mt-1">
+                  <div className="pt-1">
+                    <input
+                      className="w-5 h-5 rounded-sm border-outline-variant text-accent focus:ring-0 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 bg-transparent cursor-pointer transition-shadow"
+                      id="newsletter"
+                      name="newsletter"
+                      type="checkbox"
+                    />
+                  </div>
+                  <label className="font-body-md text-body-md text-on-surface-variant cursor-pointer select-none leading-relaxed" htmlFor="newsletter">
+                    Join our exclusive olfactory journey to receive updates on new attars and private collections.
+                  </label>
+                </div>
+
+                <button
+                  className="btn btn-primary w-full mt-2 disabled:opacity-45"
+                  type="submit"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Creating Account…' : 'Create Account'}
+                </button>
+              </form>
+            </>
+          )}
 
           <div className="mt-8 text-center">
             <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">

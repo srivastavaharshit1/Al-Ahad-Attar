@@ -78,6 +78,11 @@ public class User extends BaseEntity {
     @Builder.Default
     private boolean enabled = true;
 
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(name = "auth_provider", nullable = false, length = 20, columnDefinition = "varchar(20) default 'LOCAL'")
+    @Builder.Default
+    private com.alahadattars.enums.AuthProvider provider = com.alahadattars.enums.AuthProvider.LOCAL;
+
     @Column(name = "email_verified", nullable = false)
     @Builder.Default
     private boolean emailVerified = false;

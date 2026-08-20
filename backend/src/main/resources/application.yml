@@ -66,6 +66,8 @@ app:
     email: ${ADMIN_EMAIL:}
     password: ${ADMIN_PASSWORD:}
   security:
+    # Google OAuth2 client ID for frontend sign-in
+    google-client-id: ${GOOGLE_CLIENT_ID:}
     # Comma-separated IP(s) of a reverse proxy/load balancer actually in front of this app.
     # Empty by default — AuthRateLimitFilter only trusts the X-Forwarded-For header when the
     # direct TCP peer is in this list; otherwise a client could set that header to any value and

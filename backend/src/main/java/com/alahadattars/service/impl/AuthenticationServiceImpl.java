@@ -56,6 +56,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailService emailService;
 
+    @org.springframework.beans.factory.annotation.Value("${app.security.google-client-id:}")
+    private String googleClientId;
+
     @Override
     @Transactional
     public AuthenticationResponse register(RegisterRequest request) {
@@ -236,5 +239,96 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         passwordResetTokenRepository.save(resetToken);
 
         log.info("Password reset successfully for user ID: {}", user.getId());
+    }
+
+    @Override
+    @Transactional
+    public AuthenticationResponse googleLogin(com.alahadattars.dto.GoogleAuthRequest request) {
+        if (googleClientId == null || googleClientId.isEmpty()) {
+            throw new com.alahadattars.exception.BadRequestException("Google Login is not configured on the server.");
+        }
+
+        try {
+            com.google.api.client.http.javanet.NetHttpTransport transport = new com.google.api.client.http.javanet.NetHttpTransport();
+            com.google.api.client.json.gson.GsonFactory jsonFactory = new com.google.api.client.json.gson.GsonFactory();
+
+            com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier verifier = new com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier.Builder(transport, jsonFactory)
+                    .setAudience(java.util.Collections.singletonList(googleClientId))
+                    .build();
+
+            com.google.api.client.googleapis.auth.oauth2.GoogleIdToken idToken = verifier.verify(request.getIdToken());
+            if (idToken == null) {
+                throw new com.alahadattars.exception.BadRequestException("Invalid Google ID token.");
+            }
+
+            com.google.api.client.googleapis.auth.oauth2.GoogleIdToken.Payload payload = idToken.getPayload();
+            String email = payload.getEmail();
+            boolean emailVerified = Boolean.TRUE.equals(payload.getEmailVerified());
+
+            if (!emailVerified) {
+                throw new com.alahadattars.exception.BadRequestException("Google email is not verified.");
+            }
+
+            Optional<User> userOpt = userRepository.findByEmail(email);
+            User user;
+
+            if (userOpt.isPresent()) {
+                user = userOpt.get();
+                // If they logged in with Google but existing user was LOCAL, we could update provider, 
+                // but we can just let them log in anyway since they proved ownership of the email.
+            } else {
+                // New user. Do they have a phone number?
+                if (request.getPhone() == null || request.getPhone().isBlank()) {
+                    throw new com.alahadattars.exception.BadRequestException("REQUIRES_PHONE");
+                }
+
+                PhoneNumberHelper.ParsedPhone parsedPhone = PhoneNumberHelper.parse(request.getPhone());
+                if (parsedPhone == null) {
+                    throw new BadRequestException("Invalid phone number format.");
+                }
+
+                if (userRepository.existsByPhone(parsedPhone.e164())) {
+                    throw new ConflictException("Phone number already exists on another account.");
+                }
+
+                Role userRole = roleRepository.findByName(RoleType.USER)
+                        .orElseThrow(() -> new IllegalStateException("USER role not found"));
+
+                String firstName = (String) payload.get("given_name");
+                String lastName = (String) payload.get("family_name");
+                if (lastName == null) lastName = ""; // Sometimes users don't have a last name on Google
+                if (firstName == null) firstName = "User";
+
+                user = User.builder()
+                        .firstName(firstName)
+                        .lastName(lastName)
+                        .email(email)
+                        .phone(parsedPhone.e164())
+                        .phoneCountryCode(parsedPhone.regionCode())
+                        .phoneNationalNumber(parsedPhone.nationalNumber())
+                        .password(passwordEncoder.encode(UUID.randomUUID().toString())) // Random password
+                        .provider(com.alahadattars.enums.AuthProvider.GOOGLE)
+                        .emailVerified(true) // Verified by Google
+                        .build();
+
+                userRole.addUser(user);
+                userRepository.save(user);
+                emailService.sendWelcomeEmail(user.getEmail(), user.getFirstName() + " " + user.getLastName());
+            }
+
+            CustomUserDetails userDetails = new CustomUserDetails(user);
+            String jwtToken = jwtService.generateToken(userDetails);
+            long expirationTime = jwtService.extractExpiration(jwtToken).getTime();
+
+            return AuthenticationResponse.builder()
+                    .token(jwtToken)
+                    .expiresAt(expirationTime)
+                    .user(userMapper.toUserResponse(user))
+                    .build();
+
+        } catch (java.io.IOException | java.security.GeneralSecurityException e) {
+            log.error("Failed to verify Google ID token", e);
+            throw new com.alahadattars.exception.BadRequestException("Failed to authenticate with Google.");
+        }
     }
 }
