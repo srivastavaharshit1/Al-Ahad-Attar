@@ -34,6 +34,10 @@ export const Login: React.FC = () => {
     <main className="flex-grow flex items-center justify-center py-16 md:py-24 px-margin-mobile md:px-margin-desktop bg-background">
       <div className="w-full max-w-[480px]">
         <div className="card p-8 md:p-12">
+          <Link to="/" className="inline-flex items-center text-[11px] font-label-md uppercase tracking-wider text-on-surface-variant hover:text-accent transition-colors mb-6 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-sm">
+            <span className="material-symbols-outlined text-[16px] mr-1 group-hover:-translate-x-1 transition-transform">arrow_back</span>
+            Return to Home
+          </Link>
           <div className="text-center mb-8">
             <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.3em] mb-3 block">Welcome Back</span>
             <h1 className="font-headline-lg text-headline-lg text-on-surface mb-2">Sign In</h1>

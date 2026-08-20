@@ -45,6 +45,10 @@ export const ForgotPassword: React.FC = () => {
             </div>
           ) : (
             <>
+              <Link to="/" className="inline-flex items-center text-[11px] font-label-md uppercase tracking-wider text-on-surface-variant hover:text-accent transition-colors mb-6 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-sm">
+                <span className="material-symbols-outlined text-[16px] mr-1 group-hover:-translate-x-1 transition-transform">arrow_back</span>
+                Return to Home
+              </Link>
               <div className="text-center mb-8">
                 <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.3em] mb-3 block">Forgot Password</span>
                 <h1 className="font-headline-lg text-headline-lg text-on-surface mb-2">Reset Your Password</h1>

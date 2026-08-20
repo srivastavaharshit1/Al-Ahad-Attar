@@ -154,9 +154,12 @@ public class ProductMapper {
                     .min(BigDecimal::compareTo)
                     .orElse(null);
             
+            final BigDecimal finalMinPrice = minPrice;
+            ProductVariant firstFallback = preferredVariants.stream().findFirst().orElse(null);
             ProductVariant defaultVariant = preferredVariants.stream()
+                    .filter(v -> finalMinPrice != null && v.getPrice().compareTo(finalMinPrice) == 0)
                     .findFirst()
-                    .orElse(null);
+                    .orElse(firstFallback);
                     
             if (defaultVariant != null) {
                 defaultVariantId = defaultVariant.getId();
