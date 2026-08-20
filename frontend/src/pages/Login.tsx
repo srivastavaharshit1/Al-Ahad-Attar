@@ -14,6 +14,10 @@ export const Login: React.FC = () => {
   const [googleToken, setGoogleToken] = useState('');
   const [phone, setPhone] = useState('');
   
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login, googleLogin } = useAuth();
+
   const from = location.state?.from?.pathname || '/account/dashboard';
 
   const handleGoogleSuccess = async (credential: string) => {
