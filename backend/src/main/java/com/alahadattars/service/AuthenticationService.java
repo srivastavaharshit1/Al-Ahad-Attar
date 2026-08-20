@@ -13,4 +13,5 @@ public interface AuthenticationService {
     UserResponse getCurrentUser();
     void forgotPassword(ForgotPasswordRequest request);
     void resetPassword(ResetPasswordRequest request);
+    AuthenticationResponse googleLogin(com.alahadattars.dto.GoogleAuthRequest request);
 }
