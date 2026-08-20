@@ -245,6 +245,7 @@ public class ProductServiceImpl implements ProductService {
                 orPredicates.add(categoryPredicate);
                 orPredicates.add(subCategoryPredicate);
                 
+                boolean needsVariantJoin = false;
                 if (searchLower.contains("car perfume")) {
                     orPredicates.add(cb.equal(cb.lower(root.get("subcategory")), "fresheners"));
                 }
@@ -253,12 +254,25 @@ public class ProductServiceImpl implements ProductService {
                 }
                 if (searchLower.contains("attar")) {
                     orPredicates.add(cb.equal(cb.lower(root.get("category").get("name")), "attars"));
+                    needsVariantJoin = true;
                 }
                 if (searchLower.contains("perfume") && !searchLower.contains("car perfume")) {
                     orPredicates.add(cb.equal(cb.lower(root.get("category").get("name")), "perfumes"));
+                    needsVariantJoin = true;
                 }
                 if (searchLower.contains("bakhoor")) {
                     orPredicates.add(cb.equal(cb.lower(root.get("category").get("name")), "bakhoor"));
+                }
+                
+                if (needsVariantJoin && Long.class != query.getResultType() && long.class != query.getResultType()) {
+                    jakarta.persistence.criteria.Join<Product, ProductVariant> variantSearchJoin = root.join("variants", jakarta.persistence.criteria.JoinType.LEFT);
+                    if (searchLower.contains("perfume") && !searchLower.contains("car perfume")) {
+                        orPredicates.add(cb.equal(variantSearchJoin.get("productType"), com.alahadattars.enums.ProductType.PERFUME));
+                    }
+                    if (searchLower.contains("attar")) {
+                        orPredicates.add(cb.equal(variantSearchJoin.get("productType"), com.alahadattars.enums.ProductType.ATTAR));
+                    }
+                    query.distinct(true);
                 }
 
                 predicates.add(cb.or(orPredicates.toArray(new Predicate[0])));
