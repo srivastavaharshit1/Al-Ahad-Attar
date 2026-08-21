@@ -88,7 +88,11 @@ export const Footer: React.FC = () => {
           <ul className="space-y-6">
             <li className="font-body-md text-sm text-white/60 font-light leading-relaxed flex items-start gap-3">
               <span className="text-[14px] text-accent mt-1" aria-hidden="true">📍</span>
-              <span>Lucknow, Uttar Pradesh</span>
+              <span>
+                {settings?.city || settings?.state 
+                  ? [settings.city, settings.state].filter(Boolean).join(', ') 
+                  : 'Lucknow, Uttar Pradesh'}
+              </span>
             </li>
             <li>
               <a href={`mailto:${settings?.emailAddress || 'contact@alahadattars.com'}`} className={`${footerLinkClass} flex items-start gap-3`}>
