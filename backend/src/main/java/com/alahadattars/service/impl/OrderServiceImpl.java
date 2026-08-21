@@ -561,6 +561,7 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponse cancelOrder(String email, Long orderId) {
         Order order = refundTransactionSupport.claimCancellationAndPrepareRefund(orderId, email);
         sendCancellationEmails(order);
+        notificationService.sendOrderCancelledNotification(order);
         return mapToResponse(order);
     }
 
@@ -572,6 +573,7 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponse adminCancelOrder(String adminEmail, Long orderId) {
         Order order = refundTransactionSupport.claimAdminCancellation(orderId, adminEmail);
         sendCancellationEmails(order);
+        notificationService.sendOrderCancelledNotification(order);
         return mapToResponse(order);
     }
 
