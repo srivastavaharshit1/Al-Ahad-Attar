@@ -32,6 +32,19 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Async("emailTaskExecutor")
+    public void sendOrderCancelledNotification(Order order) {
+        log.info("Sending order cancelled notifications for Order #{}", order.getOrderNumber());
+        for (NotificationProvider provider : providers) {
+            try {
+                provider.sendOrderCancelledNotification(order);
+            } catch (Exception e) {
+                log.error("Failed to send order cancelled notification using provider {}", provider.getClass().getSimpleName(), e);
+            }
+        }
+    }
+
+    @Override
+    @Async("emailTaskExecutor")
     public void sendRefundCompletedNotification(Order order) {
         log.info("Sending refund-completed notifications for Order #{}", order.getOrderNumber());
         for (NotificationProvider provider : providers) {

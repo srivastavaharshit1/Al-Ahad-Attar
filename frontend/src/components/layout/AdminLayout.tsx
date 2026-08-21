@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { adminNotificationService, AdminNotification } from '../../services/adminNotificationService';
 
 const NAV_ITEMS = [
   { path: '/admin', label: 'Dashboard', icon: 'dashboard', end: true },
@@ -24,6 +25,65 @@ export const AdminLayout: React.FC = () => {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Notification state
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const fetchNotifications = async () => {
+    try {
+      const [notifs, count] = await Promise.all([
+        adminNotificationService.getRecentNotifications(0, 10),
+        adminNotificationService.getUnreadCount()
+      ]);
+      setNotifications(notifs.content);
+      setUnreadCount(count.unreadCount);
+    } catch (e) {
+      console.error('Failed to fetch notifications', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000); // poll every 30s
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setIsNotifOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleMarkAsRead = async (id: number, orderId?: number) => {
+    try {
+      await adminNotificationService.markAsRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      setIsNotifOpen(false);
+      if (orderId) {
+        navigate(`/admin/orders/${orderId}`);
+      }
+    } catch (e) {
+      console.error('Failed to mark notification as read', e);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await adminNotificationService.markAllAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (e) {
+      console.error('Failed to mark all as read', e);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -159,9 +219,73 @@ export const AdminLayout: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-1">
-              <button className="p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-accent transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">
-                <span className="material-symbols-outlined">notifications</span>
-              </button>
+              <div className="relative" ref={notifRef}>
+                <button
+                  onClick={() => setIsNotifOpen(!isNotifOpen)}
+                  className="relative p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-accent transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+                >
+                  <span className="material-symbols-outlined">notifications</span>
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1.5 right-1.5 min-w-[16px] h-[16px] flex items-center justify-center bg-error text-on-error text-[10px] font-bold rounded-full px-1">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {isNotifOpen && (
+                  <div className="absolute right-0 mt-2 w-80 bg-surface rounded-md shadow-lg border border-outline-variant z-50 overflow-hidden flex flex-col">
+                    <div className="px-4 py-3 border-b border-outline-variant flex justify-between items-center bg-surface-container-lowest">
+                      <h3 className="font-headline-sm text-sm text-on-surface">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={handleMarkAllAsRead}
+                          className="text-[11px] font-label-md text-accent hover:text-accent-hover transition-colors"
+                        >
+                          Mark all as read
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="px-4 py-6 text-center text-on-surface-variant text-sm font-body-sm">
+                          No notifications yet
+                        </div>
+                      ) : (
+                        <ul className="divide-y divide-outline-variant">
+                          {notifications.map(notif => (
+                            <li
+                              key={notif.id}
+                              onClick={() => handleMarkAsRead(notif.id, notif.orderId)}
+                              className={`p-4 cursor-pointer hover:bg-surface-container-low transition-colors ${
+                                !notif.isRead ? 'bg-accent/5' : ''
+                              }`}
+                            >
+                              <div className="flex gap-3">
+                                <span className={`material-symbols-outlined text-[20px] shrink-0 mt-0.5 ${
+                                  !notif.isRead ? 'text-accent' : 'text-on-surface-variant/70'
+                                }`}>
+                                  {notif.type.includes('ORDER') ? 'local_mall' : 'info'}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className={`text-sm ${!notif.isRead ? 'text-on-surface font-medium' : 'text-on-surface-variant'}`}>
+                                    {notif.message}
+                                  </p>
+                                  <p className="text-[11px] text-on-surface-variant/60 mt-1">
+                                    {new Date(notif.createdAt).toLocaleString()}
+                                  </p>
+                                </div>
+                                {!notif.isRead && (
+                                  <div className="w-2 h-2 bg-accent rounded-full shrink-0 mt-1.5" />
+                                )}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
               <Link
                 to="/admin/account"
                 className="p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-accent transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
