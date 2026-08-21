@@ -46,56 +46,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const login = async (credentials: LoginCredentials) => {
-    setIsLoading(true);
-    try {
-      const response = await authService.login(credentials);
-      if (response.data) {
-        setUser(response.data.user);
-        storage.set('user', response.data.user);
-        storage.set('token', response.data.token);
-      }
-    } finally {
-      setIsLoading(false);
+    const response = await authService.login(credentials);
+    if (response.data) {
+      setUser(response.data.user);
+      storage.set('user', response.data.user);
+      storage.set('token', response.data.token);
     }
   };
 
   const register = async (userData: RegisterData) => {
-    setIsLoading(true);
-    try {
-      const response = await authService.register(userData);
-      if (response.data) {
-        setUser(response.data.user);
-        storage.set('user', response.data.user);
-        storage.set('token', response.data.token);
-      }
-    } finally {
-      setIsLoading(false);
+    const response = await authService.register(userData);
+    if (response.data) {
+      setUser(response.data.user);
+      storage.set('user', response.data.user);
+      storage.set('token', response.data.token);
     }
   };
 
   const logout = async () => {
-    setIsLoading(true);
     try {
       await authService.logout();
+    } catch (e) {
+      console.error('Logout API failed', e);
+    } finally {
       setUser(null);
       storage.remove('user');
       storage.remove('token');
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const googleLogin = async (idToken: string, phone?: string) => {
-    setIsLoading(true);
-    try {
-      const response = await authService.googleLogin(idToken, phone);
-      if (response.data) {
-        setUser(response.data.user);
-        storage.set('user', response.data.user);
-        storage.set('token', response.data.token);
-      }
-    } finally {
-      setIsLoading(false);
+    const response = await authService.googleLogin(idToken, phone);
+    if (response.data) {
+      setUser(response.data.user);
+      storage.set('user', response.data.user);
+      storage.set('token', response.data.token);
     }
   };
 
