@@ -16,6 +16,10 @@ export const Settings: React.FC = () => {
   const [termsOfService, setTermsOfService] = useState('');
   const [returnPolicy, setReturnPolicy] = useState('');
   
+  // Announcement Bar
+  const [isAnnouncementBarActive, setIsAnnouncementBarActive] = useState(true);
+  const [customAnnouncementText, setCustomAnnouncementText] = useState('');
+  
   // New Contact Fields
   const [businessAddress, setBusinessAddress] = useState('');
   const [city, setCity] = useState('');
@@ -56,6 +60,9 @@ export const Settings: React.FC = () => {
       setBusinessHours(settings.businessHours || '');
       setMapEmbedUrl(settings.mapEmbedUrl || '');
       
+      setIsAnnouncementBarActive(settings.isAnnouncementBarActive ?? true);
+      setCustomAnnouncementText(settings.customAnnouncementText || '');
+      
       setLocalBrandLogo(settings.brandLogoUrl || null);
       setLocalNavbarLogo(settings.navbarLogoUrl || null);
     }
@@ -83,7 +90,9 @@ export const Settings: React.FC = () => {
         phoneNumber,
         emailAddress,
         businessHours,
-        mapEmbedUrl
+        mapEmbedUrl,
+        isAnnouncementBarActive,
+        customAnnouncementText
       });
       await refreshSettings();
       toast.success('Settings updated successfully!');
@@ -240,6 +249,43 @@ export const Settings: React.FC = () => {
                   <label className="field-label">Instagram Handle</label>
                   <input className="field-input" type="text" value={instagramHandle} onChange={(e) => setInstagramHandle(e.target.value)} placeholder="@yourstore" />
                 </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Announcement Bar */}
+          <section className="card p-8">
+            <h3 className="font-headline-md text-xl mb-6 border-b border-outline-variant pb-4">Announcement Bar</h3>
+            <div className="space-y-6">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="isAnnouncementBarActive"
+                  checked={isAnnouncementBarActive}
+                  onChange={(e) => setIsAnnouncementBarActive(e.target.checked)}
+                  className="w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-primary focus:ring-2"
+                />
+                <label htmlFor="isAnnouncementBarActive" className="text-on-surface font-label-lg cursor-pointer">
+                  Enable Announcement Bar
+                </label>
+              </div>
+              <p className="text-sm text-on-surface-variant">
+                If disabled, the top announcement bar will be completely hidden regardless of active promotions or custom text.
+              </p>
+
+              <div>
+                <label className="field-label">Custom Announcement Text</label>
+                <input
+                  className="field-input"
+                  type="text"
+                  value={customAnnouncementText}
+                  onChange={(e) => setCustomAnnouncementText(e.target.value)}
+                  placeholder="e.g. Special Holiday Sale! 20% Off Everything"
+                  disabled={!isAnnouncementBarActive}
+                />
+                <p className="text-[12px] text-on-surface-variant mt-2">
+                  Leave this blank to automatically show your active promotions on rotation. If you enter text here, it will override the promotions and show this exact message instead.
+                </p>
               </div>
             </div>
           </section>

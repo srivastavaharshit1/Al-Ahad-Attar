@@ -31,4 +31,6 @@ public class StoreSettingsResponse {
     private String privacyPolicy;
     private String termsOfService;
     private String returnPolicy;
+    private Boolean isAnnouncementBarActive;
+    private String customAnnouncementText;
 }

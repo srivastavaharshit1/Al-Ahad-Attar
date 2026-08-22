@@ -74,6 +74,11 @@ public class StoreSettings {
     @Column(columnDefinition = "TEXT")
     private String returnPolicy;
 
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private Boolean isAnnouncementBarActive = true;
+    
+    private String customAnnouncementText;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

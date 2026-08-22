@@ -46,6 +46,8 @@ public class StoreSettingsServiceImpl implements StoreSettingsService {
                     .emailAddress("contact@alahadattars.com")
                     .businessHours("Mon - Sat: 10:00 AM - 7:00 PM")
                     .mapEmbedUrl("")
+                    .isAnnouncementBarActive(true)
+                    .customAnnouncementText("")
                     .build();
             return storeSettingsRepository.save(defaults);
         });
@@ -96,6 +98,8 @@ public class StoreSettingsServiceImpl implements StoreSettingsService {
         settings.setEmailAddress(request.getEmailAddress());
         settings.setBusinessHours(request.getBusinessHours());
         settings.setMapEmbedUrl(request.getMapEmbedUrl());
+        settings.setIsAnnouncementBarActive(request.getIsAnnouncementBarActive() != null ? request.getIsAnnouncementBarActive() : true);
+        settings.setCustomAnnouncementText(request.getCustomAnnouncementText());
         
         StoreSettings updated = storeSettingsRepository.save(settings);
         return mapToResponse(updated);
@@ -170,6 +174,8 @@ public class StoreSettingsServiceImpl implements StoreSettingsService {
                 .emailAddress(settings.getEmailAddress())
                 .businessHours(settings.getBusinessHours())
                 .mapEmbedUrl(settings.getMapEmbedUrl())
+                .isAnnouncementBarActive(settings.getIsAnnouncementBarActive())
+                .customAnnouncementText(settings.getCustomAnnouncementText())
                 .build();
     }
 }
