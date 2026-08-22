@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { adminNotificationService, AdminNotification } from '../../services/adminNotificationService';
+import { adminNotificationService } from '../../services/adminNotificationService';
+import type { AdminNotification } from '../../services/adminNotificationService';
 
 const NAV_ITEMS = [
   { path: '/admin', label: 'Dashboard', icon: 'dashboard', end: true },
