@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePromotions } from '../../context/PromotionContext';
+import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { Link } from 'react-router-dom';
 import { getPromoIcon, getPromoHeadline } from '../../utils/promotionHelpers';
 
 export const AnnouncementBar: React.FC = () => {
   const { activePromotions, isLoading } = usePromotions();
+  const { settings, isLoading: isSettingsLoading } = useStoreSettings();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [fadeState, setFadeState] = useState<'enter' | 'exit'>('enter');
@@ -35,6 +37,22 @@ export const AnnouncementBar: React.FC = () => {
     };
   }, [activePromotions.length, currentIndex, isPaused]);
 
+  if (isSettingsLoading) {
+    return null;
+  }
+
+  if (settings && settings.isAnnouncementBarActive === false) {
+    return null;
+  }
+
+  if (settings && settings.customAnnouncementText) {
+    return (
+      <div className="bg-primary text-on-primary py-2.5 text-center font-label-sm uppercase tracking-[0.12em] sm:tracking-[0.2em] z-50 relative h-10 flex items-center justify-center overflow-hidden px-4">
+        <span className="opacity-90 truncate">{settings.customAnnouncementText}</span>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="bg-primary text-on-primary py-2.5 text-center font-label-sm uppercase tracking-[0.2em] z-50 relative h-10 flex items-center justify-center overflow-hidden" role="status">
@@ -44,17 +62,7 @@ export const AnnouncementBar: React.FC = () => {
   }
 
   if (activePromotions.length === 0) {
-    return (
-      <div className="bg-primary text-on-primary py-2.5 text-center font-label-sm uppercase tracking-[0.12em] sm:tracking-[0.2em] z-50 relative h-10 flex items-center justify-center overflow-hidden px-4">
-        {/* "Premium Arabic Attars" is dropped below sm: at narrow widths the full line (with
-            uppercase tracking) doesn't fit on one row, and this bar's fixed h-10 + overflow-hidden
-            clipped the wrapped second line instead of showing it — so the free-shipping message
-            (the actionable part) is what has to survive, not both. */}
-        <span className="opacity-90 truncate">Free Shipping Above ₹999</span>
-        <span className="mx-3 opacity-40 hidden sm:inline">|</span>
-        <span className="opacity-90 hidden sm:inline">Premium Arabic Attars</span>
-      </div>
-    );
+    return null;
   }
 
   const promo = activePromotions[currentIndex];

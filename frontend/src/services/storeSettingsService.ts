@@ -21,6 +21,8 @@ export interface StoreSettings {
     emailAddress?: string;
     businessHours?: string;
     mapEmbedUrl?: string;
+    isAnnouncementBarActive?: boolean;
+    customAnnouncementText?: string;
 }
 
 export const storeSettingsService = {
