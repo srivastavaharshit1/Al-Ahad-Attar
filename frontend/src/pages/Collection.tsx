@@ -9,6 +9,7 @@ import type { Category } from '../types';
 import { productService } from '../services/productService';
 import type { Product } from '../types';
 import { useInView } from '../hooks/useInView';
+import { SEO } from '../components/seo/SEO';
 
 interface CollectionProps {
   category?: string;
@@ -160,9 +161,35 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
   const pageTitle = activeCategory
     ? `${activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1)} Collection`
     : 'Our Collection';
+    
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://alahadattars.com/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": pageTitle,
+        "item": activeCategory ? `https://alahadattars.com/collection?category=${activeCategory}` : "https://alahadattars.com/collection"
+      }
+    ]
+  };
 
   return (
     <main className="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-10 md:py-16">
+      <SEO
+        title={`${pageTitle} | Al Ahad Attars`}
+        description={`Explore our exclusive ${pageTitle}. Buy premium Arabic attars and perfumes online.`}
+        canonicalUrl={activeCategory ? `/collection?category=${activeCategory}` : "/collection"}
+        schema={breadcrumbSchema}
+      />
+      
       <header className="mb-12 md:mb-16">
         <Breadcrumb
           items={[
