@@ -4,6 +4,7 @@ import { Loader2, UploadCloud, Star, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ConfirmationDialog } from '../ui/ConfirmationDialog';
 import { getImageUrl } from '../../utils/getImageUrl';
+import imageCompression from 'browser-image-compression';
 
 export type ManagedImage = {
   id: string | number;
@@ -39,20 +40,29 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
       // Direct Upload Mode
       setUploading(true);
       try {
-        const updatedImages = [...images];
-        for (const file of newFiles) {
+        const uploadPromises = newFiles.map(async (file) => {
           if (file.size > 5 * 1024 * 1024) {
             toast.error(`File ${file.name} exceeds 5MB limit.`);
-            continue;
+            return null;
           }
+          const compressedFile = await imageCompression(file, {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true,
+          });
           const formData = new FormData();
-          formData.append('file', file);
-
-          const response = await apiClient.post(`/products/${productId}/images`, formData, {
+          formData.append('file', compressedFile);
+          return apiClient.post(`/products/${productId}/images`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
-          updatedImages.push(response.data.data);
-        }
+        });
+        
+        const responses = await Promise.all(uploadPromises);
+        const newUploadedImages = responses
+          .filter(res => res !== null)
+          .map(res => res.data.data);
+          
+        const updatedImages = [...images, ...newUploadedImages];
         onImagesChange(updatedImages);
       } catch (error: any) {
         toast.error("Failed to upload images: " + error.message);
@@ -62,21 +72,33 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
       }
     } else {
       // Local Mode
-      const updatedImages = [...images];
-      for (const file of newFiles) {
-        if (file.size > 5 * 1024 * 1024) {
-          toast.error(`File ${file.name} exceeds 5MB limit.`);
-          continue;
+      setUploading(true);
+      try {
+        const updatedImages = [...images];
+        for (const file of newFiles) {
+          if (file.size > 5 * 1024 * 1024) {
+            toast.error(`File ${file.name} exceeds 5MB limit.`);
+            continue;
+          }
+          const compressedFile = await imageCompression(file, {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true,
+          });
+          updatedImages.push({
+            id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            imageUrl: URL.createObjectURL(compressedFile),
+            isPrimary: updatedImages.length === 0, // First image is primary
+            file: compressedFile
+          });
         }
-        updatedImages.push({
-          id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          imageUrl: URL.createObjectURL(file),
-          isPrimary: updatedImages.length === 0, // First image is primary
-          file
-        });
+        onImagesChange(updatedImages);
+      } catch (err: any) {
+        toast.error("Failed to process images: " + err.message);
+      } finally {
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
       }
-      onImagesChange(updatedImages);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
