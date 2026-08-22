@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { cmsService } from '../services/cmsService';
+import { SEO } from '../components/seo/SEO';
 
 export const About: React.FC = () => {
   const [content, setContent] = useState({
@@ -65,6 +66,11 @@ export const About: React.FC = () => {
 
   return (
     <main className="flex-grow">
+      <SEO 
+        title="About Us | Al Ahad Attars"
+        description="Learn about our heritage, philosophy, and dedication to crafting the world's finest premium Arabic attars and luxury fragrances."
+        canonicalUrl="/about"
+      />
       {/* Hero Section */}
       <section className="relative w-full h-[614px] md:h-[819px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 w-full h-full bg-ink z-0">

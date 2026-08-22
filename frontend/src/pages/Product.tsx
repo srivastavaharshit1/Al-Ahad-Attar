@@ -14,6 +14,7 @@ import { ReviewList } from '../components/reviews/ReviewList';
 import { RelatedProducts } from '../components/reviews/RelatedProducts';
 import { StarRating } from '../components/common/StarRating';
 import { useInView } from '../hooks/useInView';
+import { SEO } from '../components/seo/SEO';
 
 export const ProductPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -218,8 +219,37 @@ export const ProductPage: React.FC = () => {
     );
   };
 
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.name,
+    "description": product.description || product.shortDescription || "",
+    "image": allImages.length > 0 ? getImageUrl(allImages[0]) : "https://alahadattars.com/og-image.jpg",
+    "brand": {
+      "@type": "Brand",
+      "name": "Al Ahad Attars"
+    },
+    "offers": {
+      "@type": "AggregateOffer",
+      "offerCount": product.variants?.length || 1,
+      "lowPrice": filteredVariants.length > 0 ? filteredVariants[0].price : (selectedVariant?.price || 0),
+      "highPrice": filteredVariants.length > 0 ? filteredVariants[filteredVariants.length - 1].price : (selectedVariant?.price || 0),
+      "priceCurrency": "INR",
+      "availability": "https://schema.org/InStock",
+      "url": `https://alahadattars.com/product/${product.slug}`
+    }
+  };
+
   return (
     <main className="w-full py-12 flex flex-col gap-16">
+      <SEO
+        title={product.name}
+        description={product.shortDescription || product.description?.substring(0, 150) || "Experience the premium attar collection."}
+        canonicalUrl={`/product/${product.slug}`}
+        type="product"
+        imageUrl={allImages.length > 0 ? getImageUrl(allImages[0]) : undefined}
+        schema={productSchema}
+      />
       
       {/* SECTION 1: Product Hero (1400px) */}
       <section className="max-w-[1400px] mx-auto w-full px-4 md:px-8">

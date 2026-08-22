@@ -4,6 +4,7 @@ import { homepageService } from '../services/homepageService';
 import type { HomepageDataResponse } from '../types/homepage';
 import { ProductCard } from '../components/product/ProductCard';
 import { getImageUrl } from '../utils/getImageUrl';
+import { SEO } from '../components/seo/SEO';
 
 export const Home: React.FC = () => {
   const [data, setData] = useState<HomepageDataResponse | null>(null);
@@ -55,8 +56,39 @@ export const Home: React.FC = () => {
     return getSection(key)?.visible;
   };
 
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Al Ahad Attars",
+    "url": "https://alahadattars.com/",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://alahadattars.com/search?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  };
+
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Al Ahad Attars",
+    "url": "https://alahadattars.com/",
+    "logo": "https://alahadattars.com/favicon.svg",
+    "description": "Premium Arabic perfumery offering authentic attars, rich ouds, and fine fragrances."
+  };
+
   return (
     <div className="w-full flex flex-col font-light">
+      <SEO 
+        title="Al Ahad Attars | Premium Attars, Perfumes & Fragrances"
+        description="Discover Al Ahad Attars, your premier destination for luxury Arabic perfumery. Shop our exquisite collection of premium attars, rich ouds, and fine fragrances."
+        canonicalUrl="/"
+        schema={{
+          "@context": "https://schema.org",
+          "@graph": [websiteSchema, organizationSchema]
+        }}
+      />
+
       {isSectionVisible('hero') && data.heroes?.length > 0 && <HeroSection heroes={data.heroes} section={getSection('hero')} />}
       
       {isSectionVisible('categories') && data.categories?.length > 0 && (

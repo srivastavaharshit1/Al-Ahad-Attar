@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useStoreSettings } from '../context/StoreSettingsContext';
 import { contactService } from '../services/contactService';
 import toast from 'react-hot-toast';
+import { SEO } from '../components/seo/SEO';
 
 export const Contact: React.FC = () => {
   const { settings } = useStoreSettings();
@@ -41,6 +42,11 @@ export const Contact: React.FC = () => {
 
   return (
     <main className="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-10 md:py-16">
+      <SEO 
+        title="Contact Us | Al Ahad Attars"
+        description="Get in touch with Al Ahad Attars for bespoke inquiries, private consultations, or any questions regarding our premium heritage collections."
+        canonicalUrl="/contact"
+      />
       {/* Header Section */}
       <header className="text-center mb-16 md:mb-24 animate-[fadeIn_0.8s_ease-out_forwards]">
         <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.3em] mb-4 block">Get in Touch</span>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { usePromotions } from '../context/PromotionContext';
 import type { PromotionResponse } from '../types/promotion';
 import { Loader } from '../components/ui/Loader';
+import { SEO } from '../components/seo/SEO';
 
 export const Offers: React.FC = () => {
   const { activePromotions, isLoading } = usePromotions();
@@ -28,6 +29,11 @@ export const Offers: React.FC = () => {
 
   return (
     <div className="min-h-screen">
+      <SEO 
+        title="Special Offers & Promotions | Al Ahad Attars"
+        description="Discover exclusive deals, discounts, and complimentary gifts on our premium collection of Arabic perfumes and attars."
+        canonicalUrl="/offers"
+      />
       {/* Hero Banner */}
       <section className="relative h-[400px] bg-ink flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-ink via-ink to-ink-hover"></div>
