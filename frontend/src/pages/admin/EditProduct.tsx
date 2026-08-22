@@ -122,7 +122,7 @@ export const EditProduct: React.FC = () => {
       
       await productService.updateProduct(id as string, productPayload);
 
-      for (const variant of variants) {
+      const variantUpdatePromises = variants.map(async (variant) => {
         if (variant.id) {
           // Update existing variant
           await apiClient.put(`/variants/${variant.id}`, {
@@ -132,7 +132,7 @@ export const EditProduct: React.FC = () => {
             price: Number(variant.price),
             active: variant.active
           });
-          await apiClient.patch(`/variants/${variant.id}/stock`, {
+          return apiClient.patch(`/variants/${variant.id}/stock`, {
             stock: Number(variant.stock)
           });
         } else if (variant.price > 0 || variant.stock > 0) {
@@ -145,22 +145,20 @@ export const EditProduct: React.FC = () => {
             stock: Number(variant.stock),
             active: variant.active
           };
-          await apiClient.post(`/products/${id}/variants`, variantPayload);
+          return apiClient.post(`/products/${id}/variants`, variantPayload);
         }
-      }
+      });
+      await Promise.all(variantUpdatePromises);
 
-      // Handle variant deletion
+      // Handle variant deletion concurrently
       const currentVariantIds = variants.map(v => v.id).filter(id => id !== undefined);
       const variantsToDelete = initialVariants.filter(v => v.id && !currentVariantIds.includes(v.id));
-      for (const variant of variantsToDelete) {
-        if (variant.id) {
-          try {
-            await apiClient.delete(`/variants/${variant.id}`);
-          } catch (e) {
-            console.error(`Failed to delete variant ${variant.id}`, e);
-          }
-        }
-      }
+      const deletePromises = variantsToDelete
+        .filter(variant => variant.id)
+        .map(variant => apiClient.delete(`/variants/${variant.id}`).catch(e => {
+          console.error(`Failed to delete variant ${variant.id}`, e);
+        }));
+      await Promise.all(deletePromises);
 
       // Reorder logic for images if they are remote (ProductForm triggers immediately, but we might have new order)
       if (images.every(img => typeof img.id === 'number')) {

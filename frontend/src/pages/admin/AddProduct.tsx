@@ -70,37 +70,38 @@ export const AddProduct: React.FC = () => {
       const productRes = await productService.createProduct(productPayload);
       const productId = productRes.data.id;
 
-      // 2. Create Variants
-      for (const variant of variants) {
-        if (variant.price > 0 || variant.stock > 0) {
-            const variantPayload = {
-              productType: variant.productType,
-              sku: variant.sku || `${formData.slug}-${variant.size.replace(/\s+/g, '')}`,
-              size: variant.size,
-              price: Number(variant.price),
-              stock: Number(variant.stock),
-              active: variant.active
-            };
-          await apiClient.post(`/products/${productId}/variants`, variantPayload);
-        }
-      }
+      // 2. Create Variants Concurrently
+      const variantPromises = variants
+        .filter(variant => variant.price > 0 || variant.stock > 0)
+        .map(variant => {
+          const variantPayload = {
+            productType: variant.productType,
+            sku: variant.sku || `${formData.slug}-${variant.size.replace(/\s+/g, '')}`,
+            size: variant.size,
+            price: Number(variant.price),
+            stock: Number(variant.stock),
+            active: variant.active
+          };
+          return apiClient.post(`/products/${productId}/variants`, variantPayload);
+        });
+      await Promise.all(variantPromises);
 
-      // 3. Upload Images sequentially
-      for (let i = 0; i < images.length; i++) {
-        const image = images[i];
-        if (image.file) {
+      // 3. Upload Images Concurrently
+      const imagePromises = images
+        .filter(image => image.file)
+        .map(async (image) => {
           const formPayload = new FormData();
-          formPayload.append('file', image.file);
+          formPayload.append('file', image.file as File);
           const uploadRes = await apiClient.post(`/products/${productId}/images`, formPayload, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
           
           if (image.isPrimary) {
-             const uploadedImageId = uploadRes.data.data.id;
-             await apiClient.patch(`/images/${uploadedImageId}/primary`, {});
+            const uploadedImageId = uploadRes.data.data.id;
+            await apiClient.patch(`/images/${uploadedImageId}/primary`, {});
           }
-        }
-      }
+        });
+      await Promise.all(imagePromises);
 
       navigate('/admin/products');
     } catch (err: any) {

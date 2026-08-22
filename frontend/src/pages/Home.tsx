@@ -119,6 +119,7 @@ const HeroSection = ({ heroes, section }: { heroes: any[], section?: any }) => {
           <img 
             src={getImageUrl(heroData.imageUrl)} 
             alt={heroData.title}
+            fetchPriority="high"
             className="w-full h-full object-cover transition-transform duration-[20000ms] scale-110 animate-subtle-zoom" 
           />
         </picture>
@@ -182,6 +183,7 @@ const CategoriesSection = ({ categories, section }: { categories: any[], section
                   <img 
                     src={getImageUrl(cat.desktopImageUrl)} 
                     alt={cat.homepageTitle || cat.name} 
+                    loading="lazy"
                     className="w-full h-full object-cover transition-transform duration-[1500ms] group-hover:scale-110"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
@@ -349,7 +351,7 @@ const TestimonialsSection = ({ testimonials, section }: { testimonials: any[], s
             </p>
             <div className="flex flex-col items-center gap-4 mt-auto">
               {test.photoUrl ? (
-                <img src={getImageUrl(test.photoUrl)} alt="" className="w-16 h-16 rounded-full object-cover border border-[#d4af37]/30 p-1" />
+                <img src={getImageUrl(test.photoUrl)} alt="" loading="lazy" className="w-16 h-16 rounded-full object-cover border border-[#d4af37]/30 p-1" />
               ) : (
                 <div className="w-16 h-16 rounded-full border border-[#d4af37]/30 p-1 flex items-center justify-center">
                   <div className="w-full h-full bg-[#f5f2eb] rounded-full flex items-center justify-center text-[#d4af37] font-headline-md text-xl">
