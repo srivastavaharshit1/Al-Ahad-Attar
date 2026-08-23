@@ -1,5 +1,6 @@
 import { apiClient } from '../api/axios';
 import type { Category, ApiResponse } from '../types';
+import { apiCache } from '../utils/cache';
 
 export interface CategoryRequest {
   name: string;
@@ -18,17 +19,32 @@ export interface CategoryRequest {
 
 export const categoryService = {
   getCategories: async (params?: Record<string, any>): Promise<import('../types/api').PaginatedResponse<Category>> => {
+    const cacheKey = `categories_${JSON.stringify(params || {})}`;
+    const cached = apiCache.get<import('../types/api').PaginatedResponse<Category>>(cacheKey);
+    if (cached) return cached;
+
     const response = await apiClient.get<any>('/categories', { params });
+    apiCache.set(cacheKey, response.data.data);
     return response.data.data;
   },
   
   getActiveCategories: async (): Promise<ApiResponse<Category[]>> => {
+    const cacheKey = `active_categories`;
+    const cached = apiCache.get<ApiResponse<Category[]>>(cacheKey);
+    if (cached) return cached;
+
     const response = await apiClient.get<ApiResponse<Category[]>>('/categories/active');
+    apiCache.set(cacheKey, response.data);
     return response.data;
   },
 
   getCategory: async (id: string): Promise<ApiResponse<Category>> => {
+    const cacheKey = `category_${id}`;
+    const cached = apiCache.get<ApiResponse<Category>>(cacheKey);
+    if (cached) return cached;
+
     const response = await apiClient.get<ApiResponse<Category>>(`/categories/${id}`);
+    apiCache.set(cacheKey, response.data);
     return response.data;
   },
 

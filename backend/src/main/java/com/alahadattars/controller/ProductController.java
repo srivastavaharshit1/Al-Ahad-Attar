@@ -31,6 +31,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 
 @Slf4j
 @RestController
@@ -48,6 +50,7 @@ public class ProductController {
     })
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(value = "products", allEntries = true)
     public ResponseEntity<ApiResponse<ProductResponse>> createProduct(
             @Valid @RequestBody ProductRequest request) {
         log.info("Received request to create new product: {}", request.getName());
@@ -67,6 +70,7 @@ public class ProductController {
     })
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(value = "products", allEntries = true)
     public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(
             @PathVariable Long id,
             @Valid @RequestBody ProductRequest request) {
@@ -87,6 +91,7 @@ public class ProductController {
     })
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(value = "products", allEntries = true)
     public ResponseEntity<ApiResponse<Void>> deleteProduct(@PathVariable Long id) {
         log.info("Received request to delete product with ID: {}", id);
         productService.deleteProduct(id);
@@ -104,6 +109,7 @@ public class ProductController {
     })
     @PatchMapping("/{id}/activate")
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(value = "products", allEntries = true)
     public ResponseEntity<ApiResponse<Void>> activateProduct(@PathVariable Long id) {
         log.info("Received request to activate product with ID: {}", id);
         productService.activateProduct(id);
@@ -121,6 +127,7 @@ public class ProductController {
     })
     @PatchMapping("/{id}/deactivate")
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(value = "products", allEntries = true)
     public ResponseEntity<ApiResponse<Void>> deactivateProduct(@PathVariable Long id) {
         log.info("Received request to deactivate product with ID: {}", id);
         productService.deactivateProduct(id);
@@ -137,6 +144,7 @@ public class ProductController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Product not found")
     })
     @GetMapping("/{id}")
+    @Cacheable("products")
     public ResponseEntity<ApiResponse<ProductResponse>> getProductById(@PathVariable Long id) {
         log.info("Received request to fetch product with ID: {}", id);
         ProductResponse response = productService.getProductById(id);
@@ -153,6 +161,7 @@ public class ProductController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Product not found")
     })
     @GetMapping("/slug/{slug}")
+    @Cacheable("products")
     public ResponseEntity<ApiResponse<ProductResponse>> getProductBySlug(@PathVariable String slug) {
         log.info("Received request to fetch product with slug: {}", slug);
         ProductResponse response = productService.getProductBySlug(slug);
@@ -168,6 +177,7 @@ public class ProductController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Featured products retrieved successfully")
     })
     @GetMapping("/featured")
+    @Cacheable("products")
     public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getFeaturedProducts() {
         log.info("Received request to fetch featured products");
         List<ProductSummaryResponse> response = productService.getFeaturedProducts();
@@ -183,6 +193,7 @@ public class ProductController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Category products retrieved successfully")
     })
     @GetMapping("/category/{categoryId}")
+    @Cacheable("products")
     public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getProductsByCategory(@PathVariable Long categoryId) {
         log.info("Received request to fetch products for category ID: {}", categoryId);
         List<ProductSummaryResponse> response = productService.getProductsByCategory(categoryId);
@@ -224,6 +235,7 @@ public class ProductController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Related products retrieved successfully")
     })
     @GetMapping("/{id}/related")
+    @Cacheable("products")
     public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getRelatedProducts(@PathVariable Long id) {
         log.info("Received request to fetch related products for ID: {}", id);
         List<ProductSummaryResponse> response = productService.getRelatedProducts(id);

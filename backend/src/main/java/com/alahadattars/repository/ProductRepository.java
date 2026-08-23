@@ -10,9 +10,11 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.EntityGraph;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpecificationExecutor<Product> {
+    @EntityGraph(attributePaths = {"category"})
     Optional<Product> findBySlug(String slug);
     boolean existsBySlug(String slug);
 
@@ -21,10 +23,13 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     // product row still holds a real FK to it. Public-facing category browsing uses the
     // *AndActiveTrue variant below instead.
     List<Product> findByCategory(Category category);
+    @EntityGraph(attributePaths = {"category"})
     List<Product> findByCategoryAndActiveTrue(Category category);
     // Featured products are surfaced on the public homepage — deactivated ones must never appear
     // there just because they were once marked featured.
+    @EntityGraph(attributePaths = {"category"})
     List<Product> findByFeaturedTrueAndActiveTrue();
+    @EntityGraph(attributePaths = {"category"})
     List<Product> findByActiveTrue();
     List<Product> findByBrand(String brand);
     List<Product> findByGender(Gender gender);

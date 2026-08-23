@@ -1,5 +1,6 @@
 package com.alahadattars.controller;
 
+import org.springframework.cache.annotation.Cacheable;
 import com.alahadattars.dto.homepage.HomepageDataResponse;
 import com.alahadattars.entity.HeroBanner;
 import com.alahadattars.entity.PromoBanner;
@@ -35,6 +36,7 @@ public class PublicHomepageController {
     private final com.alahadattars.repository.HomepageSectionRepository homepageSectionRepository;
 
     @GetMapping
+    @Cacheable("homepage")
     public ResponseEntity<ApiResponse<HomepageDataResponse>> getHomepageData() {
         return ResponseEntity.ok(ApiResponse.<HomepageDataResponse>builder()
                 .success(true)

@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import org.springframework.cache.annotation.CacheEvict;
 
 @Slf4j
 @RestController
@@ -42,6 +43,7 @@ public class ProductVariantController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Variant SKU already exists")
     })
     @PostMapping("/cleanup-sizes")
+    @CacheEvict(value = "products", allEntries = true)
     public org.springframework.http.ResponseEntity<?> cleanupSizes() {
         variantService.cleanupSizes();
         return org.springframework.http.ResponseEntity.ok().build();
@@ -49,6 +51,7 @@ public class ProductVariantController {
 
     @PostMapping("/api/products/{productId}/variants")
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(value = "products", allEntries = true)
     public ResponseEntity<ApiResponse<VariantResponse>> createVariant(
             @PathVariable Long productId,
             @Valid @RequestBody CreateVariantRequest request) {
@@ -101,6 +104,7 @@ public class ProductVariantController {
     })
     @PutMapping("/api/variants/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(value = "products", allEntries = true)
     public ResponseEntity<ApiResponse<VariantResponse>> updateVariant(
             @PathVariable Long id,
             @Valid @RequestBody UpdateVariantRequest request) {
@@ -121,6 +125,7 @@ public class ProductVariantController {
     })
     @DeleteMapping("/api/variants/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(value = "products", allEntries = true)
     public ResponseEntity<ApiResponse<Void>> deleteVariant(@PathVariable Long id) {
         log.info("Received request to delete variant with ID: {}", id);
         variantService.deleteVariant(id);
@@ -138,6 +143,7 @@ public class ProductVariantController {
     })
     @PatchMapping("/api/variants/{id}/stock")
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(value = "products", allEntries = true)
     public ResponseEntity<ApiResponse<Void>> updateStock(
             @PathVariable Long id,
             @Valid @RequestBody UpdateStockRequest request) {
@@ -157,6 +163,7 @@ public class ProductVariantController {
     })
     @PatchMapping("/api/variants/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(value = "products", allEntries = true)
     public ResponseEntity<ApiResponse<Void>> updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateStatusRequest request) {

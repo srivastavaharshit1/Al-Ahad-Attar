@@ -14,13 +14,20 @@ import type {
   ReorderRequest
 } from '../types/homepage';
 
+import { apiCache } from '../utils/cache';
+
 const PUBLIC_API = '/homepage';
 const ADMIN_API = '/admin/homepage';
 
 export const homepageService = {
   // --- Public API ---
   getHomepageData: async (): Promise<HomepageDataResponse> => {
+    const cacheKey = `homepage_data`;
+    const cached = apiCache.get<HomepageDataResponse>(cacheKey);
+    if (cached) return cached;
+
     const response = await apiClient.get(PUBLIC_API);
+    apiCache.set(cacheKey, response.data.data);
     return response.data.data;
   },
 
