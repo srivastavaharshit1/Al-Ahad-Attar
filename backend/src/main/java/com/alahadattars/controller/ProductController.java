@@ -144,7 +144,7 @@ public class ProductController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Product not found")
     })
     @GetMapping("/{id}")
-    @Cacheable("products")
+    @Cacheable(value = "products", key = "'product_' + #id")
     public ResponseEntity<ApiResponse<ProductResponse>> getProductById(@PathVariable Long id) {
         log.info("Received request to fetch product with ID: {}", id);
         ProductResponse response = productService.getProductById(id);
@@ -161,7 +161,7 @@ public class ProductController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Product not found")
     })
     @GetMapping("/slug/{slug}")
-    @Cacheable("products")
+    @Cacheable(value = "products", key = "'slug_' + #slug")
     public ResponseEntity<ApiResponse<ProductResponse>> getProductBySlug(@PathVariable String slug) {
         log.info("Received request to fetch product with slug: {}", slug);
         ProductResponse response = productService.getProductBySlug(slug);
@@ -177,7 +177,7 @@ public class ProductController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Featured products retrieved successfully")
     })
     @GetMapping("/featured")
-    @Cacheable("products")
+    @Cacheable(value = "products", key = "'featured'")
     public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getFeaturedProducts() {
         log.info("Received request to fetch featured products");
         List<ProductSummaryResponse> response = productService.getFeaturedProducts();
@@ -193,7 +193,7 @@ public class ProductController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Category products retrieved successfully")
     })
     @GetMapping("/category/{categoryId}")
-    @Cacheable("products")
+    @Cacheable(value = "products", key = "'category_' + #categoryId")
     public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getProductsByCategory(@PathVariable Long categoryId) {
         log.info("Received request to fetch products for category ID: {}", categoryId);
         List<ProductSummaryResponse> response = productService.getProductsByCategory(categoryId);
@@ -235,7 +235,7 @@ public class ProductController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Related products retrieved successfully")
     })
     @GetMapping("/{id}/related")
-    @Cacheable("products")
+    @Cacheable(value = "products", key = "'related_' + #id")
     public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getRelatedProducts(@PathVariable Long id) {
         log.info("Received request to fetch related products for ID: {}", id);
         List<ProductSummaryResponse> response = productService.getRelatedProducts(id);
