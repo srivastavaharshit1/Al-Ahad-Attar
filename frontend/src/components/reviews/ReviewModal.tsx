@@ -64,41 +64,44 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
 
   return (
     <div
-      className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+      className="modal-overlay fixed inset-0 z-50 overflow-y-auto"
       role="presentation"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      aria-labelledby="review-dialog-title"
     >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="review-dialog-title"
-        className="modal-panel w-full max-w-2xl bg-surface rounded-xl border border-outline-variant/40 overflow-hidden shadow-xl"
-        style={{ display: 'grid', gridTemplateRows: 'auto minmax(0, 1fr)', maxHeight: '90vh' }}
+      <div 
+        className="flex min-h-full items-center justify-center p-4 sm:p-6"
+        onClick={(e) => e.target === e.currentTarget && onClose()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/40 bg-surface z-10">
-          <h2 id="review-dialog-title" className="font-headline-md text-xl text-on-surface">
-            {initialData ? 'Edit Review' : 'Write a Review'}
-          </h2>
-          <button
-            onClick={onClose}
-            aria-label="Close dialog"
-            className="p-2 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <X size={20} />
-          </button>
-        </div>
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          className="modal-panel relative w-full max-w-2xl bg-surface rounded-xl border border-outline-variant/40 shadow-xl overflow-hidden my-8"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/40 bg-surface">
+            <h2 id="review-dialog-title" className="font-headline-md text-xl text-on-surface">
+              {initialData ? 'Edit Review' : 'Write a Review'}
+            </h2>
+            <button
+              onClick={onClose}
+              aria-label="Close dialog"
+              className="p-2 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <X size={20} />
+            </button>
+          </div>
 
-        {/* Body (ReviewForm) */}
-        <div className="p-4 sm:p-6 overflow-y-auto">
-          <ReviewForm
-            productId={productId}
-            onSubmit={onSubmit}
-            onCancel={onClose}
-            initialData={initialData}
-            isModal={true}
-          />
+          {/* Body (ReviewForm) */}
+          <div className="p-4 sm:p-6 bg-surface">
+            <ReviewForm
+              productId={productId}
+              onSubmit={onSubmit}
+              onCancel={onClose}
+              initialData={initialData}
+              isModal={true}
+            />
+          </div>
         </div>
       </div>
     </div>
