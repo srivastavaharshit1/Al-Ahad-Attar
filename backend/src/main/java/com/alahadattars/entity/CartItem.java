@@ -40,6 +40,11 @@ public class CartItem extends BaseEntity {
     @ToString.Exclude
     private ProductVariant variant;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bottle_id")
+    @ToString.Exclude
+    private Bottle bottle;
+
     @Column(nullable = false)
     private Integer quantity;
 

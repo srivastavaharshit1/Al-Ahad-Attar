@@ -15,6 +15,7 @@ import { RelatedProducts } from '../components/reviews/RelatedProducts';
 import { StarRating } from '../components/common/StarRating';
 import { useInView } from '../hooks/useInView';
 import { SEO } from '../components/seo/SEO';
+import { BottleSelectionModal } from '../components/product/BottleSelectionModal';
 
 export const ProductPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +33,7 @@ export const ProductPage: React.FC = () => {
   const [mainImage, setMainImage] = useState<string>('');
   
   const [activeType, setActiveType] = useState<string>('ATTAR');
+  const [showBottleModal, setShowBottleModal] = useState(false);
 
   // Scroll-reveal refs for below-the-fold sections (must be called unconditionally, before any early returns)
   const { ref: reviewsRef, inView: reviewsInView } = useInView<HTMLElement>();
@@ -108,7 +110,6 @@ export const ProductPage: React.FC = () => {
   const showTypeToggle = hasAttar && hasPerfume;
   const filteredVariants = (product.variants?.filter(v => v.productType === activeType) || [])
     .sort((a, b) => a.price - b.price);
-  console.log("DEBUG Product:", { hasAttar, hasPerfume, showTypeToggle, variants: product.variants });
 
   const handleVariantChange = (variant: Variant) => {
     setSelectedVariant(variant);
@@ -127,17 +128,29 @@ export const ProductPage: React.FC = () => {
   const handleAddToCart = () => {
     if (!selectedVariant) return;
     
-      addItem({
-        id: '', // Will be generated
-        productId: product!.id.toString(),
-        variantId: selectedVariant.id,
-        quantity: 1,
-        name: product!.name,
-        image: mainImage,
-        size: selectedVariant.size,
-        originalPrice: selectedVariant.price,
-        finalPrice: selectedVariant.price,
-      });
+    if (selectedVariant.productType === 'ATTAR') {
+      setShowBottleModal(true);
+    } else {
+      addToCartWithBottle(null);
+    }
+  };
+
+  const addToCartWithBottle = (bottleId: number | null) => {
+    if (!selectedVariant) return;
+    
+    addItem({
+      id: '', // Will be generated
+      productId: product!.id.toString(),
+      variantId: selectedVariant.id,
+      quantity: 1,
+      name: product!.name,
+      image: mainImage,
+      size: selectedVariant.size,
+      originalPrice: selectedVariant.price,
+      finalPrice: selectedVariant.price,
+      bottle: bottleId ? { id: bottleId, name: '', price: 0 } : undefined 
+    });
+    setShowBottleModal(false);
   };
 
   const handleToggleWishlist = () => {
@@ -149,7 +162,6 @@ export const ProductPage: React.FC = () => {
     }
   };
 
-  // Find all applicable promotions for this product
   const applicablePromos = activePromotions.filter(promo => {
     if (promo.promotionType === 'PRODUCT_DISCOUNT' && promo.configuration?.applicableProductIds?.includes(product.id)) return true;
     if (promo.promotionType === 'CATEGORY_DISCOUNT' && product.category?.id && promo.configuration?.applicableCategoryIds?.includes(product.category.id)) return true;
@@ -189,7 +201,6 @@ export const ProductPage: React.FC = () => {
               key={promo.id}
               className="relative overflow-hidden rounded-lg border border-primary/15 bg-gradient-to-r from-primary/[0.04] to-transparent"
             >
-              {/* Subtle top accent */}
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary/40 via-primary/20 to-transparent"></div>
 
               <div className="px-4 py-3 flex items-start gap-3">
@@ -251,6 +262,12 @@ export const ProductPage: React.FC = () => {
         schema={productSchema}
       />
       
+      <BottleSelectionModal
+        isOpen={showBottleModal}
+        onClose={() => setShowBottleModal(false)}
+        onConfirm={addToCartWithBottle}
+      />
+
       {/* SECTION 1: Product Hero (1400px) */}
       <section className="max-w-[1400px] mx-auto w-full px-4 md:px-8">
       <Breadcrumb items={[

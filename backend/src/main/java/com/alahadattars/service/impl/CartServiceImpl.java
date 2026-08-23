@@ -12,6 +12,8 @@ import com.alahadattars.repository.CartRepository;
 import com.alahadattars.repository.ProductVariantRepository;
 import com.alahadattars.repository.UserRepository;
 import com.alahadattars.service.CartService;
+import com.alahadattars.service.BottleService;
+import com.alahadattars.entity.Bottle;
 import com.alahadattars.service.PromotionEngineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +31,7 @@ public class CartServiceImpl implements CartService {
     private final UserRepository userRepository;
     private final ProductVariantRepository productVariantRepository;
     private final PromotionEngineService promotionEngineService;
+    private final BottleService bottleService;
 
     // ─── Guest Cart Evaluation ────────────────────────────────────────────────
 
@@ -43,12 +46,22 @@ public class CartServiceImpl implements CartService {
             for (com.alahadattars.dto.cart.GuestCartRequest.GuestCartItemRequest itemReq : request.getItems()) {
                 ProductVariant variant = productVariantRepository.findById(itemReq.getVariantId()).orElse(null);
                 if (variant != null) {
+                    BigDecimal finalPrice = variant.getPrice();
+                    Bottle bottle = null;
+                    if (itemReq.getBottleId() != null) {
+                        bottle = bottleService.getBottleEntityById(itemReq.getBottleId());
+                        if (bottle != null && bottle.isActive()) {
+                            finalPrice = finalPrice.add(bottle.getPrice());
+                        }
+                    }
+
                     CartItem item = CartItem.builder()
                             .cart(cart)
                             .product(variant.getProduct())
                             .variant(variant)
+                            .bottle(bottle)
                             .quantity(itemReq.getQuantity())
-                            .price(variant.getPrice())
+                            .price(finalPrice)
                             .freeItem(itemReq.isFreeItem())
                             .freePromotionId(itemReq.getFreePromotionId())
                             .build();
@@ -91,10 +104,27 @@ public class CartServiceImpl implements CartService {
         if (variant.getStock() < request.getQuantity())
             throw new BadRequestException("Insufficient stock. Available: " + variant.getStock());
 
+        Long bottleId = request.getBottleId();
+        Bottle bottle = null;
+        BigDecimal finalPrice = variant.getPrice();
+        
+        if (bottleId != null) {
+            bottle = bottleService.getBottleEntityById(bottleId);
+            if (!bottle.isActive()) throw new BadRequestException("Selected bottle is not available");
+            finalPrice = finalPrice.add(bottle.getPrice());
+        }
+
+        if (variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR && bottle == null) {
+            throw new BadRequestException("A bottle must be selected for Attar variants.");
+        }
+
         // Don't merge with free items of same variant — they must stay separate
+        final Long compareBottleId = bottleId;
         CartItem existing = cart.getItems().stream()
                 .filter(item -> !item.isFreeItem())
                 .filter(item -> item.getVariant().getId().equals(variant.getId()))
+                .filter(item -> (item.getBottle() == null && compareBottleId == null) || 
+                                (item.getBottle() != null && item.getBottle().getId().equals(compareBottleId)))
                 .findFirst()
                 .orElse(null);
 
@@ -105,8 +135,9 @@ public class CartServiceImpl implements CartService {
                     .cart(cart)
                     .product(variant.getProduct())
                     .variant(variant)
+                    .bottle(bottle)
                     .quantity(request.getQuantity())
-                    .price(variant.getPrice())
+                    .price(finalPrice)
                     .freeItem(false)
                     .build();
             cart.addItem(newItem);

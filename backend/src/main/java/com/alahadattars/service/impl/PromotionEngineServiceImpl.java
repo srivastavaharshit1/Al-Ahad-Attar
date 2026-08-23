@@ -122,6 +122,9 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
             // their cart takes effect immediately instead of staying stuck at whatever it was
             // (including 0, if the variant briefly had no price set) until the item is re-added.
             BigDecimal livePrice = item.getVariant().getPrice();
+            if (item.getBottle() != null) {
+                livePrice = livePrice.add(item.getBottle().getPrice());
+            }
             // Free items don't add to the subtotal
             if (!item.isFreeItem()) {
                 originalSubtotal = originalSubtotal.add(
@@ -141,6 +144,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                     .appliedPromotions(new ArrayList<>())
                     .freeItem(item.isFreeItem())
                     .freePromotionId(item.getFreePromotionId())
+                    .bottle(item.getBottle() != null ? com.alahadattars.dto.bottle.BottleResponse.fromEntity(item.getBottle()) : null)
                     .build();
             itemResponses.add(response);
         }

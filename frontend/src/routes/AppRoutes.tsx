@@ -58,6 +58,7 @@ const AdminSettings = React.lazy(() => import('../pages/admin/Settings').then(m 
 const AdminAnalytics = React.lazy(() => import('../pages/admin/Analytics').then(m => ({ default: m.Analytics })));
 const AdminContactMessages = React.lazy(() => import('../pages/admin/ContactMessages').then(m => ({ default: m.ContactMessages })));
 const AdminGiftServices = React.lazy(() => import('../pages/admin/GiftServices').then(m => ({ default: m.GiftServices })));
+const AdminBottles = React.lazy(() => import('../pages/admin/Bottles').then(m => ({ default: m.Bottles })));
 const AdminReviews = React.lazy(() => import('../pages/admin/Reviews').then(m => ({ default: m.Reviews })));
 const NotFound = React.lazy(() => import('../pages/NotFound').then(m => ({ default: m.NotFound })));
 
@@ -122,6 +123,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="settings" element={<AdminSettings />} />
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="gift-services" element={<AdminGiftServices />} />
+          <Route path="bottles" element={<AdminBottles />} />
           <Route path="reviews" element={<AdminReviews />} />
           {/* Reuses the customer-facing Profile component as-is: /api/profile and
               /api/profile/change-password are role-agnostic (based on the JWT's identity, not

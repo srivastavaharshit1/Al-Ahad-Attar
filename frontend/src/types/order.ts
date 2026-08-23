@@ -16,6 +16,10 @@ export interface OrderItem {
   unitPrice: number;
   quantity: number;
   subtotal: number;
+  
+  bottleId?: number | null;
+  bottleName?: string | null;
+  bottlePrice?: number | null;
 }
 
 export interface Order {

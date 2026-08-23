@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { Product } from '../../types';
 import { useCart } from '../../hooks/useCart';
@@ -8,6 +8,7 @@ import { getImageUrl } from '../../utils/getImageUrl';
 import { usePromotions } from '../../context/PromotionContext';
 import { getPromoBadge } from '../../utils/promotionHelpers';
 import { StarRating } from '../common/StarRating';
+import { BottleSelectionModal } from './BottleSelectionModal';
 
 interface ProductCardProps {
   product: Product;
@@ -16,6 +17,7 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }) => {
   const navigate = useNavigate();
+  const [showBottleModal, setShowBottleModal] = useState(false);
   // For Product details (ProductResponse)
   const defaultVariant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
   
@@ -52,6 +54,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!variantId) return;
+
+    const isAttar = defaultVariant?.productType === 'ATTAR' || (product as any).productType === 'ATTAR' || defaultType === 'ATTAR';
+    
+    if (isAttar) {
+      setShowBottleModal(true);
+    } else {
+      addToCartWithBottle(null);
+    }
+  };
+
+  const addToCartWithBottle = (bottleId: number | null) => {
+    if (!variantId) return;
     addItem({
       id: '',
       productId: product.id.toString(),
@@ -62,7 +76,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
       size: size,
       originalPrice: price,
       finalPrice: price,
+      bottle: bottleId ? { id: bottleId, name: '', price: 0 } : undefined
     });
+    setShowBottleModal(false);
   };
 
   const handleQuickView = (e: React.MouseEvent) => {
@@ -82,7 +98,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
   };
 
   return (
-    <div className="card group flex flex-col overflow-hidden">
+    <>
+      <BottleSelectionModal
+        isOpen={showBottleModal}
+        onClose={() => setShowBottleModal(false)}
+        onConfirm={addToCartWithBottle}
+      />
+      <div className="card group flex flex-col overflow-hidden">
       {/* 1:1 Image Container */}
       <div className="product-media relative aspect-square bg-surface-container">
         {/* Badges */}
@@ -202,6 +224,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
           </span>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };

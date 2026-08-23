@@ -197,7 +197,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addItem = async (item: CartItem) => {
     if (isAuthenticated && item.variantId) {
       try {
-        const response = await cartService.addToCart(Number(item.variantId), item.quantity);
+        const bottleId = item.bottle?.id;
+        const response = await cartService.addToCart(Number(item.variantId), item.quantity, bottleId);
         if (response) {
             syncCartState(response.data);
             toast.success(`${item.name} added to cart`);
@@ -208,7 +209,11 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } else {
       setItems(prev => {
-        const existingItem = prev.find(i => i.productId === item.productId && i.variantId === item.variantId);
+        const existingItem = prev.find(i => 
+          i.productId === item.productId && 
+          i.variantId === item.variantId &&
+          i.bottle?.id === item.bottle?.id
+        );
         if (existingItem) {
           return prev.map(i => 
             i.id === existingItem.id ? { ...i, quantity: i.quantity + item.quantity } : i
