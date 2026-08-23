@@ -94,6 +94,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "products", allEntries = true)
     public OrderResponse createOrder(String email, OrderRequest request) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -558,6 +559,7 @@ public class OrderServiceImpl implements OrderService {
      * is delegated there rather than done inline here.
      */
     @Override
+    @org.springframework.cache.annotation.CacheEvict(value = "products", allEntries = true)
     public OrderResponse cancelOrder(String email, Long orderId) {
         Order order = refundTransactionSupport.claimCancellationAndPrepareRefund(orderId, email);
         sendCancellationEmails(order);
@@ -570,6 +572,7 @@ public class OrderServiceImpl implements OrderService {
      * {@link #cancelOrder}, just not restricted to the order's owner.
      */
     @Override
+    @org.springframework.cache.annotation.CacheEvict(value = "products", allEntries = true)
     public OrderResponse adminCancelOrder(String adminEmail, Long orderId) {
         Order order = refundTransactionSupport.claimAdminCancellation(orderId, adminEmail);
         sendCancellationEmails(order);

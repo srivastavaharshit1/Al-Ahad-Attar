@@ -153,3 +153,13 @@ razorpay:
 
 # (Removed Cloudinary)
   
+cache:
+  products:
+    ttl: 5
+    max-size: 500
+  categories:
+    ttl: 60
+    max-size: 50
+  homepage:
+    ttl: 30
+    max-size: 50
