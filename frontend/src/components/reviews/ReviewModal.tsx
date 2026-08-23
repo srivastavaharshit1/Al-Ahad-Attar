@@ -76,10 +76,10 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
           ref={dialogRef}
           role="dialog"
           aria-modal="true"
-          className="modal-panel relative w-full max-w-2xl bg-surface rounded-xl border border-outline-variant/40 shadow-xl overflow-hidden my-8"
+          className="modal-panel relative w-full max-w-2xl bg-surface rounded-xl border border-outline-variant/40 shadow-xl flex flex-col max-h-[90vh] my-8"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/40 bg-surface">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/40 bg-surface shrink-0">
             <h2 id="review-dialog-title" className="font-headline-md text-xl text-on-surface">
               {initialData ? 'Edit Review' : 'Write a Review'}
             </h2>
@@ -93,7 +93,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
           </div>
 
           {/* Body (ReviewForm) */}
-          <div className="p-4 sm:p-6 bg-surface">
+          <div className="p-4 sm:p-6 bg-surface overflow-y-auto">
             <ReviewForm
               productId={productId}
               onSubmit={onSubmit}
