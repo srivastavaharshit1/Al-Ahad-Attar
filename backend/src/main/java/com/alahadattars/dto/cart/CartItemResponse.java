@@ -24,6 +24,7 @@ public class CartItemResponse {
     private BigDecimal discountAmount;
     private BigDecimal finalPrice;
     private List<String> appliedPromotions;
+    private com.alahadattars.dto.bottle.BottleResponse bottle;
 
     /**
      * True when this item was granted for free via a FREE_PRODUCT Promotion.

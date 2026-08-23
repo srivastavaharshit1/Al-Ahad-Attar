@@ -77,6 +77,15 @@ public class OrderItem extends BaseEntity {
     @Column(name = "variant_size")
     private String variantSize;
 
+    @Column(name = "bottle_id")
+    private Long bottleId;
+
+    @Column(name = "bottle_name")
+    private String bottleName;
+
+    @Column(name = "bottle_price", precision = 10, scale = 2)
+    private BigDecimal bottlePrice;
+
     @Column(name = "free_item", nullable = false)
     @Builder.Default
     private boolean freeItem = false;

@@ -234,6 +234,9 @@ public class OrderServiceImpl implements OrderService {
                     .subtotal(subtotal)
                     .productName(variant.getProduct().getName())
                     .variantSize(variant.getSize())
+                    .bottleId(itemRes.getBottle() != null ? itemRes.getBottle().getId() : null)
+                    .bottleName(itemRes.getBottle() != null ? itemRes.getBottle().getName() : null)
+                    .bottlePrice(itemRes.getBottle() != null ? itemRes.getBottle().getPrice() : null)
                     .freeItem(isFreeOrderItem)
                     .freePromotionId(isFreeOrderItem ? itemRes.getFreePromotionId() : null)
                     .build();
@@ -784,6 +787,9 @@ public class OrderServiceImpl implements OrderService {
                 .productName(item.getProductName())
                 .variantSize(item.getVariantSize())
                 .productImage(resolveOrderItemImage(item.getVariant()))
+                .bottleId(item.getBottleId())
+                .bottleName(item.getBottleName())
+                .bottlePrice(item.getBottlePrice())
                 .build();
     }
 }

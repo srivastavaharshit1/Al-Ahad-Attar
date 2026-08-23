@@ -35,5 +35,7 @@ public class GuestCartRequest {
         private boolean freeItem = false;
         
         private Long freePromotionId;
+
+        private Long bottleId;
     }
 }

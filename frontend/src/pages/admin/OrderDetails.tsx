@@ -183,10 +183,16 @@ export const AdminOrderDetails: React.FC = () => {
                     <div className="w-16 h-16 bg-surface-container rounded overflow-hidden">
                       {item.productImage && <img src={getImageUrl(item.productImage)} alt={item.productName} className="w-full h-full object-cover" />}
                     </div>
-                    <div>
-                      <p className="font-label-lg">{item.productName}</p>
-                      <p className="text-sm text-on-surface-variant">{item.variantSize}</p>
-                    </div>
+                      <div>
+                        <p className="font-label-lg">{item.productName}</p>
+                        <p className="text-sm text-on-surface-variant mb-1">{item.variantSize}</p>
+                        {item.bottleName && (
+                          <p className="text-xs text-on-surface-variant mb-1 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]">liquor</span>
+                            {item.bottleName}
+                          </p>
+                        )}
+                      </div>
                   </div>
                   <div className="text-right">
                     <p className="font-body-md">{formatPrice(item.unitPrice || 0)} x {item.quantity}</p>

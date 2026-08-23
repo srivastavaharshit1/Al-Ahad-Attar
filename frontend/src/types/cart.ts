@@ -15,6 +15,13 @@ export interface CartItem {
   size?: string;
   freeItem?: boolean;
   freePromotionId?: number;
+
+  bottle?: {
+    id: number;
+    name: string;
+    price: number;
+    imageUrl?: string;
+  };
 }
 
 export interface Wishlist {

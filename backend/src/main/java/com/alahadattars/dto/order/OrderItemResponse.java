@@ -24,4 +24,8 @@ public class OrderItemResponse {
     private String productName;
     private String variantSize;
     private String productImage;
+
+    private Long bottleId;
+    private String bottleName;
+    private BigDecimal bottlePrice;
 }

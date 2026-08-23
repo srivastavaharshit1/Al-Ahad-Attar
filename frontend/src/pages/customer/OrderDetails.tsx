@@ -350,11 +350,17 @@ export const OrderDetails: React.FC = () => {
                   </div>
                   <div className="flex-grow flex flex-col justify-center">
                     <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-label-lg">{item.productName}</h3>
-                        <p className="text-sm text-on-surface-variant mb-2">{item.variantSize}</p>
-                        <p className="text-sm text-on-surface-variant">Qty: {item.quantity}</p>
-                      </div>
+                        <div>
+                          <h3 className="font-label-lg">{item.productName}</h3>
+                          <p className="text-sm text-on-surface-variant mb-1">{item.variantSize}</p>
+                          {item.bottleName && (
+                            <p className="text-xs text-on-surface-variant mb-1 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[14px]">liquor</span>
+                              {item.bottleName}
+                            </p>
+                          )}
+                          <p className="text-sm text-on-surface-variant">Qty: {item.quantity}</p>
+                        </div>
                       <div className="text-right">
                         <p className="font-headline-sm">{formatPrice(item.unitPrice || 0)}</p>
                         {item.discountAmount && item.discountAmount > 0 ? (

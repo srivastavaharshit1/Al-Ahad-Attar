@@ -30,6 +30,12 @@ export interface CartItemResponse {
   discountAmount?: number;
   freeItem?: boolean;
   freePromotionId?: number;
+  bottle?: {
+    id: number;
+    name: string;
+    price: number;
+    imageUrl?: string;
+  };
 }
 
 export const cartService = {
@@ -43,8 +49,8 @@ export const cartService = {
     return response.data;
   },
 
-  addToCart: async (variantId: number, quantity: number) => {
-    const response = await apiClient.post<ApiResponse<CartResponse>>('/cart/items', { variantId, quantity });
+  addToCart: async (variantId: number, quantity: number, bottleId?: number) => {
+    const response = await apiClient.post<ApiResponse<CartResponse>>('/cart/items', { variantId, quantity, bottleId });
     return response.data;
   },
 

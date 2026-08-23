@@ -386,6 +386,12 @@ export const Checkout: React.FC = () => {
                       <div>
                         <h3 className="font-headline-sm text-on-surface leading-tight">{item.name}</h3>
                         <p className="font-body-sm text-on-surface-variant mt-1 text-sm">Size: {item.size}</p>
+                        {item.bottle && item.bottle.name && (
+                          <p className="font-body-sm text-on-surface-variant mt-1 text-xs flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]">liquor</span>
+                            {item.bottle.name}
+                          </p>
+                        )}
                       </div>
                       <div className="font-body-md font-medium text-on-surface mt-2">
                         {formatPrice((item.finalPrice || 0) * item.quantity)}

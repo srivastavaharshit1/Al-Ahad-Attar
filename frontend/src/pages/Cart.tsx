@@ -447,17 +447,26 @@ export const Cart: React.FC = () => {
                   <h3 className="font-headline-md text-headline-md text-on-surface mb-1">
                     {item.name || 'Product'}
                   </h3>
-                  <div className="flex items-center gap-2 mb-4">
-                    {item.size && (
-                      <p className="font-body-sm text-body-sm text-on-surface-variant">
-                        Size: {item.size}
+                  <div className="flex flex-col gap-1 mb-4">
+                    <div className="flex items-center gap-2">
+                      {item.size && (
+                        <p className="font-body-sm text-body-sm text-on-surface-variant">
+                          Size: {item.size}
+                        </p>
+                      )}
+                      {item.freeItem && (
+                        <span className="bg-primary/10 text-primary text-[10px] font-label-md px-2 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-wider border border-primary/20">
+                          <span className="material-symbols-outlined text-[12px]">featured_seasonal_and_gifts</span>
+                          Free Gift
+                        </span>
+                      )}
+                    </div>
+                    {item.bottle && item.bottle.name && (
+                      <p className="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">liquor</span>
+                        Bottle: {item.bottle.name} 
+                        {item.bottle.price > 0 && ` (+${formatPrice(item.bottle.price)})`}
                       </p>
-                    )}
-                    {item.freeItem && (
-                      <span className="bg-primary/10 text-primary text-[10px] font-label-md px-2 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-wider border border-primary/20">
-                        <span className="material-symbols-outlined text-[12px]">featured_seasonal_and_gifts</span>
-                        Free Gift
-                      </span>
                     )}
                   </div>
                   <div className="flex items-center border border-outline w-max rounded-sm">

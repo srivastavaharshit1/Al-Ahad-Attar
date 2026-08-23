@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { path: '/admin/reviews', label: 'Reviews', icon: 'reviews' },
   { path: '/admin/promotions', label: 'Promotions', icon: 'campaign' },
   { path: '/admin/gift-services', label: 'Gift Services', icon: 'redeem' },
+  { path: '/admin/bottles', label: 'Bottles', icon: 'liquor' },
   { path: '/admin/homepage', label: 'Storefront UI', icon: 'web' },
   { path: '/admin/settings', label: 'Store Settings', icon: 'settings' },
   { path: '/admin/account', label: 'My Account', icon: 'account_circle' },
