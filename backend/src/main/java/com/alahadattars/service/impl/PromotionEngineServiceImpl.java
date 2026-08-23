@@ -144,7 +144,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                     .appliedPromotions(new ArrayList<>())
                     .freeItem(item.isFreeItem())
                     .freePromotionId(item.getFreePromotionId())
-                    .bottle(item.getBottle() != null ? com.alahadattars.dto.bottle.BottleResponse.fromEntity(item.getBottle()) : null)
+                    .bottle(item.getBottle() != null ? com.alahadattars.dto.bottle.BottleResponse.fromEntity(item.getBottle(), storageService) : null)
                     .build();
             itemResponses.add(response);
         }

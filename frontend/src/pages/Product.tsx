@@ -266,6 +266,7 @@ export const ProductPage: React.FC = () => {
         isOpen={showBottleModal}
         onClose={() => setShowBottleModal(false)}
         onConfirm={addToCartWithBottle}
+        selectedSize={selectedVariant?.size}
       />
 
       {/* SECTION 1: Product Hero (1400px) */}
