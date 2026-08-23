@@ -66,6 +66,7 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
           const formData = new FormData();
           formData.append('file', compressedFile, finalName);
           return apiClient.post(`/products/${productId}/images`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
             timeout: 60000 // Increase timeout for large file uploads
           });
         });
