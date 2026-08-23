@@ -48,13 +48,25 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
           const compressedFile = await imageCompression(file, {
             maxSizeMB: 1,
             maxWidthOrHeight: 1920,
-            useWebWorker: true,
-            fileType: file.type as any
+            useWebWorker: true
           });
+
+          if (compressedFile.size > 5 * 1024 * 1024) {
+            toast.error(`Compressed file ${file.name} is still too large.`);
+            return null;
+          }
+
+          let finalName = file.name;
+          if (compressedFile.type === 'image/jpeg' && !finalName.toLowerCase().match(/\.jpe?g$/)) {
+            finalName = finalName.replace(/\.[^/.]+$/, "") + ".jpg";
+          } else if (compressedFile.type === 'image/webp' && !finalName.toLowerCase().endsWith('.webp')) {
+            finalName = finalName.replace(/\.[^/.]+$/, "") + ".webp";
+          }
+
           const formData = new FormData();
-          formData.append('file', compressedFile, file.name);
+          formData.append('file', compressedFile, finalName);
           return apiClient.post(`/products/${productId}/images`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
+            timeout: 60000 // Increase timeout for large file uploads
           });
         });
         
@@ -84,14 +96,31 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
           const compressedFile = await imageCompression(file, {
             maxSizeMB: 1,
             maxWidthOrHeight: 1920,
-            useWebWorker: true,
-            fileType: file.type as any
+            useWebWorker: true
           });
+
+          if (compressedFile.size > 5 * 1024 * 1024) {
+            toast.error(`Compressed file ${file.name} is still too large.`);
+            continue;
+          }
+
+          // Important: browser-image-compression often converts PNGs to JPEG. 
+          // We must update the filename to match, otherwise the backend security check will reject it.
+          let finalName = file.name;
+          if (compressedFile.type === 'image/jpeg' && !finalName.toLowerCase().match(/\.jpe?g$/)) {
+            finalName = finalName.replace(/\.[^/.]+$/, "") + ".jpg";
+          } else if (compressedFile.type === 'image/webp' && !finalName.toLowerCase().endsWith('.webp')) {
+            finalName = finalName.replace(/\.[^/.]+$/, "") + ".webp";
+          }
+          
+          // Re-create a File object to preserve the new correct filename
+          const finalFile = new File([compressedFile], finalName, { type: compressedFile.type });
+
           updatedImages.push({
             id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            imageUrl: URL.createObjectURL(compressedFile),
+            imageUrl: URL.createObjectURL(finalFile),
             isPrimary: updatedImages.length === 0, // First image is primary
-            file: compressedFile
+            file: finalFile
           });
         }
         onImagesChange(updatedImages);

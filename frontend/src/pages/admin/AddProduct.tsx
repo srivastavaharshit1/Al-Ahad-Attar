@@ -94,7 +94,7 @@ export const AddProduct: React.FC = () => {
           const formPayload = new FormData();
           formPayload.append('file', image.file as File, (image.file as File).name);
           const uploadRes = await apiClient.post(`/products/${productId}/images`, formPayload, {
-            headers: { 'Content-Type': 'multipart/form-data' }
+            timeout: 60000 // Increase timeout for large file uploads
           });
           
           if (image.isPrimary) {
