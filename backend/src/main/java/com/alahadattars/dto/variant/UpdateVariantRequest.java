@@ -34,6 +34,12 @@ public class UpdateVariantRequest {
     @Schema(description = "Unique SKU for the variant", example = "ATTAR-OUD-6ML")
     private String sku;
 
+    @Schema(description = "Available stock", example = "50")
+    private Integer stock;
+
+    @Schema(description = "Active status of the variant", example = "true")
+    private Boolean active;
+
     @Schema(description = "Image URL for the variant", example = "/images/oud-6ml.jpg")
     private String image;
 }
