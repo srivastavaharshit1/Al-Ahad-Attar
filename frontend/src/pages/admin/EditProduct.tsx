@@ -117,6 +117,7 @@ export const EditProduct: React.FC = () => {
       
       const productPayload = {
         ...formData,
+        slug: formData.slug || formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
         categoryId: Number(formData.categoryId)
       };
       

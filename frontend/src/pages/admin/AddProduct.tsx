@@ -64,6 +64,7 @@ export const AddProduct: React.FC = () => {
       // 1. Create Product
       const productPayload = {
         ...formData,
+        slug: formData.slug || formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
         categoryId: Number(formData.categoryId)
       };
       
@@ -91,7 +92,7 @@ export const AddProduct: React.FC = () => {
         .filter(image => image.file)
         .map(async (image) => {
           const formPayload = new FormData();
-          formPayload.append('file', image.file as File);
+          formPayload.append('file', image.file as File, (image.file as File).name);
           const uploadRes = await apiClient.post(`/products/${productId}/images`, formPayload, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
