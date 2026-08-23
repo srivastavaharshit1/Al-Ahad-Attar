@@ -88,11 +88,10 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
       // Local Mode
       setUploading(true);
       try {
-        const updatedImages = [...images];
-        for (const file of newFiles) {
+        const processPromises = newFiles.map(async (file) => {
           if (file.size > 5 * 1024 * 1024) {
             toast.error(`File ${file.name} exceeds 5MB limit.`);
-            continue;
+            return null;
           }
           const compressedFile = await imageCompression(file, {
             maxSizeMB: 1,
@@ -102,28 +101,33 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
 
           if (compressedFile.size > 5 * 1024 * 1024) {
             toast.error(`Compressed file ${file.name} is still too large.`);
-            continue;
+            return null;
           }
 
-          // Important: browser-image-compression often converts PNGs to JPEG. 
-          // We must update the filename to match, otherwise the backend security check will reject it.
           let finalName = file.name;
           if (compressedFile.type === 'image/jpeg' && !finalName.toLowerCase().match(/\.jpe?g$/)) {
             finalName = finalName.replace(/\.[^/.]+$/, "") + ".jpg";
           } else if (compressedFile.type === 'image/webp' && !finalName.toLowerCase().endsWith('.webp')) {
             finalName = finalName.replace(/\.[^/.]+$/, "") + ".webp";
           }
-          
-          // Re-create a File object to preserve the new correct filename
-          const finalFile = new File([compressedFile], finalName, { type: compressedFile.type });
 
-          updatedImages.push({
-            id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            imageUrl: URL.createObjectURL(finalFile),
-            isPrimary: updatedImages.length === 0, // First image is primary
-            file: finalFile
-          });
+          const fileToUpload = new File([compressedFile], finalName, { type: compressedFile.type });
+
+          return {
+            id: `temp-${Date.now()}-${finalName}`,
+            imageUrl: URL.createObjectURL(fileToUpload),
+            isPrimary: false,
+            file: fileToUpload
+          };
+        });
+
+        const newProcessedImages = (await Promise.all(processPromises)).filter(img => img !== null) as ManagedImage[];
+        
+        let updatedImages = [...images, ...newProcessedImages];
+        if (updatedImages.length > 0 && !updatedImages.some(img => img.isPrimary)) {
+          updatedImages[0].isPrimary = true;
         }
+
         onImagesChange(updatedImages);
       } catch (err: any) {
         toast.error("Failed to process images: " + err.message);

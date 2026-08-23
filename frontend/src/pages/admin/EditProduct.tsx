@@ -126,15 +126,13 @@ export const EditProduct: React.FC = () => {
       const variantUpdatePromises = variants.map(async (variant) => {
         if (variant.id) {
           // Update existing variant
-          await apiClient.put(`/variants/${variant.id}`, {
+          return apiClient.put(`/variants/${variant.id}`, {
             productType: variant.productType,
             sku: variant.sku || `${formData.slug}-${variant.size.replace(/\s+/g, '')}`,
             size: variant.size,
             price: Number(variant.price),
+            stock: Number(variant.stock),
             active: variant.active
-          });
-          return apiClient.patch(`/variants/${variant.id}/stock`, {
-            stock: Number(variant.stock)
           });
         } else if (variant.price > 0 || variant.stock > 0) {
           // Create new variant
