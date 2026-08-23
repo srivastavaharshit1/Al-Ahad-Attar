@@ -37,7 +37,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
   const [sortBy, setSortBy] = useState('createdAt,desc');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { ref: gridRef, inView: gridInView } = useInView();
+  const { ref: gridRef, inView: gridInView } = useInView(0);
 
   // Categories rarely change — fetch the list once, not on every category switch (was doubling
   // the latency of every switch with a redundant round trip).
