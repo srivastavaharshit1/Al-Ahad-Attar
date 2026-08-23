@@ -258,11 +258,11 @@ export const ProductPage: React.FC = () => {
         { label: 'Collection', href: '/collection' },
         ...(product.category ? [{ 
           label: product.category.name, 
-          href: `/collection?category=${product.category.name.toLowerCase()}` 
+          href: `/collection?category=${product.category.name?.toLowerCase() || ''}` 
         }] : []),
         ...(product.subCategory ? [{ 
           label: product.subCategory.name, 
-          href: `/collection?category=${product.category?.name.toLowerCase()}&subcategory=${product.subCategory.id}` 
+          href: `/collection?category=${product.category?.name?.toLowerCase() || ''}&subcategory=${product.subCategory.id}` 
         }] : []),
         { label: product.name }
       ]} />
