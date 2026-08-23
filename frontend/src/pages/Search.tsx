@@ -27,7 +27,7 @@ export const Search: React.FC = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
 
-  const { ref: gridRef, inView: gridInView } = useInView();
+  const { ref: gridRef, inView: gridInView } = useInView(0);
 
   useEffect(() => {
     // Fetch categories for the filter sidebar
