@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
-import { getImageUrl } from '../../utils/getImageUrl';
 
 const footerLinkClass =
   "font-body-md text-sm text-white/60 hover:text-accent transition-colors font-light leading-relaxed rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ink";
@@ -16,17 +15,10 @@ export const Footer: React.FC = () => {
         {/* Column 1: Brand */}
         <div className="lg:col-span-4 pr-0 lg:pr-8">
           <div className="mb-6">
-            {settings?.brandLogoUrl ? (
               <div className="flex flex-col">
-                <img src={getImageUrl(settings.brandLogoUrl)} alt={settings?.storeName || 'Al Ahad Attars'} className="h-12 w-auto object-contain brightness-0 invert opacity-90 self-start" />
-                <span className="text-[9px] text-accent/80 uppercase tracking-[0.2em] mt-4 block">Premium Arabic Fragrances Since 2025</span>
-              </div>
-            ) : (
-              <div className="flex flex-col">
-                <span className="font-headline-md text-2xl text-accent tracking-wider uppercase">{settings?.storeName || 'Al Ahad Attars'}</span>
+                <span className="font-headline-md text-2xl text-accent tracking-wider uppercase">AL AHAD ATTARS</span>
                 <span className="text-[9px] text-accent/80 uppercase tracking-[0.2em] mt-2 block">Premium Arabic Fragrances Since 2025</span>
               </div>
-            )}
           </div>
           <p className="font-body-md text-sm text-white/60 mb-8 leading-relaxed font-light">
             Crafting authentic attars and luxurious fragrances inspired by timeless Arabian traditions.
