@@ -93,7 +93,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
           </div>
 
           {/* Body (ReviewForm) */}
-          <div className="p-4 sm:p-6 bg-surface overflow-y-auto">
+          <div className="p-4 sm:p-6 bg-surface overflow-y-auto flex-1 min-h-0">
             <ReviewForm
               productId={productId}
               onSubmit={onSubmit}
