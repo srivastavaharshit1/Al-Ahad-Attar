@@ -37,6 +37,9 @@ public class Bottle extends BaseEntity {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 
+    @Column(length = 50)
+    private String capacity;
+
     @Column(name = "image_url")
     private String imageUrl;
 

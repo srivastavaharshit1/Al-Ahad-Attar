@@ -20,12 +20,13 @@ import java.util.stream.Collectors;
 public class BottleServiceImpl implements BottleService {
 
     private final BottleRepository bottleRepository;
+    private final com.alahadattars.service.StorageService storageService;
 
     @Override
     @Transactional(readOnly = true)
     public List<BottleResponse> getAllBottles() {
         return bottleRepository.findAll().stream()
-                .map(BottleResponse::fromEntity)
+                .map(b -> BottleResponse.fromEntity(b, storageService))
                 .collect(Collectors.toList());
     }
 
@@ -33,14 +34,14 @@ public class BottleServiceImpl implements BottleService {
     @Transactional(readOnly = true)
     public List<BottleResponse> getActiveBottles() {
         return bottleRepository.findByActiveTrue().stream()
-                .map(BottleResponse::fromEntity)
+                .map(b -> BottleResponse.fromEntity(b, storageService))
                 .collect(Collectors.toList());
     }
 
     @Override
     @Transactional(readOnly = true)
     public BottleResponse getBottleById(Long id) {
-        return BottleResponse.fromEntity(getBottleEntityById(id));
+        return BottleResponse.fromEntity(getBottleEntityById(id), storageService);
     }
 
     @Override
@@ -57,10 +58,11 @@ public class BottleServiceImpl implements BottleService {
                 .name(request.getName())
                 .description(request.getDescription())
                 .price(request.getPrice())
+                .capacity(request.getCapacity())
                 .imageUrl(request.getImageUrl())
                 .active(request.getActive() != null ? request.getActive() : true)
                 .build();
-        return BottleResponse.fromEntity(bottleRepository.save(bottle));
+        return BottleResponse.fromEntity(bottleRepository.save(bottle), storageService);
     }
 
     @Override
@@ -70,6 +72,7 @@ public class BottleServiceImpl implements BottleService {
         bottle.setName(request.getName());
         bottle.setDescription(request.getDescription());
         bottle.setPrice(request.getPrice());
+        bottle.setCapacity(request.getCapacity());
         
         if (request.getImageUrl() != null) {
             bottle.setImageUrl(request.getImageUrl());
@@ -79,7 +82,7 @@ public class BottleServiceImpl implements BottleService {
             bottle.setActive(request.getActive());
         }
 
-        return BottleResponse.fromEntity(bottleRepository.save(bottle));
+        return BottleResponse.fromEntity(bottleRepository.save(bottle), storageService);
     }
 
     @Override

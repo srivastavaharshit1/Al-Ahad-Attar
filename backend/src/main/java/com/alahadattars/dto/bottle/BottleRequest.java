@@ -24,6 +24,8 @@ public class BottleRequest {
     @PositiveOrZero(message = "Price must be zero or positive")
     private BigDecimal price;
 
+    private String capacity;
+
     private String imageUrl;
 
     private Boolean active;

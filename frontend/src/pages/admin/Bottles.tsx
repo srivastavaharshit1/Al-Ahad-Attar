@@ -10,6 +10,7 @@ import { Plus, Edit2, Trash2, Image as ImageIcon } from 'lucide-react';
 const EMPTY_FORM: BottleRequest = {
   name: '',
   description: '',
+  capacity: '',
   imageUrl: '',
   price: 0,
   active: true
@@ -140,6 +141,7 @@ export const Bottles: React.FC = () => {
             <tr>
               <th className="px-6 py-4 font-medium text-gray-500 text-sm">IMAGE</th>
               <th className="px-6 py-4 font-medium text-gray-500 text-sm">NAME & DESC</th>
+              <th className="px-6 py-4 font-medium text-gray-500 text-sm">CAPACITY</th>
               <th className="px-6 py-4 font-medium text-gray-500 text-sm">PRICE</th>
               <th className="px-6 py-4 font-medium text-gray-500 text-sm">STATUS</th>
               <th className="px-6 py-4 font-medium text-gray-500 text-sm text-right">ACTIONS</th>
@@ -160,6 +162,9 @@ export const Bottles: React.FC = () => {
                 <td className="px-6 py-4">
                   <div className="font-medium text-gray-900">{bottle.name}</div>
                   {bottle.description && <div className="text-sm text-gray-500 mt-1 truncate max-w-xs">{bottle.description}</div>}
+                </td>
+                <td className="px-6 py-4 text-gray-500">
+                  {bottle.capacity || <span className="text-gray-400 italic">Universal</span>}
                 </td>
                 <td className="px-6 py-4 font-medium text-[#b89445]">
                   +{formatPrice(bottle.price)}
@@ -219,6 +224,17 @@ export const Bottles: React.FC = () => {
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
                   rows={3}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Capacity (Size)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 3ml, 6ml, 12ml (Leave empty for universal)"
+                  value={form.capacity || ''}
+                  onChange={e => setForm(f => ({ ...f, capacity: e.target.value }))}
+                  className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
                 />
               </div>
 

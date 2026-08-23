@@ -10,12 +10,14 @@ interface BottleSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (bottleId: number | null) => void;
+  selectedSize?: string;
 }
 
 export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
+  selectedSize,
 }) => {
   const [bottles, setBottles] = useState<Bottle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,17 +28,21 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
       setIsLoading(true);
       bottleService.getActive()
         .then((data) => {
-          setBottles(data || []);
-          if (data && data.length > 0) {
+          let filtered = data || [];
+          if (selectedSize) {
+            filtered = filtered.filter((b: Bottle) => !b.capacity || b.capacity === selectedSize);
+          }
+          setBottles(filtered);
+          if (filtered.length > 0) {
             // Pre-select the first one with price 0 if exists, or just the first one
-            const freeBottle = data.find((b: Bottle) => b.price === 0);
-            setSelectedId(freeBottle ? freeBottle.id : data[0].id);
+            const freeBottle = filtered.find((b: Bottle) => b.price === 0);
+            setSelectedId(freeBottle ? freeBottle.id : filtered[0].id);
           }
         })
         .catch(() => toast.error('Failed to load bottle options'))
         .finally(() => setIsLoading(false));
     }
-  }, [isOpen]);
+  }, [isOpen, selectedSize]);
 
   if (!isOpen) return null;
 

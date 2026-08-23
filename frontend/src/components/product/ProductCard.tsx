@@ -103,6 +103,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
         isOpen={showBottleModal}
         onClose={() => setShowBottleModal(false)}
         onConfirm={addToCartWithBottle}
+        selectedSize={size}
       />
       <div className="card group flex flex-col overflow-hidden">
       {/* 1:1 Image Container */}
