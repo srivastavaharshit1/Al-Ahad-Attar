@@ -49,9 +49,10 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
             maxSizeMB: 1,
             maxWidthOrHeight: 1920,
             useWebWorker: true,
+            fileType: file.type as any
           });
           const formData = new FormData();
-          formData.append('file', compressedFile);
+          formData.append('file', compressedFile, file.name);
           return apiClient.post(`/products/${productId}/images`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
@@ -84,6 +85,7 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
             maxSizeMB: 1,
             maxWidthOrHeight: 1920,
             useWebWorker: true,
+            fileType: file.type as any
           });
           updatedImages.push({
             id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
