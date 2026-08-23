@@ -80,7 +80,7 @@ export const Home: React.FC = () => {
   return (
     <div className="w-full flex flex-col font-light">
       <SEO 
-        title="Al Ahad Attars | Premium Attars, Perfumes & Fragrances"
+        title="Al Ahad Attars"
         description="Discover Al Ahad Attars, your premier destination for luxury Arabic perfumery. Shop our exquisite collection of premium attars, rich ouds, and fine fragrances."
         canonicalUrl="/"
         schema={{
