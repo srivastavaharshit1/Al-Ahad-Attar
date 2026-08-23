@@ -104,6 +104,10 @@ export const ProductPage: React.FC = () => {
 
   const sortedImages = [...(product.images || [])].sort((a, b) => a.displayOrder - b.displayOrder);
   const allImages = sortedImages.map(img => img.imageUrl);
+  
+  if (activeType === 'ATTAR') {
+    allImages.push(window.location.origin + '/attar-sizes.jpg');
+  }
 
   const hasAttar = product.variants?.some(v => v.productType === 'ATTAR');
   const hasPerfume = product.variants?.some(v => v.productType === 'PERFUME');
