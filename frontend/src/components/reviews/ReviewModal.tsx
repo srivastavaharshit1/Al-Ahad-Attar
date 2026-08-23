@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { ReviewForm } from './ReviewForm';
 
@@ -62,9 +63,9 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
-      className="modal-overlay fixed inset-0 z-50 overflow-y-auto"
+      className="modal-overlay fixed inset-0 z-[100] overflow-y-auto"
       role="presentation"
       aria-labelledby="review-dialog-title"
     >
@@ -104,6 +105,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
