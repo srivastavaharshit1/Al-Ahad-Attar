@@ -656,10 +656,10 @@ export const Cart: React.FC = () => {
                     <button
                       onClick={() => handleApplyCoupon()}
                       disabled={isApplyingCoupon || !couponInput.trim() || (appliedPromotions && appliedPromotions.length > 0)}
-                      className={`shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent px-6 py-2 rounded-sm transition-colors disabled:opacity-50 font-label-md tracking-wider uppercase ${
+                      className={`shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent px-6 py-2 rounded-sm transition-colors disabled:cursor-not-allowed font-label-md tracking-wider uppercase ${
                         (appliedPromotions && appliedPromotions.length > 0)
-                          ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed'
-                          : 'bg-accent text-white hover:bg-accent/90'
+                          ? 'bg-surface-variant text-on-surface-variant'
+                          : 'bg-accent text-white hover:bg-accent/90 disabled:opacity-90'
                       }`}
                     >
                       {isApplyingCoupon ? '...' : (appliedPromotions && appliedPromotions.length > 0 ? 'APPLIED' : 'Apply')}
