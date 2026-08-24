@@ -165,9 +165,22 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
             if (promo.getPromotionType() == PromotionType.PRODUCT_DISCOUNT
                     || promo.getPromotionType() == PromotionType.CATEGORY_DISCOUNT) {
                 boolean promoAppliedToAnyItem = false;
-                for (CartItemResponse itemResponse : itemResponses) {
+                for (int i = 0; i < itemResponses.size(); i++) {
+                    CartItemResponse itemResponse = itemResponses.get(i);
                     if (itemResponse.isFreeItem()) continue; // never discount free items
-                    CartItem cartItem = findCartItem(cart, itemResponse.getId());
+                    
+                    CartItem cartItem = null;
+                    if (itemResponse.getId() != null) {
+                        final Long lookupId = itemResponse.getId();
+                        cartItem = cart.getItems().stream()
+                                .filter(item -> item.getId() != null && item.getId().equals(lookupId))
+                                .findFirst().orElse(null);
+                    }
+                    if (cartItem == null) {
+                        // Fallback to index if ID is null (e.g. transient item)
+                        cartItem = cart.getItems().get(i);
+                    }
+                    
                     if (isItemEligible(promo, cartItem)) {
                         BigDecimal itemDiscount = calculateItemDiscount(promo, itemResponse.getOriginalPrice())
                                 .min(itemResponse.getOriginalPrice());
@@ -780,12 +793,63 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
     }
 
     private CartItem findCartItem(Cart cart, Long itemId) {
-        return cart.getItems().stream().filter(i -> i.getId().equals(itemId)).findFirst().orElse(null);
+        if (itemId == null) return null;
+        return cart.getItems().stream()
+                .filter(i -> i.getId() != null && i.getId().equals(itemId))
+                .findFirst().orElse(null);
     }
 
     private boolean isItemEligible(Promotion promo, CartItem cartItem) {
-        if (cartItem == null) return false;
-        return isProductEligible(promo, cartItem.getProduct());
+        if (cartItem == null) {
+            log.info("[isItemEligible] Failed: cartItem is null");
+            return false;
+        }
+        if (!isProductEligible(promo, cartItem.getProduct())) {
+            log.info("[isItemEligible] Failed: isProductEligible is false for Product ID={}", cartItem.getProduct().getId());
+            return false;
+        }
+        
+        if (promo.getPromotionType() == PromotionType.CATEGORY_DISCOUNT) {
+            if (cartItem.getProduct().getCategory() != null && cartItem.getVariant() != null) {
+                String categoryName = cartItem.getProduct().getCategory().getName().toLowerCase();
+                String size = cartItem.getVariant().getSize() != null ? cartItem.getVariant().getSize().toLowerCase().trim() : "";
+                
+                boolean isAttarSize = size.equals("3ml") || size.equals("6ml") || size.equals("12ml");
+                boolean isPerfumeSize = size.equals("30ml") || size.equals("50ml") || size.equals("100ml");
+                
+                log.info("[isItemEligible] Evaluated variant: name={}, size={}, category={}, isAttarSize={}, isPerfumeSize={}",
+                        cartItem.getProduct().getName(), size, categoryName, isAttarSize, isPerfumeSize);
+                
+                if (categoryName.contains("attar")) {
+                    if (isPerfumeSize) {
+                        log.info("[isItemEligible] Failed: Attar category but perfume size");
+                        return false;
+                    }
+                    if (!isAttarSize && cartItem.getVariant().getProductType() != null) {
+                        if (!cartItem.getVariant().getProductType().name().equals("ATTAR")) {
+                            log.info("[isItemEligible] Failed: Fallback to productType rejected ATTAR");
+                            return false;
+                        }
+                    }
+                }
+                
+                if (categoryName.contains("perfume")) {
+                    if (isAttarSize) {
+                        log.info("[isItemEligible] Failed: Perfume category but attar size");
+                        return false;
+                    }
+                    if (!isPerfumeSize && cartItem.getVariant().getProductType() != null) {
+                        if (!cartItem.getVariant().getProductType().name().equals("PERFUME")) {
+                            log.info("[isItemEligible] Failed: Fallback to productType rejected PERFUME");
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        
+        log.info("[isItemEligible] Success for Product ID={}", cartItem.getProduct().getId());
+        return true;
     }
 
     private boolean isProductEligible(Promotion promo, Product product) {
