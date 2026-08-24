@@ -169,7 +169,7 @@ export const Search: React.FC = () => {
 
       <div className="flex flex-col md:flex-row gap-8">
         {/* Filters Sidebar */}
-        <aside className="w-full md:w-64 flex-shrink-0">
+        <aside className="w-full md:w-64 flex-shrink-0 order-2 md:order-1">
           <div className="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT p-6 sticky top-24">
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-headline-sm">Filters</h2>
@@ -206,7 +206,7 @@ export const Search: React.FC = () => {
         </aside>
 
         {/* Results */}
-        <div className="flex-grow">
+        <div className="flex-grow order-1 md:order-2">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
             <p className="font-body-md text-on-surface-variant leading-relaxed">
               Showing {totalElements} results {query && <span>for "<span className="font-medium text-on-surface">{query}</span>"</span>}
