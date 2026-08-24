@@ -292,12 +292,18 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 }
 
                 Role userRole = roleRepository.findByName(RoleType.USER)
-                        .orElseThrow(() -> new IllegalStateException("USER role not found"));
+                        .orElseGet(() -> {
+                            log.info("USER role not found, creating it.");
+                            return roleRepository.save(Role.builder()
+                                    .name(RoleType.USER)
+                                    .description("Standard User Role")
+                                    .build());
+                        });
 
                 String firstName = (String) payload.get("given_name");
                 String lastName = (String) payload.get("family_name");
-                if (lastName == null) lastName = ""; // Sometimes users don't have a last name on Google
-                if (firstName == null) firstName = "User";
+                if (lastName == null || lastName.isBlank()) lastName = "-"; // Satisfy @NotBlank
+                if (firstName == null || firstName.isBlank()) firstName = "User";
 
                 user = User.builder()
                         .firstName(firstName)
