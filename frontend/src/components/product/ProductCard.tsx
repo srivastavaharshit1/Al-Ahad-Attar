@@ -64,8 +64,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
     }
   };
 
-  const addToCartWithBottle = (bottleId: number | null) => {
+  const addToCartWithBottle = (bottle: any | null) => {
     if (!variantId) return;
+    
+    const bottlePrice = bottle?.price || 0;
+    const basePrice = price + bottlePrice;
+    
     addItem({
       id: '',
       productId: product.id.toString(),
@@ -74,9 +78,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
       name: product.name,
       image: image,
       size: size,
-      originalPrice: price,
-      finalPrice: price,
-      bottle: bottleId ? { id: bottleId, name: '', price: 0 } : undefined
+      originalPrice: basePrice,
+      finalPrice: basePrice,
+      bottle: bottle ? { id: bottle.id, name: bottle.name, price: bottle.price } : undefined
     });
     setShowBottleModal(false);
   };

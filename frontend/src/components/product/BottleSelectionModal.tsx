@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 interface BottleSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (bottleId: number | null) => void;
+  onConfirm: (bottle: Bottle | null) => void;
   selectedSize?: string;
 }
 
@@ -123,7 +123,7 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
             Cancel
           </button>
           <button
-            onClick={() => onConfirm(selectedId)}
+            onClick={() => onConfirm(selectedId ? bottles.find(b => b.id === selectedId) || null : null)}
             disabled={!selectedId || bottles.length === 0}
             className="px-8 py-2.5 bg-[#b89445] text-white rounded hover:bg-[#a08035] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           >
