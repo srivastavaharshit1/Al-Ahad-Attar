@@ -651,18 +651,18 @@ export const Cart: React.FC = () => {
                       placeholder="Enter coupon code" 
                       className="flex-1 min-w-0 bg-transparent border border-outline-variant rounded-sm px-4 py-2 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none uppercase transition-all"
                       aria-label="Coupon code input"
-                      disabled={isApplyingCoupon || (appliedPromotions && appliedPromotions.length > 0)}
+                      disabled={isApplyingCoupon}
                     />
                     <button
                       onClick={() => handleApplyCoupon()}
-                      disabled={isApplyingCoupon || !couponInput.trim() || (appliedPromotions && appliedPromotions.length > 0)}
+                      disabled={isApplyingCoupon || !couponInput.trim() || (couponInput.trim() && appliedPromotions?.some((p: any) => p.code && p.code.toLowerCase() === couponInput.trim().toLowerCase()))}
                       className={`shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary px-6 py-2 rounded-sm transition-colors disabled:cursor-not-allowed font-label-md tracking-wider uppercase ${
-                        (appliedPromotions && appliedPromotions.length > 0)
+                        (couponInput.trim() && appliedPromotions?.some((p: any) => p.code && p.code.toLowerCase() === couponInput.trim().toLowerCase()))
                           ? 'bg-surface-variant text-on-surface-variant'
                           : 'bg-primary text-white hover:bg-primary/90'
                       }`}
                     >
-                      {isApplyingCoupon ? '...' : (appliedPromotions && appliedPromotions.length > 0 ? 'APPLIED' : 'Apply')}
+                      {isApplyingCoupon ? '...' : ((couponInput.trim() && appliedPromotions?.some((p: any) => p.code && p.code.toLowerCase() === couponInput.trim().toLowerCase())) ? 'APPLIED' : 'Apply')}
                     </button>
                   </div>
                   {couponError && <p className="text-error text-xs mt-2">{couponError}</p>}
