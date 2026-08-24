@@ -23,6 +23,21 @@ export const Cart: React.FC = () => {
   const [couponInput, setCouponInput] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [couponError, setCouponError] = useState('');
+  
+  // Provide immediate feedback for invalid coupons from backend messages
+  useEffect(() => {
+    if (unlockMessages && unlockMessages.length > 0) {
+      const invalidMsg = unlockMessages.find(msg => msg.toLowerCase().includes('invalid or expired'));
+      if (invalidMsg) {
+        setCouponError('Invalid coupon code');
+      } else {
+        setCouponError('');
+      }
+    } else {
+      setCouponError('');
+    }
+  }, [unlockMessages]);
+
   const [showAllFreeGifts, setShowAllFreeGifts] = useState(false);
 
   useEffect(() => {
@@ -49,7 +64,10 @@ export const Cart: React.FC = () => {
     setCouponError('');
     try {
       await applyCoupon(codeToApply);
-      setCouponInput('');
+      if (typeof code !== 'string') {
+        // Only clear input if they didn't click on an available offer directly
+        // So the input stays there to show what they applied!
+      }
     } catch (err: any) {
       setCouponError(err.response?.data?.message || 'Invalid coupon code');
     } finally {
@@ -585,8 +603,8 @@ export const Cart: React.FC = () => {
 
           {/* Offers & Coupon Section */}
           <div className="mb-6 pt-6 border-t border-outline-variant/30">
-            {appliedPromotions && appliedPromotions.length > 0 ? (
-              <div className="mb-2">
+            {appliedPromotions && appliedPromotions.length > 0 && (
+              <div className="mb-6">
                 {appliedPromotions.map((promo: any) => (
                   <div key={promo.id} className="flex flex-col gap-1">
                     <div className="font-label-md text-sm text-primary font-bold flex items-center gap-1.5">
@@ -602,6 +620,7 @@ export const Cart: React.FC = () => {
                         onClick={() => {
                           if (promo.code) removeCoupon();
                           else removePromotion();
+                          setCouponInput(''); // clear input when removed
                         }}
                         className="text-[11px] font-label-md uppercase tracking-wider text-error hover:underline"
                       >
@@ -611,41 +630,46 @@ export const Cart: React.FC = () => {
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Input Area */}
+            )}
+            
+            <div className="space-y-6">
+              {/* Input Area */}
+              <div>
+                <p className="font-label-sm text-on-surface-variant mb-2.5 font-medium">Have a coupon code?</p>
                 <div>
-                  <p className="font-label-sm text-on-surface-variant mb-2.5 font-medium">Have a coupon code?</p>
-                  <div>
-                    <div className="flex gap-2">
-                      <input 
-                        type="text" 
-                        value={couponInput}
-                        onChange={(e) => setCouponInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleApplyCoupon();
-                          }
-                        }}
-                        placeholder="Enter coupon code" 
-                        className="flex-1 min-w-0 bg-transparent border border-outline-variant rounded-sm px-4 py-2 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none uppercase transition-all"
-                        aria-label="Coupon code input"
-                        disabled={isApplyingCoupon}
-                      />
-                      <button
-                        onClick={() => handleApplyCoupon()}
-                        disabled={isApplyingCoupon || !couponInput.trim()}
-                        className="shrink-0 bg-surface-variant text-on-surface-variant hover:bg-outline-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent px-6 py-2 rounded-sm transition-colors disabled:opacity-50 font-label-md tracking-wider uppercase"
-                      >
-                        {isApplyingCoupon ? '...' : 'Apply'}
-                      </button>
-                    </div>
-                    {couponError && <p className="text-error text-xs mt-2">{couponError}</p>}
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleApplyCoupon();
+                        }
+                      }}
+                      placeholder="Enter coupon code" 
+                      className="flex-1 min-w-0 bg-transparent border border-outline-variant rounded-sm px-4 py-2 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none uppercase transition-all"
+                      aria-label="Coupon code input"
+                      disabled={isApplyingCoupon || (appliedPromotions && appliedPromotions.length > 0)}
+                    />
+                    <button
+                      onClick={() => handleApplyCoupon()}
+                      disabled={isApplyingCoupon || !couponInput.trim() || (appliedPromotions && appliedPromotions.length > 0)}
+                      className={`shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent px-6 py-2 rounded-sm transition-colors disabled:opacity-50 font-label-md tracking-wider uppercase ${
+                        (appliedPromotions && appliedPromotions.length > 0)
+                          ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed'
+                          : 'bg-accent text-white hover:bg-accent/90'
+                      }`}
+                    >
+                      {isApplyingCoupon ? '...' : (appliedPromotions && appliedPromotions.length > 0 ? 'APPLIED' : 'Apply')}
+                    </button>
                   </div>
+                  {couponError && <p className="text-error text-xs mt-2">{couponError}</p>}
                 </div>
+              </div>
 
-                {/* Available Offers */}
+              {/* Available Offers */}
                 {(!availablePromotions || availablePromotions.length === 0) ? (
                   <div>
                     <p className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant/70 mb-2 font-medium">Available Offers</p>
