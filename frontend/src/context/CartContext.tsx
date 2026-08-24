@@ -87,7 +87,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       discountAmount: Number(i.discountAmount || 0),
       finalPrice: Number(i.finalPrice || i.price),
       freeItem: i.freeItem,
-      freePromotionId: i.freePromotionId
+      freePromotionId: i.freePromotionId,
+      bottle: i.bottle
     }));
     setItems(mappedItems);
     setCartDiscount(Number(cartData.cartDiscount || 0));
@@ -170,7 +171,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             variantId: Number(i.variantId),
             quantity: i.quantity,
             freeItem: i.freeItem,
-            freePromotionId: i.freePromotionId
+            freePromotionId: i.freePromotionId,
+            bottleId: i.bottle?.id ? Number(i.bottle.id) : undefined
           })),
           couponCode,
           manuallySelectedPromotionId
@@ -191,7 +193,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     couponCode,
     manuallySelectedPromotionId,
     // JSON.stringify to avoid infinite loops when syncCartState replaces the items array reference
-    JSON.stringify(items.map(i => ({ p: i.productId, v: i.variantId, q: i.quantity, f: i.freeItem, prm: i.freePromotionId })))
+    JSON.stringify(items.map(i => ({ p: i.productId, v: i.variantId, q: i.quantity, f: i.freeItem, prm: i.freePromotionId, b: i.bottle?.id })))
   ]);
 
   const addItem = async (item: CartItem) => {

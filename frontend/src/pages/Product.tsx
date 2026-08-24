@@ -139,8 +139,11 @@ export const ProductPage: React.FC = () => {
     }
   };
 
-  const addToCartWithBottle = (bottleId: number | null) => {
+  const addToCartWithBottle = (bottle: any | null) => {
     if (!selectedVariant) return;
+    
+    const bottlePrice = bottle?.price || 0;
+    const basePrice = selectedVariant.price + bottlePrice;
     
     addItem({
       id: '', // Will be generated
@@ -150,9 +153,9 @@ export const ProductPage: React.FC = () => {
       name: product!.name,
       image: mainImage,
       size: selectedVariant.size,
-      originalPrice: selectedVariant.price,
-      finalPrice: selectedVariant.price,
-      bottle: bottleId ? { id: bottleId, name: '', price: 0 } : undefined 
+      originalPrice: basePrice,
+      finalPrice: basePrice,
+      bottle: bottle ? { id: bottle.id, name: bottle.name, price: bottle.price } : undefined 
     });
     setShowBottleModal(false);
   };
