@@ -656,10 +656,10 @@ export const Cart: React.FC = () => {
                     <button
                       onClick={() => handleApplyCoupon()}
                       disabled={isApplyingCoupon || !couponInput.trim() || (couponInput.trim() && appliedPromotions?.some((p: any) => p.code && p.code.toLowerCase() === couponInput.trim().toLowerCase()))}
-                      className={`shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary px-6 py-2 rounded-sm transition-colors disabled:cursor-not-allowed font-label-md tracking-wider uppercase ${
-                        (couponInput.trim() && appliedPromotions?.some((p: any) => p.code && p.code.toLowerCase() === couponInput.trim().toLowerCase()))
-                          ? 'bg-surface-variant text-on-surface-variant'
-                          : 'bg-primary text-white hover:bg-primary/90'
+                      className={`shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent px-6 py-2 rounded-sm transition-colors font-label-md tracking-wider uppercase ${
+                        !couponInput.trim() || isApplyingCoupon || (couponInput.trim() && appliedPromotions?.some((p: any) => p.code && p.code.toLowerCase() === couponInput.trim().toLowerCase()))
+                          ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed'
+                          : 'bg-accent text-on-primary hover:bg-accent-hover cursor-pointer'
                       }`}
                     >
                       {isApplyingCoupon ? '...' : ((couponInput.trim() && appliedPromotions?.some((p: any) => p.code && p.code.toLowerCase() === couponInput.trim().toLowerCase())) ? 'APPLIED' : 'Apply')}
@@ -710,7 +710,6 @@ export const Cart: React.FC = () => {
                   </div>
                 )}
               </div>
-            )}
           </div>
 
           <div className="flex justify-between items-center mb-8 pt-4 border-t border-outline-variant/30">
