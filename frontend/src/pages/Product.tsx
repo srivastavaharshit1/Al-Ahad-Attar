@@ -109,7 +109,7 @@ export const ProductPage: React.FC = () => {
   const sortedImages = [...(product.images || [])].sort((a, b) => a.displayOrder - b.displayOrder);
   const allImages = sortedImages.map(img => img.imageUrl);
   
-  if (activeType === 'ATTAR' && (hasAttar || isAttarCategory)) {
+  if (activeType === 'ATTAR' && isAttarCategory) {
     allImages.push(window.location.origin + '/attar-sizes.jpg');
   }
 
