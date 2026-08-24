@@ -75,7 +75,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const syncCartState = (cartData: any) => {
     if (!cartData) return;
     const mappedItems: CartItem[] = (cartData.items || []).map((i: any) => ({
-      id: i.id.toString(),
+      id: i.id ? i.id.toString() : Math.random().toString(36).substring(7),
       productId: i.productId.toString(),
       variantId: i.variantId.toString(),
       name: i.name,

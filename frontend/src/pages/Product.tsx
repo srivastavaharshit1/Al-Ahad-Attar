@@ -173,7 +173,12 @@ export const ProductPage: React.FC = () => {
 
   const applicablePromos = activePromotions.filter(promo => {
     if (promo.promotionType === 'PRODUCT_DISCOUNT' && promo.configuration?.applicableProductIds?.includes(product.id)) return true;
-    if (promo.promotionType === 'CATEGORY_DISCOUNT' && product.category?.id && promo.configuration?.applicableCategoryIds?.includes(product.category.id)) return true;
+    if (promo.promotionType === 'CATEGORY_DISCOUNT' && product.category?.id && promo.configuration?.applicableCategoryIds?.includes(product.category.id)) {
+        const categoryName = product.category.name.toLowerCase();
+        if (categoryName.includes('attar') && activeType !== 'ATTAR') return false;
+        if (categoryName.includes('perfume') && activeType !== 'PERFUME') return false;
+        return true;
+    }
     if (promo.promotionType === 'FREE_PRODUCT') {
       if (promo.configuration?.buyProductId && promo.configuration.buyProductId === product.id) return true;
       if (product.category?.id && promo.configuration?.buyCategoryId === product.category.id) return true;
