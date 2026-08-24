@@ -23,7 +23,7 @@ export const Cart: React.FC = () => {
   const [couponInput, setCouponInput] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [couponError, setCouponError] = useState('');
-  
+
   // Provide immediate feedback for invalid coupons from backend messages
   useEffect(() => {
     if (unlockMessages && unlockMessages.length > 0) {
@@ -59,7 +59,7 @@ export const Cart: React.FC = () => {
     }
     const codeToApply = typeof code === 'string' ? code : couponInput.trim();
     if (!codeToApply) return;
-    
+
     setIsApplyingCoupon(true);
     setCouponError('');
     try {
@@ -76,16 +76,16 @@ export const Cart: React.FC = () => {
   };
 
   const shippingThreshold = settings?.freeShippingThreshold !== undefined ? settings.freeShippingThreshold : 500;
-  
+
   const totalAfterOffer = subtotal - offerDiscount;
   const shippingCharge = settings?.shippingCharge !== undefined ? settings.shippingCharge : 50;
-  
+
   // If Free Shipping is part of applied promotions, cost is 0
   const isFreeShipping = appliedPromotions && appliedPromotions.some((p: any) => p.name.includes('Free Shipping'));
   const shippingCost = isFreeShipping ? 0 : (totalAfterOffer > shippingThreshold ? 0 : shippingCharge);
-  
-  const selectedGiftPrice = giftServiceId && giftServices.find(g => g.id === giftServiceId) 
-    ? (giftServices.find(g => g.id === giftServiceId)?.price || 0) 
+
+  const selectedGiftPrice = giftServiceId && giftServices.find(g => g.id === giftServiceId)
+    ? (giftServices.find(g => g.id === giftServiceId)?.price || 0)
     : 0;
 
   const total = totalAfterOffer - cartDiscount + shippingCost + selectedGiftPrice;
@@ -111,9 +111,9 @@ export const Cart: React.FC = () => {
 
   // Build promotion status cards
   const renderOfferPanel = () => {
-    if ((!appliedPromotions || appliedPromotions.length === 0) && 
-        (!availablePromotions || availablePromotions.length === 0) &&
-        (!lockedPromotions || lockedPromotions.length === 0)) {
+    if ((!appliedPromotions || appliedPromotions.length === 0) &&
+      (!availablePromotions || availablePromotions.length === 0) &&
+      (!lockedPromotions || lockedPromotions.length === 0)) {
       return null;
     }
 
@@ -147,48 +147,48 @@ export const Cart: React.FC = () => {
           <div>
             <h3 className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant mb-3">Applied Offer</h3>
             {appliedPromotions.map((promo: any) => {
-                const icon = getPromoIcon(promo);
-                const isManual = promo.id === manuallySelectedPromotionId;
-                
-                return (
-                  <div key={promo.id} className="rounded-xl border border-primary/25 bg-gradient-to-r from-primary/[0.04] to-transparent overflow-hidden mb-3">
-                    <div className="px-5 py-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <span className="text-2xl mt-0.5" aria-hidden="true">{icon}</span>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-label-lg text-primary">{getPromoHeadline(promo)}</h4>
-                              <span className="bg-primary/10 text-primary text-[10px] font-label-md px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <span className="material-symbols-outlined text-[12px]">check_circle</span>
-                                {isManual ? 'Manually Applied' : 'Automatically Applied'}
-                              </span>
-                            </div>
-                            <p className="font-body-sm text-on-surface-variant">
-                              {promo.description || 'Discount applied to your cart'}
-                            </p>
+              const icon = getPromoIcon(promo);
+              const isManual = promo.id === manuallySelectedPromotionId;
+
+              return (
+                <div key={promo.id} className="rounded-xl border border-primary/25 bg-gradient-to-r from-primary/[0.04] to-transparent overflow-hidden mb-3">
+                  <div className="px-5 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <span className="text-2xl mt-0.5" aria-hidden="true">{icon}</span>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-label-lg text-primary">{getPromoHeadline(promo)}</h4>
+                            <span className="bg-primary/10 text-primary text-[10px] font-label-md px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                              {isManual ? 'Manually Applied' : 'Automatically Applied'}
+                            </span>
                           </div>
+                          <p className="font-body-sm text-on-surface-variant">
+                            {promo.description || 'Discount applied to your cart'}
+                          </p>
                         </div>
-                        {(!promo.stackable) && (
-                          <button
-                            onClick={() => {
-                              if (promo.code) {
-                                removeCoupon();
-                              } else {
-                                removePromotion();
-                              }
-                            }}
-                            className="text-on-surface-variant hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-1 transition-colors flex items-center gap-1 font-label-sm uppercase tracking-wider text-xs whitespace-nowrap rounded-sm"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">close</span>
-                            Remove
-                          </button>
-                        )}
                       </div>
+                      {(!promo.stackable) && (
+                        <button
+                          onClick={() => {
+                            if (promo.code) {
+                              removeCoupon();
+                            } else {
+                              removePromotion();
+                            }
+                          }}
+                          className="text-on-surface-variant hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-1 transition-colors flex items-center gap-1 font-label-sm uppercase tracking-wider text-xs whitespace-nowrap rounded-sm"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">close</span>
+                          Remove
+                        </button>
+                      )}
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -198,11 +198,11 @@ export const Cart: React.FC = () => {
             <h3 className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant mb-3">Available Offers</h3>
             <div className="space-y-4">
               {availablePromotions.map((promo: any) => {
-                  const unlock = unlockMessages?.find(msg => msg.includes(promo.name));
-                  const icon = getPromoIcon(promo);
-                  const isBestValue = bestPromo?.id === promo.id;
-                  const isEligible = !promo.minCartValue || subtotal >= promo.minCartValue;
-                
+                const unlock = unlockMessages?.find(msg => msg.includes(promo.name));
+                const icon = getPromoIcon(promo);
+                const isBestValue = bestPromo?.id === promo.id;
+                const isEligible = !promo.minCartValue || subtotal >= promo.minCartValue;
+
                 let progressUI = null;
                 if (promo.minCartValue && subtotal < promo.minCartValue) {
                   const pct = Math.min((subtotal / promo.minCartValue) * 100, 100);
@@ -241,25 +241,24 @@ export const Cart: React.FC = () => {
                           <p className="font-body-sm text-on-surface-variant">
                             {unlock || promo.description || `Eligible on orders over ₹${promo.minCartValue}`}
                           </p>
-                          
+
                           {progressUI}
-                          
+
                           {promo.code && (
                             <div className="mt-2 flex items-center gap-2">
                               <span className="text-[10px] text-on-surface-variant uppercase tracking-wider">Code:</span>
                               <span className="font-mono text-xs font-semibold text-primary bg-primary/[0.04] px-1.5 py-0.5 rounded border border-primary/10">{promo.code}</span>
                             </div>
                           )}
-                          
+
                           <div className="mt-3 flex justify-end">
                             <button
                               onClick={() => applyPromotion(promo.id)}
                               disabled={!isEligible}
-                              className={`px-4 py-1.5 rounded text-xs font-label-md uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 ${
-                                isEligible
+                              className={`px-4 py-1.5 rounded text-xs font-label-md uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 ${isEligible
                                   ? 'bg-primary text-on-primary hover:bg-surface-tint'
                                   : 'bg-surface-variant text-on-surface-variant opacity-50 cursor-not-allowed'
-                              }`}
+                                }`}
                             >
                               Apply
                             </button>
@@ -280,61 +279,61 @@ export const Cart: React.FC = () => {
             <h3 className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant mb-3 mt-6">Locked Offers</h3>
             <div className="space-y-4">
               {lockedPromotions.map((promo: any) => {
-                  const unlock = unlockMessages?.find(msg => msg.includes(promo.name)) || 'Conditions not met';
-                  const icon = getPromoIcon(promo);
-                  
-                  // For BUY X GET Y progress
-                  let progressUI = null;
-                  if (promo.minCartValue && subtotal < promo.minCartValue) {
-                    // Threshold progress
-                    const pct = Math.min((subtotal / promo.minCartValue) * 100, 100);
-                    progressUI = (
-                      <div className="mt-3 opacity-60">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[11px] font-label-md text-error tracking-wider uppercase">
-                            {unlock}
-                          </span>
-                          <span className="text-[11px] font-label-md text-on-surface-variant">{Math.round(pct)}%</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-outline-variant/30 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-on-surface-variant/40 rounded-full"
-                            style={{ width: `${pct}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    );
-                  } else {
-                    progressUI = (
-                      <div className="mt-3">
-                         <span className="text-[11px] font-label-md text-error tracking-wider uppercase">
-                            {unlock}
-                          </span>
-                      </div>
-                    );
-                  }
+                const unlock = unlockMessages?.find(msg => msg.includes(promo.name)) || 'Conditions not met';
+                const icon = getPromoIcon(promo);
 
-                  return (
-                    <div key={promo.id} className="relative rounded-xl border overflow-hidden transition-all duration-300 border-outline-variant/30 bg-surface-container-lowest/50 opacity-75">
-                      <div className="px-5 py-4">
-                        <div className="flex items-start gap-3">
-                          <span className="text-2xl mt-0.5" aria-hidden="true">{icon}</span>
-                          <div className="flex-grow min-w-0">
-                            <h4 className="font-label-lg text-on-surface-variant mb-0.5">
-                              {getPromoHeadline(promo)}
-                            </h4>
-                            <p className="font-body-sm text-on-surface-variant">
-                              {promo.description || `Eligible on orders over ₹${promo.minCartValue}`}
-                            </p>
-                            
-                            {progressUI}
-                            
-                          </div>
-                        </div>
+                // For BUY X GET Y progress
+                let progressUI = null;
+                if (promo.minCartValue && subtotal < promo.minCartValue) {
+                  // Threshold progress
+                  const pct = Math.min((subtotal / promo.minCartValue) * 100, 100);
+                  progressUI = (
+                    <div className="mt-3 opacity-60">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px] font-label-md text-error tracking-wider uppercase">
+                          {unlock}
+                        </span>
+                        <span className="text-[11px] font-label-md text-on-surface-variant">{Math.round(pct)}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-outline-variant/30 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-on-surface-variant/40 rounded-full"
+                          style={{ width: `${pct}%` }}
+                        ></div>
                       </div>
                     </div>
                   );
-                })}
+                } else {
+                  progressUI = (
+                    <div className="mt-3">
+                      <span className="text-[11px] font-label-md text-error tracking-wider uppercase">
+                        {unlock}
+                      </span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={promo.id} className="relative rounded-xl border overflow-hidden transition-all duration-300 border-outline-variant/30 bg-surface-container-lowest/50 opacity-75">
+                    <div className="px-5 py-4">
+                      <div className="flex items-start gap-3">
+                        <span className="text-2xl mt-0.5" aria-hidden="true">{icon}</span>
+                        <div className="flex-grow min-w-0">
+                          <h4 className="font-label-lg text-on-surface-variant mb-0.5">
+                            {getPromoHeadline(promo)}
+                          </h4>
+                          <p className="font-body-sm text-on-surface-variant">
+                            {promo.description || `Eligible on orders over ₹${promo.minCartValue}`}
+                          </p>
+
+                          {progressUI}
+
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -482,7 +481,7 @@ export const Cart: React.FC = () => {
                     {item.bottle && item.bottle.name && (
                       <p className="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1">
                         <span className="material-symbols-outlined text-[14px]">liquor</span>
-                        Bottle: {item.bottle.name} 
+                        Bottle: {item.bottle.name}
                         {item.bottle.price > 0 && ` (+${formatPrice(item.bottle.price)})`}
                       </p>
                     )}
@@ -511,7 +510,7 @@ export const Cart: React.FC = () => {
                   <span className="font-headline-md text-headline-md text-primary">
                     {item.freeItem ? 'FREE' : formatPrice((item.finalPrice || 0) * item.quantity)}
                   </span>
-                  
+
                   {!item.freeItem && item.discountAmount && item.discountAmount > 0 ? (
                     <div className="text-right">
                       <span className="text-sm text-on-surface-variant line-through block mt-1">
@@ -631,15 +630,15 @@ export const Cart: React.FC = () => {
                 ))}
               </div>
             )}
-            
+
             <div className="space-y-6">
               {/* Input Area */}
               <div>
                 <p className="font-label-sm text-on-surface-variant mb-2.5 font-medium">Have a coupon code?</p>
                 <div>
                   <div className="flex gap-2">
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={couponInput}
                       onChange={(e) => setCouponInput(e.target.value)}
                       onKeyDown={(e) => {
@@ -648,19 +647,18 @@ export const Cart: React.FC = () => {
                           handleApplyCoupon();
                         }
                       }}
-                      placeholder="Enter coupon code" 
+                      placeholder="Enter coupon code"
                       className="flex-1 min-w-0 bg-transparent border border-outline-variant rounded-sm px-4 py-2 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none uppercase transition-all"
                       aria-label="Coupon code input"
                       disabled={isApplyingCoupon}
                     />
                     <button
                       onClick={() => handleApplyCoupon()}
-                      disabled={!!(isApplyingCoupon || !couponInput.trim() || (couponInput.trim() && appliedPromotions?.some((p: any) => p.code && p.code.toLowerCase() === couponInput.trim().toLowerCase())))}
-                      className={`shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent px-6 py-2 rounded-sm transition-colors font-label-md tracking-wider uppercase ${
-                        !!(!couponInput.trim() || isApplyingCoupon || (couponInput.trim() && appliedPromotions?.some((p: any) => p.code && p.code.toLowerCase() === couponInput.trim().toLowerCase())))
+                      disabled={isApplyingCoupon || !couponInput.trim() || (couponInput.trim() && appliedPromotions?.some((p: any) => p.code && p.code.toLowerCase() === couponInput.trim().toLowerCase()))}
+                      className={`shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent px-6 py-2 rounded-sm transition-colors font-label-md tracking-wider uppercase ${!couponInput.trim() || isApplyingCoupon || (couponInput.trim() && appliedPromotions?.some((p: any) => p.code && p.code.toLowerCase() === couponInput.trim().toLowerCase()))
                           ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed'
-                          : 'bg-[#d4af37] text-white hover:bg-[#b8860b] cursor-pointer'
-                      }`}
+                          : 'bg-accent text-on-primary hover:bg-accent-hover cursor-pointer'
+                        }`}
                     >
                       {isApplyingCoupon ? '...' : ((couponInput.trim() && appliedPromotions?.some((p: any) => p.code && p.code.toLowerCase() === couponInput.trim().toLowerCase())) ? 'APPLIED' : 'Apply')}
                     </button>
@@ -670,46 +668,46 @@ export const Cart: React.FC = () => {
               </div>
 
               {/* Available Offers */}
-                {(!availablePromotions || availablePromotions.length === 0) ? (
-                  <div>
-                    <p className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant/70 mb-2 font-medium">Available Offers</p>
-                    <p className="text-sm text-on-surface-variant italic">No offers available for this order</p>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant mb-3 font-medium">Available Offers</p>
-                    <div className="space-y-3">
-                      {availablePromotions.map((promo: any) => (
-                        <div key={promo.id} className="bg-surface-container-lowest border border-outline-variant/50 p-4 rounded-sm flex items-start gap-3">
-                          <span className="text-xl mt-0.5" aria-hidden="true">{getPromoIcon(promo)}</span>
-                          <div className="flex-grow min-w-0">
-                            <div className="font-label-md text-sm text-on-surface font-semibold mb-0.5">{promo.code || getPromoHeadline(promo)}</div>
-                            <div className="text-xs text-on-surface-variant leading-relaxed">{promo.description || getPromoHeadline(promo)}</div>
-                            <div className="mt-2.5">
-                              {promo.code ? (
-                                <button
-                                  onClick={() => handleApplyCoupon(promo.code || '')}
-                                  disabled={isApplyingCoupon}
-                                  className="text-[11px] font-label-md text-primary hover:underline uppercase tracking-wider font-medium"
-                                >
-                                  Apply
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => applyPromotion(promo.id)}
-                                  className="text-[11px] font-label-md text-primary hover:underline uppercase tracking-wider font-medium"
-                                >
-                                  Apply
-                                </button>
-                              )}
-                            </div>
+              {(!availablePromotions || availablePromotions.length === 0) ? (
+                <div>
+                  <p className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant/70 mb-2 font-medium">Available Offers</p>
+                  <p className="text-sm text-on-surface-variant italic">No offers available for this order</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant mb-3 font-medium">Available Offers</p>
+                  <div className="space-y-3">
+                    {availablePromotions.map((promo: any) => (
+                      <div key={promo.id} className="bg-surface-container-lowest border border-outline-variant/50 p-4 rounded-sm flex items-start gap-3">
+                        <span className="text-xl mt-0.5" aria-hidden="true">{getPromoIcon(promo)}</span>
+                        <div className="flex-grow min-w-0">
+                          <div className="font-label-md text-sm text-on-surface font-semibold mb-0.5">{promo.code || getPromoHeadline(promo)}</div>
+                          <div className="text-xs text-on-surface-variant leading-relaxed">{promo.description || getPromoHeadline(promo)}</div>
+                          <div className="mt-2.5">
+                            {promo.code ? (
+                              <button
+                                onClick={() => handleApplyCoupon(promo.code || '')}
+                                disabled={isApplyingCoupon}
+                                className="text-[11px] font-label-md text-primary hover:underline uppercase tracking-wider font-medium"
+                              >
+                                Apply
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => applyPromotion(promo.id)}
+                                className="text-[11px] font-label-md text-primary hover:underline uppercase tracking-wider font-medium"
+                              >
+                                Apply
+                              </button>
+                            )}
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex justify-between items-center mb-8 pt-4 border-t border-outline-variant/30">
