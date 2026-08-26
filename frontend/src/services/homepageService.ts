@@ -39,11 +39,13 @@ export const homepageService = {
 
   updateSection: async (sectionKey: string, request: HomepageSectionRequest): Promise<HomepageSectionResponse> => {
     const response = await apiClient.put(`${ADMIN_API}/sections/${sectionKey}`, request);
+    apiCache.clear();
     return response.data.data;
   },
 
   reorderSections: async (requests: ReorderRequest[]): Promise<void> => {
     await apiClient.patch(`${ADMIN_API}/sections/reorder`, requests);
+    apiCache.clear();
   },
 
   uploadSectionImage: async (sectionKey: string, file: File): Promise<HomepageSectionResponse> => {
@@ -52,6 +54,7 @@ export const homepageService = {
     const response = await apiClient.post(`${ADMIN_API}/sections/${sectionKey}/image`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
+    apiCache.clear();
     return response.data.data;
   },
 
@@ -63,20 +66,24 @@ export const homepageService = {
 
   createHeroBanner: async (request: HeroBannerRequest): Promise<HeroBannerResponse> => {
     const response = await apiClient.post(`${ADMIN_API}/heroes`, request);
+    apiCache.clear();
     return response.data.data;
   },
 
   updateHeroBanner: async (id: number, request: HeroBannerRequest): Promise<HeroBannerResponse> => {
     const response = await apiClient.put(`${ADMIN_API}/heroes/${id}`, request);
+    apiCache.clear();
     return response.data.data;
   },
 
   deleteHeroBanner: async (id: number): Promise<void> => {
     await apiClient.delete(`${ADMIN_API}/heroes/${id}`);
+    apiCache.clear();
   },
 
   reorderHeroBanners: async (requests: ReorderRequest[]): Promise<void> => {
     await apiClient.patch(`${ADMIN_API}/heroes/reorder`, requests);
+    apiCache.clear();
   },
 
   uploadHeroImage: async (id: number, file: File, isMobile: boolean = false): Promise<HeroBannerResponse> => {
@@ -86,6 +93,7 @@ export const homepageService = {
     const response = await apiClient.post(`${ADMIN_API}/heroes/${id}/${endpoint}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    apiCache.clear();
     return response.data.data;
   },
 
@@ -97,20 +105,24 @@ export const homepageService = {
 
   createPromoBanner: async (request: PromoBannerRequest): Promise<PromoBannerResponse> => {
     const response = await apiClient.post(`${ADMIN_API}/banners`, request);
+    apiCache.clear();
     return response.data.data;
   },
 
   updatePromoBanner: async (id: number, request: PromoBannerRequest): Promise<PromoBannerResponse> => {
     const response = await apiClient.put(`${ADMIN_API}/banners/${id}`, request);
+    apiCache.clear();
     return response.data.data;
   },
 
   deletePromoBanner: async (id: number): Promise<void> => {
     await apiClient.delete(`${ADMIN_API}/banners/${id}`);
+    apiCache.clear();
   },
 
   reorderPromoBanners: async (requests: ReorderRequest[]): Promise<void> => {
     await apiClient.patch(`${ADMIN_API}/banners/reorder`, requests);
+    apiCache.clear();
   },
 
   uploadPromoImage: async (id: number, file: File): Promise<PromoBannerResponse> => {
@@ -119,6 +131,7 @@ export const homepageService = {
     const response = await apiClient.post(`${ADMIN_API}/banners/${id}/image`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    apiCache.clear();
     return response.data.data;
   },
 
@@ -130,20 +143,24 @@ export const homepageService = {
 
   createTestimonial: async (request: TestimonialRequest): Promise<TestimonialResponse> => {
     const response = await apiClient.post(`${ADMIN_API}/testimonials`, request);
+    apiCache.clear();
     return response.data.data;
   },
 
   updateTestimonial: async (id: number, request: TestimonialRequest): Promise<TestimonialResponse> => {
     const response = await apiClient.put(`${ADMIN_API}/testimonials/${id}`, request);
+    apiCache.clear();
     return response.data.data;
   },
 
   deleteTestimonial: async (id: number): Promise<void> => {
     await apiClient.delete(`${ADMIN_API}/testimonials/${id}`);
+    apiCache.clear();
   },
 
   reorderTestimonials: async (requests: ReorderRequest[]): Promise<void> => {
     await apiClient.patch(`${ADMIN_API}/testimonials/reorder`, requests);
+    apiCache.clear();
   },
 
   uploadTestimonialPhoto: async (id: number, file: File): Promise<TestimonialResponse> => {
@@ -152,6 +169,7 @@ export const homepageService = {
     const response = await apiClient.post(`${ADMIN_API}/testimonials/${id}/photo`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    apiCache.clear();
     return response.data.data;
   },
 
@@ -163,19 +181,23 @@ export const homepageService = {
 
   createWhyChooseUsItem: async (request: WhyChooseUsItemRequest): Promise<WhyChooseUsItemResponse> => {
     const response = await apiClient.post(`${ADMIN_API}/why-choose-us`, request);
+    apiCache.clear();
     return response.data.data;
   },
 
   updateWhyChooseUsItem: async (id: number, request: WhyChooseUsItemRequest): Promise<WhyChooseUsItemResponse> => {
     const response = await apiClient.put(`${ADMIN_API}/why-choose-us/${id}`, request);
+    apiCache.clear();
     return response.data.data;
   },
 
   deleteWhyChooseUsItem: async (id: number): Promise<void> => {
     await apiClient.delete(`${ADMIN_API}/why-choose-us/${id}`);
+    apiCache.clear();
   },
 
   reorderWhyChooseUsItems: async (requests: ReorderRequest[]): Promise<void> => {
     await apiClient.patch(`${ADMIN_API}/why-choose-us/reorder`, requests);
+    apiCache.clear();
   }
 };

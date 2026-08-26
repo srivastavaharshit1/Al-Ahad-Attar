@@ -340,6 +340,13 @@ public class HomepageServiceImpl implements HomepageService {
 
     // --- Mappers ---
 
+    private String resolveAndBust(String imageUrl, String proxyPathFallback, java.time.LocalDateTime updatedAt) {
+        String resolved = storageService.resolveUrl(imageUrl, proxyPathFallback);
+        if (resolved == null) return null;
+        String buster = "v=" + (updatedAt != null ? updatedAt.toEpochSecond(java.time.ZoneOffset.UTC) : System.currentTimeMillis());
+        return resolved.contains("?") ? resolved + "&" + buster : resolved + "?" + buster;
+    }
+
     private HomepageSectionResponse mapSection(HomepageSection s) {
         return HomepageSectionResponse.builder()
                 .id(s.getId())
@@ -350,7 +357,7 @@ public class HomepageServiceImpl implements HomepageService {
                 .visible(s.isVisible())
                 .displayOrder(s.getDisplayOrder())
                 .maxItems(s.getMaxItems())
-                .imageUrl(storageService.resolveUrl(s.getImageUrl(), "/api/homepage/sections/" + s.getSectionKey() + "/image"))
+                .imageUrl(resolveAndBust(s.getImageUrl(), "/api/homepage/sections/" + s.getSectionKey() + "/image", s.getUpdatedAt()))
                 .build();
     }
 
@@ -363,8 +370,8 @@ public class HomepageServiceImpl implements HomepageService {
                 .buttonText(h.getButtonText())
                 .buttonUrl(h.getButtonUrl())
                 .badge(h.getBadge())
-                .imageUrl(storageService.resolveUrl(h.getImageUrl(), "/api/homepage/heroes/" + h.getId() + "/image"))
-                .mobileImageUrl(storageService.resolveUrl(h.getMobileImageUrl(), "/api/homepage/heroes/" + h.getId() + "/mobile-image"))
+                .imageUrl(resolveAndBust(h.getImageUrl(), "/api/homepage/heroes/" + h.getId() + "/image", h.getUpdatedAt()))
+                .mobileImageUrl(resolveAndBust(h.getMobileImageUrl(), "/api/homepage/heroes/" + h.getId() + "/mobile-image", h.getUpdatedAt()))
                 .active(h.isActive())
                 .displayOrder(h.getDisplayOrder())
                 .build();
@@ -375,7 +382,7 @@ public class HomepageServiceImpl implements HomepageService {
                 .id(p.getId())
                 .title(p.getTitle())
                 .subtitle(p.getSubtitle())
-                .imageUrl(storageService.resolveUrl(p.getImageUrl(), "/api/homepage/banners/" + p.getId() + "/image"))
+                .imageUrl(resolveAndBust(p.getImageUrl(), "/api/homepage/banners/" + p.getId() + "/image", p.getUpdatedAt()))
                 .buttonText(p.getButtonText())
                 .buttonUrl(p.getButtonUrl())
                 .backgroundColor(p.getBackgroundColor())
@@ -390,7 +397,7 @@ public class HomepageServiceImpl implements HomepageService {
         return TestimonialResponse.builder()
                 .id(t.getId())
                 .customerName(t.getCustomerName())
-                .photoUrl(storageService.resolveUrl(t.getPhotoUrl(), "/api/homepage/testimonials/" + t.getId() + "/photo"))
+                .photoUrl(resolveAndBust(t.getPhotoUrl(), "/api/homepage/testimonials/" + t.getId() + "/photo", t.getUpdatedAt()))
                 .rating(t.getRating())
                 .review(t.getReview())
                 .displayOrder(t.getDisplayOrder())
