@@ -50,7 +50,7 @@ public class ProductController {
     })
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    @CacheEvict(value = "products", allEntries = true)
+    @CacheEvict(value = {"products", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<ProductResponse>> createProduct(
             @Valid @RequestBody ProductRequest request) {
         log.info("Received request to create new product: {}", request.getName());
@@ -70,7 +70,7 @@ public class ProductController {
     })
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    @CacheEvict(value = "products", allEntries = true)
+    @CacheEvict(value = {"products", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(
             @PathVariable Long id,
             @Valid @RequestBody ProductRequest request) {
@@ -91,7 +91,7 @@ public class ProductController {
     })
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    @CacheEvict(value = "products", allEntries = true)
+    @CacheEvict(value = {"products", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<Void>> deleteProduct(@PathVariable Long id) {
         log.info("Received request to delete product with ID: {}", id);
         productService.deleteProduct(id);
@@ -109,7 +109,7 @@ public class ProductController {
     })
     @PatchMapping("/{id}/activate")
     @PreAuthorize("hasRole('ADMIN')")
-    @CacheEvict(value = "products", allEntries = true)
+    @CacheEvict(value = {"products", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<Void>> activateProduct(@PathVariable Long id) {
         log.info("Received request to activate product with ID: {}", id);
         productService.activateProduct(id);
@@ -127,7 +127,7 @@ public class ProductController {
     })
     @PatchMapping("/{id}/deactivate")
     @PreAuthorize("hasRole('ADMIN')")
-    @CacheEvict(value = "products", allEntries = true)
+    @CacheEvict(value = {"products", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<Void>> deactivateProduct(@PathVariable Long id) {
         log.info("Received request to deactivate product with ID: {}", id);
         productService.deactivateProduct(id);

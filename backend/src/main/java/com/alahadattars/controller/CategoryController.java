@@ -30,7 +30,7 @@ public class CategoryController {
     @Operation(summary = "Create a new category (ADMIN)")
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    @CacheEvict(value = "categories", allEntries = true)
+    @CacheEvict(value = {"categories", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<CategoryResponse>> createCategory(
             @Valid @RequestBody CategoryRequest request) {
         log.info("Creating new category: {}", request.getName());
@@ -45,7 +45,7 @@ public class CategoryController {
     @Operation(summary = "Update an existing category (ADMIN)")
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    @CacheEvict(value = "categories", allEntries = true)
+    @CacheEvict(value = {"categories", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<CategoryResponse>> updateCategory(
             @PathVariable Long id,
             @Valid @RequestBody CategoryRequest request) {
@@ -61,7 +61,7 @@ public class CategoryController {
     @Operation(summary = "Delete a category (ADMIN)")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    @CacheEvict(value = "categories", allEntries = true)
+    @CacheEvict(value = {"categories", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<Void>> deleteCategory(@PathVariable Long id) {
         log.info("Deleting category ID: {}", id);
         categoryService.deleteCategory(id);
@@ -114,7 +114,7 @@ public class CategoryController {
     @Operation(summary = "Upload desktop image for category (ADMIN)")
     @PostMapping(value = "/{id}/desktop-image", consumes = "multipart/form-data")
     @PreAuthorize("hasRole('ADMIN')")
-    @CacheEvict(value = "categories", allEntries = true)
+    @CacheEvict(value = {"categories", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<CategoryResponse>> uploadDesktopImage(
             @PathVariable Long id,
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
@@ -130,7 +130,7 @@ public class CategoryController {
     @Operation(summary = "Upload mobile image for category (ADMIN)")
     @PostMapping(value = "/{id}/mobile-image", consumes = "multipart/form-data")
     @PreAuthorize("hasRole('ADMIN')")
-    @CacheEvict(value = "categories", allEntries = true)
+    @CacheEvict(value = {"categories", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<CategoryResponse>> uploadMobileImage(
             @PathVariable Long id,
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
@@ -146,7 +146,7 @@ public class CategoryController {
     @Operation(summary = "Upload hover image for category (ADMIN)")
     @PostMapping(value = "/{id}/hover-image", consumes = "multipart/form-data")
     @PreAuthorize("hasRole('ADMIN')")
-    @CacheEvict(value = "categories", allEntries = true)
+    @CacheEvict(value = {"categories", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<CategoryResponse>> uploadHoverImage(
             @PathVariable Long id,
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
