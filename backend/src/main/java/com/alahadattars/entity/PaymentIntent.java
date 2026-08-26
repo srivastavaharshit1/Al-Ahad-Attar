@@ -64,7 +64,7 @@ public class PaymentIntent extends BaseEntity {
     private boolean consumed = false;
 
     /** Set when a stuck checkout alert has been successfully sent for this intent to prevent duplicate emails. */
-    @Column(name = "stuck_alerted", nullable = false)
+    @Column(name = "stuck_alerted", nullable = false, columnDefinition = "boolean default false")
     @Builder.Default
     private boolean stuckAlerted = false;
 
