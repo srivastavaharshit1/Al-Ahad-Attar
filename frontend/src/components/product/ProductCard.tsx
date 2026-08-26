@@ -55,7 +55,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
     e.preventDefault();
     if (!variantId) return;
 
-    const isAttar = defaultVariant?.productType === 'ATTAR' || (product as any).productType === 'ATTAR' || defaultType === 'ATTAR';
+    const isAttarCategory = product.category?.type === 'ATTARS' || (product as any).categoryType === 'ATTARS';
+    const isAttarVariant = defaultVariant?.productType === 'ATTAR' || (product as any).defaultVariantType === 'ATTAR';
+    const isAttar = isAttarCategory && isAttarVariant;
     
     if (isAttar) {
       setShowBottleModal(true);
@@ -190,7 +192,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
       {/* Elegant Details */}
       <div className="p-6 flex flex-col items-center text-center bg-surface">
         <span className="text-[9px] font-body-md text-on-surface-variant uppercase tracking-[0.25em] mb-2">
-          {product.category?.name || 'Fragrance'}
+          {product.category?.name || (product as any).categoryName || 'Fragrance'}
         </span>
 
         <Link

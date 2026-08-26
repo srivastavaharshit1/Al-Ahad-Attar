@@ -265,7 +265,7 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
               <div>
                 <p className="text-on-surface font-medium">Click to upload images</p>
                 <p className="text-sm text-on-surface-variant mt-1">JPEG, PNG, WEBP (Max 5MB)</p>
-                <p className="text-[10px] text-on-surface-variant/70 mt-1">Recommended: 1080x1080 (1:1 ratio)</p>
+                <p className="text-[10px] text-accent/90 mt-1 font-medium">Recommended: 1200x1600 (3:4 ratio for Portrait)</p>
               </div>
             </>
           )}

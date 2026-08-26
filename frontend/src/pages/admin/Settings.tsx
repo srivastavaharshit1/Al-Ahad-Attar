@@ -175,7 +175,7 @@ export const Settings: React.FC = () => {
                 <div>
                   <div className="flex flex-col mb-4">
                     <label className="field-label mb-0">Primary Store Logo (Footer/About)</label>
-                    <span className="text-[10px] text-on-surface-variant/70">Recommended: 200x50 (4:1)</span>
+                    <span className="text-[10px] text-accent/90 mt-1 font-medium">Recommended: 200x50 (4:1 ratio for Wide) or 100x100 (1:1 ratio for Square)</span>
                   </div>
                   <div className="flex flex-col gap-4">
                     <div 
@@ -207,7 +207,7 @@ export const Settings: React.FC = () => {
                 <div>
                   <div className="flex flex-col mb-4">
                     <label className="field-label mb-0">Navbar Logo (Clean Brand Mark)</label>
-                    <span className="text-[10px] text-on-surface-variant/70">Recommended: 200x50 (4:1)</span>
+                    <span className="text-[10px] text-accent/90 mt-1 font-medium">Recommended: 200x50 (4:1 ratio for Wide) or 100x100 (1:1 ratio for Square)</span>
                   </div>
                   <div className="flex flex-col gap-4">
                     <div 

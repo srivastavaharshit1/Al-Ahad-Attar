@@ -361,7 +361,7 @@ export const HeroTab: React.FC = () => {
               <div className="border-2 border-dashed border-outline-variant hover:border-accent transition-colors rounded-lg p-4 text-center bg-surface-container-lowest">
                 <div className="flex flex-col items-center mb-2">
                   <p className="font-label-sm">Desktop Image</p>
-                  <span className="text-[10px] text-on-surface-variant/70">Rec: 1920x1080 (16:9)</span>
+                  <span className="text-[10px] text-accent/90 mt-1 font-medium">Rec: 1920x1080 (16:9 ratio for Landscape)</span>
                 </div>
                 {editingHero?.imageUrl && (
                   <img src={getImageUrl(editingHero.imageUrl)} alt="" className="w-full h-16 object-cover mb-2 rounded" />
@@ -377,7 +377,7 @@ export const HeroTab: React.FC = () => {
               <div className="border-2 border-dashed border-outline-variant hover:border-accent transition-colors rounded-lg p-4 text-center bg-surface-container-lowest">
                 <div className="flex flex-col items-center mb-2">
                   <p className="font-label-sm">Mobile Image (Optional)</p>
-                  <span className="text-[10px] text-on-surface-variant/70">Rec: 1080x1350 (4:5)</span>
+                  <span className="text-[10px] text-accent/90 mt-1 font-medium">Rec: 1080x1350 (4:5 ratio for Portrait)</span>
                 </div>
                 {editingHero?.mobileImageUrl && (
                   <img src={getImageUrl(editingHero.mobileImageUrl)} alt="" className="w-12 h-16 object-cover mb-2 rounded mx-auto" />

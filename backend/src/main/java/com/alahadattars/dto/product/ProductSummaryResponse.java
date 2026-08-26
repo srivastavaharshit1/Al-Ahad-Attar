@@ -20,12 +20,14 @@ public class ProductSummaryResponse {
     private boolean featuredInCollection;
     private com.alahadattars.enums.Gender gender;
     private String categoryName;
+    private String categoryType;
     private String subcategory;
     private BigDecimal minimumPrice;
     private String thumbnail;
     private Integer totalStock;
     private Long defaultVariantId;
     private String defaultVariantSize;
+    private String defaultVariantType;
     private java.util.List<String> availableSizes;
     private Double averageRating;
     private Integer reviewCount;

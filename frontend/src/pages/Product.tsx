@@ -104,7 +104,7 @@ export const ProductPage: React.FC = () => {
 
   const hasAttar = product.variants?.some(v => v.productType === 'ATTAR');
   const hasPerfume = product.variants?.some(v => v.productType === 'PERFUME');
-  const isAttarCategory = product.category?.name?.toLowerCase().includes('attar');
+  const isAttarCategory = product.category?.type === 'ATTARS';
 
   const sortedImages = [...(product.images || [])].sort((a, b) => a.displayOrder - b.displayOrder);
   const allImages = sortedImages.map(img => img.imageUrl);
@@ -134,7 +134,8 @@ export const ProductPage: React.FC = () => {
   const handleAddToCart = () => {
     if (!selectedVariant) return;
     
-    if (selectedVariant.productType === 'ATTAR') {
+    const isAttarCategory = product?.category?.type === 'ATTARS';
+    if (isAttarCategory && selectedVariant.productType === 'ATTAR') {
       setShowBottleModal(true);
     } else {
       addToCartWithBottle(null);
