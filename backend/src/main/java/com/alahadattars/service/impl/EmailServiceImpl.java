@@ -193,6 +193,21 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    @Override
+    @Async("emailTaskExecutor")
+    public void sendAdminStuckCheckoutEmail(com.alahadattars.dto.email.AdminStuckCheckoutEmailData data) {
+        try {
+            String recipient = resolveAdminRecipient("stuck-checkout", data.razorpayOrderId());
+            if (recipient == null) {
+                return;
+            }
+            String html = EmailTemplateBuilder.buildAdminStuckCheckoutEmail(data, supportEmail);
+            send(recipient, EmailConstants.SUBJECT_ADMIN_STUCK_CHECKOUT, html);
+        } catch (Exception e) {
+            log.error("Failed to send admin stuck-checkout email for payment {}: {}", data.razorpayPaymentId(), e.getMessage(), e);
+        }
+    }
+
     // ------------------------------------------------------------------
     // Core send
     // ------------------------------------------------------------------

@@ -25,4 +25,11 @@ public interface PaymentIntentRepository extends JpaRepository<PaymentIntent, Lo
     int markConsumed(@Param("id") Long id,
                      @Param("paymentId") String paymentId,
                      @Param("now") LocalDateTime now);
+
+    /**
+     * Conditionally marks the intent as alerted for a stuck checkout. Returns 0 when it was already alerted.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE PaymentIntent pi SET pi.stuckAlerted = true WHERE pi.id = :id AND pi.stuckAlerted = false")
+    int markStuckAlerted(@Param("id") Long id);
 }

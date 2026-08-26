@@ -2,6 +2,7 @@ package com.alahadattars.email;
 
 import com.alahadattars.dto.email.AdminNewOrderEmailData;
 import com.alahadattars.dto.email.AdminOrderCancelledEmailData;
+import com.alahadattars.dto.email.AdminStuckCheckoutEmailData;
 import com.alahadattars.dto.email.AdminRefundFailedEmailData;
 import com.alahadattars.dto.email.EmailAddress;
 import com.alahadattars.dto.email.EmailOrderItem;
@@ -263,6 +264,23 @@ public final class EmailTemplateBuilder {
                 + "Razorpay dashboard before retrying from the admin Refunds page."));
 
         return wrapLayout("Refund failed for order " + data.orderNumber(), body.toString(), supportEmail);
+    }
+
+    public static String buildAdminStuckCheckoutEmail(AdminStuckCheckoutEmailData data, String supportEmail) {
+        StringBuilder body = new StringBuilder();
+        body.append(heading("Stuck Checkout Detected"));
+        body.append(paragraph("A customer paid successfully via Razorpay, but the browser lost connection before our system could create the Order."));
+
+        body.append(infoCard(List.of(
+                infoRow("Razorpay Order ID", data.razorpayOrderId()),
+                infoRow("Razorpay Payment ID", data.razorpayPaymentId()),
+                infoRow("Customer Email", data.customerEmail()),
+                infoRow("Amount Captured", formatMoney(data.amount()))
+        )));
+
+        body.append(paragraph("This requires manual reconciliation. You should either issue a manual refund from the Razorpay Dashboard or manually place the order for the customer."));
+
+        return wrapLayout("Stuck Checkout for payment " + data.razorpayPaymentId(), body.toString(), supportEmail);
     }
 
     // ------------------------------------------------------------------

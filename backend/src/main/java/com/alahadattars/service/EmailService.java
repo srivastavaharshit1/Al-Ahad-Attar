@@ -44,4 +44,6 @@ public interface EmailService {
     void sendAdminOrderCancelledEmail(AdminOrderCancelledEmailData data);
 
     void sendAdminRefundFailedEmail(AdminRefundFailedEmailData data);
+
+    void sendAdminStuckCheckoutEmail(com.alahadattars.dto.email.AdminStuckCheckoutEmailData data);
 }

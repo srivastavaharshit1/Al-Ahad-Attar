@@ -65,6 +65,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final UserRepository userRepository;
     private final com.alahadattars.repository.OrderRepository orderRepository;
     private final RefundTransactionSupport refundTransactionSupport;
+    private final com.alahadattars.service.EmailService emailService;
 
     @PostConstruct
     public void validateRazorpayConfig() {
@@ -358,7 +359,8 @@ public class PaymentServiceImpl implements PaymentService {
      * order from a webhook alone (the intent only records amount/user, not the cart/address/coupon
      * the client would have submitted).
      */
-    private void handlePaymentCaptured(JSONObject payload) {
+    @org.springframework.transaction.annotation.Transactional
+    protected void handlePaymentCaptured(JSONObject payload) {
         JSONObject paymentEntity = payload.optJSONObject("payment") != null
                 ? payload.getJSONObject("payment").optJSONObject("entity") : null;
         if (paymentEntity == null) {
@@ -384,12 +386,24 @@ public class PaymentServiceImpl implements PaymentService {
             return;
         }
 
+        if (paymentIntentRepository.markStuckAlerted(intent.getId()) == 0) {
+            log.info("Razorpay 'payment.captured' for payment {} already alerted as stuck. Ignoring duplicate webhook.", razorpayPaymentId);
+            return;
+        }
+
         log.error("STUCK CHECKOUT: Razorpay captured payment {} for order {} (user {}, amount {}), but no Order was ever "
                         + "created — the customer's browser likely closed/lost connection before the checkout redirect "
                         + "completed. This needs manual reconciliation (refund or manually place the order).",
                 razorpayPaymentId, razorpayOrderId,
                 intent.getUser() != null ? intent.getUser().getEmail() : "unknown",
                 intent.getAmount());
+                
+        emailService.sendAdminStuckCheckoutEmail(new com.alahadattars.dto.email.AdminStuckCheckoutEmailData(
+                razorpayPaymentId,
+                razorpayOrderId,
+                intent.getUser() != null ? intent.getUser().getEmail() : "unknown",
+                intent.getAmount()
+        ));
     }
 
     /**
