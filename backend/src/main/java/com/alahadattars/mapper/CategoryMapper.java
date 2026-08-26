@@ -13,6 +13,13 @@ public class CategoryMapper {
 
     private final StorageService storageService;
 
+    private String resolveAndBust(String imageUrl, String proxyPathFallback, java.time.LocalDateTime updatedAt) {
+        String resolved = storageService.resolveUrl(imageUrl, proxyPathFallback);
+        if (resolved == null) return null;
+        String buster = "v=" + (updatedAt != null ? updatedAt.toEpochSecond(java.time.ZoneOffset.UTC) : System.currentTimeMillis());
+        return resolved.contains("?") ? resolved + "&" + buster : resolved + "?" + buster;
+    }
+
     public CategoryResponse toResponse(Category category) {
         if (category == null) {
             return null;
@@ -25,9 +32,9 @@ public class CategoryMapper {
                 .image(category.getImage())
                 .type(category.getType())
                 .active(category.isActive())
-                .desktopImageUrl(storageService.resolveUrl(category.getDesktopImageUrl(), "/api/categories/" + category.getId() + "/desktop-image"))
-                .mobileImageUrl(storageService.resolveUrl(category.getMobileImageUrl(), "/api/categories/" + category.getId() + "/mobile-image"))
-                .hoverImageUrl(storageService.resolveUrl(category.getHoverImageUrl(), "/api/categories/" + category.getId() + "/hover-image"))
+                .desktopImageUrl(resolveAndBust(category.getDesktopImageUrl(), "/api/categories/" + category.getId() + "/desktop-image", category.getUpdatedAt()))
+                .mobileImageUrl(resolveAndBust(category.getMobileImageUrl(), "/api/categories/" + category.getId() + "/mobile-image", category.getUpdatedAt()))
+                .hoverImageUrl(resolveAndBust(category.getHoverImageUrl(), "/api/categories/" + category.getId() + "/hover-image", category.getUpdatedAt()))
                 .homepageTitle(category.getHomepageTitle())
                 .homepageSubtitle(category.getHomepageSubtitle())
                 .homepageButtonText(category.getHomepageButtonText())

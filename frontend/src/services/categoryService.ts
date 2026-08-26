@@ -50,16 +50,19 @@ export const categoryService = {
 
   createCategory: async (data: CategoryRequest): Promise<ApiResponse<Category>> => {
     const response = await apiClient.post<ApiResponse<Category>>('/categories', data);
+    apiCache.clear();
     return response.data;
   },
 
   updateCategory: async (id: number, data: CategoryRequest): Promise<ApiResponse<Category>> => {
     const response = await apiClient.put<ApiResponse<Category>>(`/categories/${id}`, data);
+    apiCache.clear();
     return response.data;
   },
 
   deleteCategory: async (id: number): Promise<ApiResponse<void>> => {
     const response = await apiClient.delete<ApiResponse<void>>(`/categories/${id}`);
+    apiCache.clear();
     return response.data;
   },
 
@@ -69,6 +72,7 @@ export const categoryService = {
     const response = await apiClient.post<ApiResponse<Category>>(`/categories/${id}/desktop-image`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    apiCache.clear();
     return response.data;
   },
 
@@ -78,6 +82,7 @@ export const categoryService = {
     const response = await apiClient.post<ApiResponse<Category>>(`/categories/${id}/mobile-image`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    apiCache.clear();
     return response.data;
   },
 
@@ -87,6 +92,7 @@ export const categoryService = {
     const response = await apiClient.post<ApiResponse<Category>>(`/categories/${id}/hover-image`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    apiCache.clear();
     return response.data;
   }
 };
