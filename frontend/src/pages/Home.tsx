@@ -207,7 +207,7 @@ const CategoriesSection = ({ categories, section }: { categories: any[], section
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {displayCategories.map((cat) => (
-          <Link key={cat.id} to={cat.homepageButtonUrl || `/category/${cat.type.toLowerCase()}`} className="group relative aspect-[3/4] overflow-hidden flex flex-col justify-end">
+          <Link key={cat.id} to={cat.homepageButtonUrl || `/category/${cat.type.toLowerCase()}`} className="group relative aspect-square overflow-hidden flex flex-col justify-end">
             <div className="absolute inset-0 bg-gradient-to-br from-[#1a2332] to-[#0d141e]">
               <picture>
                 {cat.mobileImageUrl && <source media="(max-width: 768px)" srcSet={getImageUrl(cat.mobileImageUrl)} />}
