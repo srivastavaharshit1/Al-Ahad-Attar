@@ -37,7 +37,7 @@ public class ProductImageController {
     @Operation(summary = "Upload an image for a product (ADMIN)")
     @PostMapping(value = "/api/products/{productId}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
-    @CacheEvict(value = "products", allEntries = true)
+    @CacheEvict(value = {"products", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<ProductImageResponse>> uploadImage(
             @PathVariable Long productId,
             @Parameter(description = "The image file (JPEG, PNG, WEBP)", content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE))
@@ -66,7 +66,7 @@ public class ProductImageController {
     @Operation(summary = "Delete an image (ADMIN)")
     @DeleteMapping("/api/images/{imageId}")
     @PreAuthorize("hasRole('ADMIN')")
-    @CacheEvict(value = "products", allEntries = true)
+    @CacheEvict(value = {"products", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<Void>> deleteImage(@PathVariable Long imageId) {
         log.info("Received request to delete image ID: {}", imageId);
         productImageService.deleteImage(imageId);
@@ -79,7 +79,7 @@ public class ProductImageController {
     @Operation(summary = "Set image as Primary (ADMIN)")
     @PatchMapping("/api/images/{imageId}/primary")
     @PreAuthorize("hasRole('ADMIN')")
-    @CacheEvict(value = "products", allEntries = true)
+    @CacheEvict(value = {"products", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<ProductImageResponse>> setPrimaryImage(@PathVariable Long imageId) {
         log.info("Received request to set image ID: {} as primary", imageId);
         ProductImageResponse response = productImageService.setPrimaryImage(imageId);
@@ -93,7 +93,7 @@ public class ProductImageController {
     @Operation(summary = "Update display order of images (ADMIN)")
     @PatchMapping("/api/products/{productId}/images/reorder")
     @PreAuthorize("hasRole('ADMIN')")
-    @CacheEvict(value = "products", allEntries = true)
+    @CacheEvict(value = {"products", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<List<ProductImageResponse>>> updateDisplayOrder(
             @PathVariable Long productId,
             @RequestBody List<Long> orderedImageIds) {
