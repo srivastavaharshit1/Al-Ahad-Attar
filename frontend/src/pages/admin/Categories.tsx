@@ -312,7 +312,7 @@ export const Categories: React.FC = () => {
                 <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
                   <div className="flex flex-col mb-2">
                     <label className="field-label mb-0">Desktop Image</label>
-                    <span className="text-[10px] text-on-surface-variant/70">Recommended: 800x800 (1:1)</span>
+                    <span className="text-[10px] text-accent/90 mt-1 font-medium">Recommended: 800x1000 (4:5 ratio for Portrait)</span>
                   </div>
                   {currentCategory.desktopImageUrl && (
                     <img src={getImageUrl(currentCategory.desktopImageUrl)} alt="" className="w-full h-24 object-cover mb-2 rounded" />
@@ -323,7 +323,7 @@ export const Categories: React.FC = () => {
                 <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
                   <div className="flex flex-col mb-2">
                     <label className="field-label mb-0">Mobile Image (Optional)</label>
-                    <span className="text-[10px] text-on-surface-variant/70">Recommended: 800x800 (1:1)</span>
+                    <span className="text-[10px] text-accent/90 mt-1 font-medium">Recommended: 800x1000 (4:5 ratio for Portrait)</span>
                   </div>
                   {currentCategory.mobileImageUrl && (
                     <img src={getImageUrl(currentCategory.mobileImageUrl)} alt="" className="w-24 h-32 object-cover mb-2 rounded" />

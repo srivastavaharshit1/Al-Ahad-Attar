@@ -15,8 +15,12 @@ export const Footer: React.FC = () => {
         {/* Column 1: Brand */}
         <div className="lg:col-span-4 pr-0 lg:pr-8">
           <div className="mb-6">
-              <div className="flex flex-col">
-                <span className="font-headline-md text-2xl text-accent tracking-wider uppercase">AL AHAD ATTARS</span>
+              <div className="flex flex-col items-start">
+                {settings?.brandLogoUrl ? (
+                  <img src={settings.brandLogoUrl} alt={settings.storeName || "Brand Logo"} className="h-20 w-auto object-contain object-left mb-2" />
+                ) : (
+                  <span className="font-headline-md text-2xl text-accent tracking-wider uppercase">{settings?.storeName || 'AL AHAD ATTARS'}</span>
+                )}
                 <span className="text-[9px] text-accent/80 uppercase tracking-[0.2em] mt-2 block">Premium Arabic Fragrances Since 2025</span>
               </div>
           </div>

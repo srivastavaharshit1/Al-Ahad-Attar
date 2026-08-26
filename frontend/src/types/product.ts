@@ -57,6 +57,8 @@ export interface ProductSummary {
   totalStock: number;
   defaultVariantId: number;
   defaultVariantSize: string;
+  defaultVariantType?: string;
+  categoryType?: string;
   availableSizes: string[];
   averageRating: number;
   reviewCount: number;

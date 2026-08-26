@@ -13,6 +13,8 @@ interface BottleSelectionModalProps {
   selectedSize?: string;
 }
 
+import { createPortal } from 'react-dom';
+
 export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
   isOpen,
   onClose,
@@ -25,6 +27,8 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      // Prevent body scrolling when modal is open
+      document.body.style.overflow = 'hidden';
       setIsLoading(true);
       bottleService.getActive()
         .then((data) => {
@@ -42,13 +46,19 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
         })
         .catch(() => toast.error('Failed to load bottle options'))
         .finally(() => setIsLoading(false));
+    } else {
+      document.body.style.overflow = 'unset';
     }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
   }, [isOpen, selectedSize]);
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-white w-full max-w-2xl rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
@@ -132,6 +142,7 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

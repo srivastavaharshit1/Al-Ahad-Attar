@@ -118,8 +118,10 @@ public class ProductMapper {
         Integer totalStock = 0;
         Long defaultVariantId = null;
         String defaultVariantSize = null;
+        String defaultVariantType = null;
 
         String categoryName = product.getCategory() != null ? product.getCategory().getName() : null;
+        String categoryType = product.getCategory() != null && product.getCategory().getType() != null ? product.getCategory().getType().name() : null;
         java.util.List<String> availableSizesList = java.util.Collections.emptyList();
 
         if (product.getVariants() != null && !product.getVariants().isEmpty()) {
@@ -164,6 +166,7 @@ public class ProductMapper {
             if (defaultVariant != null) {
                 defaultVariantId = defaultVariant.getId();
                 defaultVariantSize = defaultVariant.getSize();
+                defaultVariantType = defaultVariant.getProductType() != null ? defaultVariant.getProductType().name() : null;
             }
             
             totalStock = preferredVariants.stream()
@@ -197,12 +200,14 @@ public class ProductMapper {
                 .featured(product.isFeatured())
                 .featuredInCollection(product.getCollections() != null && product.getCollections().contains("COLLECTIONS"))
                 .categoryName(categoryName)
+                .categoryType(categoryType)
                 .subcategory(product.getSubcategory())
                 .minimumPrice(minPrice)
                 .thumbnail(thumb)
                 .totalStock(totalStock)
                 .defaultVariantId(defaultVariantId)
                 .defaultVariantSize(defaultVariantSize)
+                .defaultVariantType(defaultVariantType)
                 .availableSizes(availableSizesList)
                 .averageRating(product.getAverageRating())
                 .reviewCount(product.getReviewCount())

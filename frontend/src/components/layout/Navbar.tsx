@@ -4,6 +4,7 @@ import { SearchOverlay } from './SearchOverlay';
 import { AuthContext } from '../../context/AuthContext';
 import { useCart } from '../../hooks/useCart';
 import { useWishlist } from '../../hooks/useWishlist';
+import { useStoreSettings } from '../../context/StoreSettingsContext';
 
 export const Navbar: React.FC = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -14,6 +15,7 @@ export const Navbar: React.FC = () => {
   const user = authContext?.user;
   const { itemCount } = useCart();
   const { productIds } = useWishlist();
+  const { settings } = useStoreSettings();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -56,9 +58,13 @@ export const Navbar: React.FC = () => {
           {/* Left: Logo */}
           <div className="flex-1 flex justify-start h-full py-2 min-w-0">
             <Link to="/" className="flex items-center h-full min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2">
-              <span className="font-headline-md text-base sm:text-xl md:text-2xl text-ink tracking-tight whitespace-nowrap block" style={{ letterSpacing: '0.05em' }}>
-                AL AHAD ATTARS
-              </span>
+              {settings?.navbarLogoUrl ? (
+                <img src={settings.navbarLogoUrl} alt={settings.storeName || "Brand Logo"} className="h-8 sm:h-10 md:h-12 w-auto object-contain" />
+              ) : (
+                <span className="font-headline-md text-base sm:text-xl md:text-2xl text-ink tracking-tight whitespace-nowrap block" style={{ letterSpacing: '0.05em' }}>
+                  {settings?.storeName || 'AL AHAD ATTARS'}
+                </span>
+              )}
             </Link>
           </div>
 
