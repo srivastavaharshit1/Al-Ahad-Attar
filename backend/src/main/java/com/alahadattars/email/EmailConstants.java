@@ -22,6 +22,7 @@ public final class EmailConstants {
     public static final String SUBJECT_REFUND_SUCCESSFUL = "Refund Processed — Al Ahad Attars";
     public static final String SUBJECT_ADMIN_ORDER_CANCELLED = "Customer Cancelled Order — Refund Required — Al Ahad Attars";
     public static final String SUBJECT_ADMIN_REFUND_FAILED = "ACTION REQUIRED: Refund Processing Failed — Al Ahad Attars";
+    public static final String SUBJECT_ADMIN_STUCK_CHECKOUT = "ACTION REQUIRED: Stuck Checkout Detected — Al Ahad Attars";
 
     // --- Brand identity ---
     public static final String BRAND_NAME = "Al Ahad Attars";
