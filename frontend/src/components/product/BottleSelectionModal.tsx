@@ -32,6 +32,7 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
           if (selectedSize) {
             filtered = filtered.filter((b: Bottle) => !b.capacity || b.capacity === selectedSize);
           }
+          filtered.sort((a: Bottle, b: Bottle) => (a.price || 0) - (b.price || 0));
           setBottles(filtered);
           if (filtered.length > 0) {
             // Pre-select the first one with price 0 if exists, or just the first one
