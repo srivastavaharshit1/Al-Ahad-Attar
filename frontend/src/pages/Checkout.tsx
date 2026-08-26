@@ -143,6 +143,7 @@ export const Checkout: React.FC = () => {
             items: items.map(item => ({
               variantId: item.variantId,
               quantity: item.quantity,
+              bottleId: item.bottle?.id || undefined,
               freeItem: item.freeItem || false,
               freePromotionId: item.freePromotionId
             }))
@@ -183,7 +184,10 @@ export const Checkout: React.FC = () => {
               giftMessage: giftMessage || undefined,
               items: items.map(item => ({
                 variantId: item.variantId,
-                quantity: item.quantity
+                quantity: item.quantity,
+                bottleId: item.bottle?.id || undefined,
+                freeItem: item.freeItem || false,
+                freePromotionId: item.freePromotionId
               }))
             };
             const apiRes = await orderService.createOrder(orderData);

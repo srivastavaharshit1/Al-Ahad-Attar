@@ -88,6 +88,7 @@ public class OrderServiceImpl implements OrderService {
     private final PromotionRedemptionRepository promotionRedemptionRepository;
     private final EmailService emailService;
     private final RefundTransactionSupport refundTransactionSupport;
+    private final com.alahadattars.repository.BottleRepository bottleRepository;
     private final com.alahadattars.service.StorageService storageService;
 
     private static final DateTimeFormatter EMAIL_DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
@@ -159,15 +160,27 @@ public class OrderServiceImpl implements OrderService {
                 ProductVariant variant = variantRepository.findById(itemReq.getVariantId())
                         .orElseThrow(() -> new ResourceNotFoundException("Variant not found: " + itemReq.getVariantId()));
 
+                BigDecimal finalPrice = variant.getPrice();
+                com.alahadattars.entity.Bottle bottle = null;
+                if (itemReq.getBottleId() != null) {
+                    bottle = bottleRepository.findById(itemReq.getBottleId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Bottle not found: " + itemReq.getBottleId()));
+                    if (!bottle.isActive()) {
+                        throw new BadRequestException("Selected bottle is not available");
+                    }
+                    finalPrice = finalPrice.add(bottle.getPrice());
+                }
+
                 CartItem ci = new CartItem();
                 ci.setId(tempId++);
                 ci.setCart(tempCart);
                 ci.setProduct(variant.getProduct());
                 ci.setVariant(variant);
+                ci.setBottle(bottle);
                 ci.setQuantity(itemReq.getQuantity());
                 ci.setFreeItem(false);
                 ci.setFreePromotionId(null);
-                ci.setPrice(variant.getPrice());
+                ci.setPrice(finalPrice);
                 tempCart.addItem(ci);
             }
         }

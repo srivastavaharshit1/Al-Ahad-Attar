@@ -20,6 +20,8 @@ public class OrderItemRequest {
     @Positive
     private Integer quantity;
 
+    private Long bottleId;
+
     /**
      * True when this item is a free gift granted by a FREE_PRODUCT promotion.
      * The backend validates this claim during checkout — never trusts frontend blindly.
