@@ -52,6 +52,9 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc.batch_size: 100
+        order_updates: true
+        order_inserts: true
 
   # Resend HTTP API for transactional email (EmailService).
   # Set RESEND_API_KEY in your deployment environment (e.g. Railway Variables).

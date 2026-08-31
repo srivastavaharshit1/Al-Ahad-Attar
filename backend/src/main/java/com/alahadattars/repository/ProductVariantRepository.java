@@ -15,6 +15,24 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     boolean existsBySku(String sku);
     List<ProductVariant> findByActiveTrue();
 
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT v FROM ProductVariant v
+            JOIN FETCH v.product p
+            WHERE v.active = true
+              AND p.active = true
+            """)
+    List<ProductVariant> findAllActiveVariants();
+
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT v FROM ProductVariant v
+            JOIN FETCH v.product p
+            JOIN FETCH p.category c
+            WHERE v.active = true
+              AND p.active = true
+              AND c.id = :categoryId
+            """)
+    List<ProductVariant> findActiveVariantsByCategory(@org.springframework.data.repository.query.Param("categoryId") Long categoryId);
+
     // Size match ignores case AND spaces (REPLACE(..., ' ', '')) — variant sizes are entered as
     // free text ("3ml" vs "3 ml") with no canonical stored format, and an exact LOWER()-only match
     // made this promotion path silently return zero eligible products over a single stray space,
@@ -102,4 +120,22 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     @org.springframework.data.jpa.repository.Query("UPDATE ProductVariant v SET v.stock = v.stock + :quantity WHERE v.id = :id")
     int incrementStock(@org.springframework.data.repository.query.Param("id") Long id,
                         @org.springframework.data.repository.query.Param("quantity") int quantity);
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @org.springframework.data.jpa.repository.Query(value = "UPDATE product_variant SET price = ROUND(price + :amount, 2) WHERE id IN (:variantIds)", nativeQuery = true)
+    int applyFixedIncrease(@org.springframework.data.repository.query.Param("variantIds") List<Long> variantIds, @org.springframework.data.repository.query.Param("amount") java.math.BigDecimal amount);
+
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @org.springframework.data.jpa.repository.Query(value = "UPDATE product_variant SET price = ROUND(price - :amount, 2) WHERE id IN (:variantIds)", nativeQuery = true)
+    int applyFixedDecrease(@org.springframework.data.repository.query.Param("variantIds") List<Long> variantIds, @org.springframework.data.repository.query.Param("amount") java.math.BigDecimal amount);
+
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @org.springframework.data.jpa.repository.Query(value = "UPDATE product_variant SET price = ROUND(price * (1.0 + :factor), 2) WHERE id IN (:variantIds)", nativeQuery = true)
+    int applyPercentageIncrease(@org.springframework.data.repository.query.Param("variantIds") List<Long> variantIds, @org.springframework.data.repository.query.Param("factor") java.math.BigDecimal factor);
+
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @org.springframework.data.jpa.repository.Query(value = "UPDATE product_variant SET price = ROUND(price * (1.0 - :factor), 2) WHERE id IN (:variantIds)", nativeQuery = true)
+    int applyPercentageDecrease(@org.springframework.data.repository.query.Param("variantIds") List<Long> variantIds, @org.springframework.data.repository.query.Param("factor") java.math.BigDecimal factor);
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @org.springframework.data.jpa.repository.Query(value = "UPDATE product_variant SET price = ROUND(:amount, 2) WHERE id IN (:variantIds)", nativeQuery = true)
+    int applySetPrice(@org.springframework.data.repository.query.Param("variantIds") List<Long> variantIds, @org.springframework.data.repository.query.Param("amount") java.math.BigDecimal amount);
 }
