@@ -308,16 +308,16 @@ export const OrderDetails: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
           {/* Gift Service */}
-          {order.giftServiceName && (
+          {order.isGiftWrapped && (
             <div className="bg-surface-container-lowest border border-outline-variant rounded-DEFAULT overflow-hidden">
               <div className="bg-surface-container-low px-6 py-4 border-b border-outline-variant flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-[20px]">redeem</span>
-                <h2 className="font-headline-sm">Gift Services</h2>
+                <h2 className="font-headline-sm">Gift Wrapping</h2>
               </div>
               <div className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-label-lg">{order.giftServiceName}</p>
+                    <p className="font-label-lg">Pack as gift</p>
                     {order.giftMessage && (
                       <div className="mt-3 bg-surface-container p-3 rounded-lg border border-outline-variant/50">
                         <p className="font-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Gift Message</p>

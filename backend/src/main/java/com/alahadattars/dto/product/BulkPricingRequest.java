@@ -24,6 +24,9 @@ public class BulkPricingRequest {
     // Optional depending on scope
     private Long categoryId;
 
+    // Optional filter by subcategory
+    private String subcategory;
+
     @NotNull(message = "Operation is required")
     private BulkPricingOperation operation;
 

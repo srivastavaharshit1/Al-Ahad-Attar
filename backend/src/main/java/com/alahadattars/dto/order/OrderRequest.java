@@ -34,7 +34,7 @@ public class OrderRequest {
 
     private Boolean simulatePaymentFailure;
 
-    private Long giftServiceId;
+    private Boolean isGiftWrapped;
 
     @jakarta.validation.constraints.Size(max = 250, message = "Gift message cannot exceed 250 characters")
     private String giftMessage;

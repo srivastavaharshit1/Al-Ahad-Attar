@@ -106,11 +106,8 @@ public class Order extends BaseEntity {
     private String appliedPromotionsSnapshot;
 
     // Gift service snapshot — stored at order time so historical accuracy is preserved even if prices change later
-    @Column(name = "gift_service_id")
-    private Long giftServiceId;
-
-    @Column(name = "gift_service_name", length = 200)
-    private String giftServiceName;
+    @Column(name = "is_gift_wrapped", nullable = false, columnDefinition = "boolean default false")
+    private Boolean isGiftWrapped = false;
 
     @Column(name = "gift_service_price", precision = 10, scale = 2)
     @Builder.Default

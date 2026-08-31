@@ -20,6 +20,10 @@ export const Settings: React.FC = () => {
   const [isAnnouncementBarActive, setIsAnnouncementBarActive] = useState(true);
   const [customAnnouncementText, setCustomAnnouncementText] = useState('');
   
+  // Gift Wrapping
+  const [isGiftWrapEnabled, setIsGiftWrapEnabled] = useState(false);
+  const [giftWrapPrice, setGiftWrapPrice] = useState<number>(0);
+  
   // New Contact Fields
   const [businessAddress, setBusinessAddress] = useState('');
   const [city, setCity] = useState('');
@@ -63,6 +67,9 @@ export const Settings: React.FC = () => {
       setIsAnnouncementBarActive(settings.isAnnouncementBarActive ?? true);
       setCustomAnnouncementText(settings.customAnnouncementText || '');
       
+      setIsGiftWrapEnabled(settings.isGiftWrapEnabled ?? false);
+      setGiftWrapPrice(settings.giftWrapPrice || 0);
+      
       setLocalBrandLogo(settings.brandLogoUrl || null);
       setLocalNavbarLogo(settings.navbarLogoUrl || null);
     }
@@ -92,7 +99,9 @@ export const Settings: React.FC = () => {
         businessHours,
         mapEmbedUrl,
         isAnnouncementBarActive,
-        customAnnouncementText
+        customAnnouncementText,
+        isGiftWrapEnabled,
+        giftWrapPrice
       });
       await refreshSettings();
       toast.success('Settings updated successfully!');
@@ -306,6 +315,42 @@ export const Settings: React.FC = () => {
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">₹</span>
                   <input className="field-input pl-8" type="number" value={freeShippingThreshold} onChange={(e) => setFreeShippingThreshold(Number(e.target.value))} />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Gift Wrapping */}
+          <section className="card p-8">
+            <h3 className="font-headline-md text-xl mb-6 border-b border-outline-variant pb-4">Gift Wrapping</h3>
+            <div className="space-y-6">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="isGiftWrapEnabled"
+                  checked={isGiftWrapEnabled}
+                  onChange={(e) => setIsGiftWrapEnabled(e.target.checked)}
+                  className="w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-primary focus:ring-2"
+                />
+                <label htmlFor="isGiftWrapEnabled" className="text-on-surface font-label-lg cursor-pointer">
+                  Enable Gift Wrapping Feature
+                </label>
+              </div>
+              <p className="text-sm text-on-surface-variant">
+                If enabled, customers will see a "Pack as gift" checkbox during checkout.
+              </p>
+
+              <div>
+                <label className="field-label">Gift Wrap Price (INR)</label>
+                <div className="relative max-w-md">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">₹</span>
+                  <input 
+                    className="field-input pl-8" 
+                    type="number" 
+                    value={giftWrapPrice} 
+                    onChange={(e) => setGiftWrapPrice(Number(e.target.value))} 
+                    disabled={!isGiftWrapEnabled} 
+                  />
                 </div>
               </div>
             </div>

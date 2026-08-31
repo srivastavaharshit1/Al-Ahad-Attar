@@ -23,6 +23,8 @@ export interface StoreSettings {
     mapEmbedUrl?: string;
     isAnnouncementBarActive?: boolean;
     customAnnouncementText?: string;
+    isGiftWrapEnabled?: boolean;
+    giftWrapPrice?: number;
 }
 
 export const storeSettingsService = {

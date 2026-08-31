@@ -33,6 +33,19 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
             """)
     List<ProductVariant> findActiveVariantsByCategory(@org.springframework.data.repository.query.Param("categoryId") Long categoryId);
 
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT v FROM ProductVariant v
+            JOIN FETCH v.product p
+            JOIN FETCH p.category c
+            WHERE v.active = true
+              AND p.active = true
+              AND c.id = :categoryId
+              AND p.subcategory = :subcategory
+            """)
+    List<ProductVariant> findActiveVariantsByCategoryAndSubCategory(
+            @org.springframework.data.repository.query.Param("categoryId") Long categoryId,
+            @org.springframework.data.repository.query.Param("subcategory") String subcategory);
+
     // Size match ignores case AND spaces (REPLACE(..., ' ', '')) — variant sizes are entered as
     // free text ("3ml" vs "3 ml") with no canonical stored format, and an exact LOWER()-only match
     // made this promotion path silently return zero eligible products over a single stray space,

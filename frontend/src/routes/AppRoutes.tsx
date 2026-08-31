@@ -57,7 +57,6 @@ const AdminHomepage = React.lazy(() => import('../pages/admin/Homepage').then(m 
 const AdminSettings = React.lazy(() => import('../pages/admin/Settings').then(m => ({ default: m.Settings })));
 const AdminAnalytics = React.lazy(() => import('../pages/admin/Analytics').then(m => ({ default: m.Analytics })));
 const AdminContactMessages = React.lazy(() => import('../pages/admin/ContactMessages').then(m => ({ default: m.ContactMessages })));
-const AdminGiftServices = React.lazy(() => import('../pages/admin/GiftServices').then(m => ({ default: m.GiftServices })));
 const AdminBottles = React.lazy(() => import('../pages/admin/Bottles').then(m => ({ default: m.Bottles })));
 const AdminReviews = React.lazy(() => import('../pages/admin/Reviews').then(m => ({ default: m.Reviews })));
 const AdminBulkPricing = React.lazy(() => import('../pages/admin/BulkPricing').then(m => ({ default: m.BulkPricing })));
@@ -124,7 +123,6 @@ export const AppRoutes: React.FC = () => {
           <Route path="homepage" element={<AdminHomepage />} />
           <Route path="settings" element={<AdminSettings />} />
           <Route path="analytics" element={<AdminAnalytics />} />
-          <Route path="gift-services" element={<AdminGiftServices />} />
           <Route path="bottles" element={<AdminBottles />} />
           <Route path="reviews" element={<AdminReviews />} />
           {/* Reuses the customer-facing Profile component as-is: /api/profile and

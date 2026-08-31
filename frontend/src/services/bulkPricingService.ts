@@ -7,6 +7,7 @@ export type BulkPricingType = 'PERCENTAGE' | 'FIXED';
 export interface BulkPricingRequest {
     scope: BulkPricingScope;
     categoryId?: number;
+    subcategory?: string;
     operation: BulkPricingOperation;
     size?: string;
     type: BulkPricingType;

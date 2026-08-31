@@ -44,7 +44,6 @@ import com.alahadattars.dto.email.OrderDeliveredEmailData;
 import com.alahadattars.dto.email.OrderPackedEmailData;
 import com.alahadattars.dto.email.OrderShippedEmailData;
 import com.alahadattars.dto.email.RefundSuccessfulEmailData;
-import com.alahadattars.repository.GiftServiceRepository;
 import com.alahadattars.dto.cart.CartResponse;
 import com.alahadattars.dto.cart.CartItemResponse;
 import com.alahadattars.dto.payment.RefundResult;
@@ -79,7 +78,6 @@ public class OrderServiceImpl implements OrderService {
     private final StoreSettingsService storeSettingsService;
     private final NotificationService notificationService;
     private final PaymentService paymentService;
-    private final GiftServiceRepository giftServiceRepository;
     private final PromotionEngineService promotionEngineService;
     private final ObjectMapper objectMapper;
     private final PaymentIntentRepository paymentIntentRepository;
@@ -269,16 +267,10 @@ public class OrderServiceImpl implements OrderService {
         }
         
         BigDecimal giftServicePrice = BigDecimal.ZERO;
-        String giftServiceName = null;
-        Long giftServiceId = request.getGiftServiceId();
-        if (giftServiceId != null) {
-            com.alahadattars.entity.GiftService giftSvc = giftServiceRepository.findById(giftServiceId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Gift service not found: " + giftServiceId));
-            if (!giftSvc.isActive()) {
-                throw new BadRequestException("Selected gift service is not available.");
-            }
-            giftServicePrice = giftSvc.getPrice();
-            giftServiceName = giftSvc.getName();
+        Boolean isGiftWrapped = request.getIsGiftWrapped() != null ? request.getIsGiftWrapped() : false;
+        
+        if (isGiftWrapped && settings.getIsGiftWrapEnabled()) {
+            giftServicePrice = settings.getGiftWrapPrice() != null ? settings.getGiftWrapPrice() : BigDecimal.ZERO;
         }
 
         BigDecimal totalAmount = cartEval.getTotal().add(shippingCost).add(giftServicePrice);
@@ -348,8 +340,7 @@ public class OrderServiceImpl implements OrderService {
             log.error("Failed to serialize applied promotions", e);
         }
 
-        order.setGiftServiceId(giftServiceId);
-        order.setGiftServiceName(giftServiceName);
+        order.setIsGiftWrapped(isGiftWrapped);
         order.setGiftServicePrice(giftServicePrice);
         order.setGiftMessage(request.getGiftMessage());
         order.setTotalAmount(totalAmount);
@@ -747,8 +738,7 @@ public class OrderServiceImpl implements OrderService {
                 .trackingNumber(order.getTrackingNumber())
                 .expectedDeliveryDate(order.getExpectedDeliveryDate())
                 .shipmentNotes(order.getShipmentNotes())
-                .giftServiceId(order.getGiftServiceId())
-                .giftServiceName(order.getGiftServiceName())
+                .isGiftWrapped(order.getIsGiftWrapped())
                 .giftServicePrice(order.getGiftServicePrice())
                 .giftMessage(order.getGiftMessage())
                 .createdAt(order.getCreatedAt())

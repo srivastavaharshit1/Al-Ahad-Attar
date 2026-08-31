@@ -2,7 +2,6 @@ package com.alahadattars.seeder;
 
 import com.alahadattars.entity.Address;
 import com.alahadattars.entity.Category;
-import com.alahadattars.entity.GiftService;
 import com.alahadattars.entity.HeroBanner;
 import com.alahadattars.entity.Product;
 import com.alahadattars.entity.ProductImage;
@@ -19,7 +18,6 @@ import com.alahadattars.enums.ProductType;
 import com.alahadattars.enums.RoleType;
 import com.alahadattars.repository.AddressRepository;
 import com.alahadattars.repository.CategoryRepository;
-import com.alahadattars.repository.GiftServiceRepository;
 import com.alahadattars.repository.HeroBannerRepository;
 import com.alahadattars.repository.ProductImageRepository;
 import com.alahadattars.repository.ProductRepository;
@@ -74,7 +72,6 @@ public class CatalogSeeder implements CommandLineRunner {
     private final PromoBannerRepository promoBannerRepository;
     private final WhyChooseUsItemRepository whyChooseUsItemRepository;
     private final TestimonialRepository testimonialRepository;
-    private final GiftServiceRepository giftServiceRepository;
     private final PasswordEncoder passwordEncoder;
 
     // Every URL below was individually downloaded and visually verified (not just HTTP-200
@@ -516,9 +513,7 @@ public class CatalogSeeder implements CommandLineRunner {
         List<User> demoCustomers = seedDemoCustomers();
         seedReviews(savedProducts, demoCustomers);
         seedHomepageContent();
-        seedGiftServices();
-
-        log.info("Catalog seeding completed.");
+        log.info("Catalog Seeder completed successfully.");
     }
 
     private String slugify(String name) {
@@ -745,36 +740,5 @@ public class CatalogSeeder implements CommandLineRunner {
             }
             log.info("Seeded {} testimonials.", testimonials.length);
         }
-    }
-
-    private void seedGiftServices() {
-        if (giftServiceRepository.count() > 0) {
-            return;
-        }
-        giftServiceRepository.save(GiftService.builder()
-            .name("Premium Gift Wrapping")
-            .description("Your order wrapped in our signature navy-and-gold box with a ribbon and handwritten note.")
-            .imageUrl(nextImageFor(CategoryType.PERFUMES))
-            .price(BigDecimal.valueOf(99))
-            .active(true)
-            .sortOrder(0)
-            .build());
-        giftServiceRepository.save(GiftService.builder()
-            .name("Personalised Message Card")
-            .description("Add a custom printed message card inside your gift box — perfect for birthdays and anniversaries.")
-            .imageUrl(nextImageFor(CategoryType.PERFUMES))
-            .price(BigDecimal.valueOf(49))
-            .active(true)
-            .sortOrder(1)
-            .build());
-        giftServiceRepository.save(GiftService.builder()
-            .name("Express Gift Delivery")
-            .description("Guaranteed next-day delivery for gift orders placed before 2 PM, in select cities.")
-            .imageUrl(nextImageFor(CategoryType.PERFUMES))
-            .price(BigDecimal.valueOf(149))
-            .active(true)
-            .sortOrder(2)
-            .build());
-        log.info("Seeded 3 gift services.");
     }
 }

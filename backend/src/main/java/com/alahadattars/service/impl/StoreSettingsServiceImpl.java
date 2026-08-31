@@ -48,6 +48,8 @@ public class StoreSettingsServiceImpl implements StoreSettingsService {
                     .mapEmbedUrl("")
                     .isAnnouncementBarActive(true)
                     .customAnnouncementText("")
+                    .isGiftWrapEnabled(false)
+                    .giftWrapPrice(new BigDecimal("99.00"))
                     .build();
             return storeSettingsRepository.save(defaults);
         });
@@ -100,6 +102,8 @@ public class StoreSettingsServiceImpl implements StoreSettingsService {
         settings.setMapEmbedUrl(request.getMapEmbedUrl());
         settings.setIsAnnouncementBarActive(request.getIsAnnouncementBarActive() != null ? request.getIsAnnouncementBarActive() : true);
         settings.setCustomAnnouncementText(request.getCustomAnnouncementText());
+        settings.setIsGiftWrapEnabled(request.getIsGiftWrapEnabled() != null ? request.getIsGiftWrapEnabled() : false);
+        settings.setGiftWrapPrice(request.getGiftWrapPrice());
         
         StoreSettings updated = storeSettingsRepository.save(settings);
         return mapToResponse(updated);
@@ -176,6 +180,8 @@ public class StoreSettingsServiceImpl implements StoreSettingsService {
                 .mapEmbedUrl(settings.getMapEmbedUrl())
                 .isAnnouncementBarActive(settings.getIsAnnouncementBarActive())
                 .customAnnouncementText(settings.getCustomAnnouncementText())
+                .isGiftWrapEnabled(settings.getIsGiftWrapEnabled())
+                .giftWrapPrice(settings.getGiftWrapPrice())
                 .build();
     }
 }

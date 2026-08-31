@@ -182,7 +182,11 @@ public class BulkPricingServiceImpl implements BulkPricingService {
         if (request.getScope() == BulkPricingScope.UNIVERSAL) {
             variants = productVariantRepository.findAllActiveVariants();
         } else {
-            variants = productVariantRepository.findActiveVariantsByCategory(request.getCategoryId());
+            if (request.getSubcategory() != null && !request.getSubcategory().trim().isEmpty()) {
+                variants = productVariantRepository.findActiveVariantsByCategoryAndSubCategory(request.getCategoryId(), request.getSubcategory());
+            } else {
+                variants = productVariantRepository.findActiveVariantsByCategory(request.getCategoryId());
+            }
         }
         
         if (request.getProductTypeFilter() != null) {

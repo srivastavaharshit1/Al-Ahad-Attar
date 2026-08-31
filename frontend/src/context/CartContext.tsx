@@ -29,10 +29,10 @@ interface CartContextType {
   freeProductOptions: any[];
   addFreeItem: (promotionId: number, variantId: number) => Promise<void>;
   removeFreeItem: (cartItemId: string) => Promise<void>;
-  giftServiceId: number | null;
-  setGiftServiceId: (id: number | null) => void;
-  giftMessage: string;
-  setGiftMessage: (msg: string) => void;
+  isGiftWrapped: boolean;
+  setIsGiftWrapped: (isWrapped: boolean) => void;
+  giftMessage: string | null;
+  setGiftMessage: (msg: string | null) => void;
 }
 
 export const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -56,18 +56,17 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [unlockMessages, setUnlockMessages] = useState<string[]>([]);
   const [manuallySelectedPromotionId, setManuallySelectedPromotionId] = useState<number | null>(() => storage.get('cart_manual_promo', null));
   const [freeProductOptions, setFreeProductOptions] = useState<any[]>([]);
-  const [giftServiceId, setGiftServiceIdState] = useState<number | null>(() => storage.get('cart_gift_service_id', null));
-  const [giftMessage, setGiftMessageState] = useState<string>(() => storage.get('cart_gift_message', ''));
+  const [isGiftWrapped, setIsGiftWrappedState] = useState<boolean>(() => storage.get('cart_is_gift_wrapped', false));
+  const [giftMessage, setGiftMessageState] = useState<string | null>(() => storage.get('cart_gift_message', null));
   const { isAuthenticated, user } = useAuth();
   const quantityUpdateTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  const setGiftServiceId = (id: number | null) => {
-    setGiftServiceIdState(id);
-    if (id !== null) storage.set('cart_gift_service_id', id);
-    else storage.remove('cart_gift_service_id');
+  const setIsGiftWrapped = (isWrapped: boolean) => {
+    setIsGiftWrappedState(isWrapped);
+    storage.set('cart_is_gift_wrapped', isWrapped);
   };
 
-  const setGiftMessage = (msg: string) => {
+  const setGiftMessage = (msg: string | null) => {
     setGiftMessageState(msg);
     storage.set('cart_gift_message', msg);
   };
@@ -417,7 +416,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       itemCount, subtotal, offerDiscount, couponCode, discount: effectiveDiscount,
       cartDiscount, appliedPromotions, availablePromotions, lockedPromotions, unlockMessages,
       applyCoupon, removeCoupon, manuallySelectedPromotionId, applyPromotion, removePromotion,
-      freeProductOptions, addFreeItem, removeFreeItem, giftServiceId, setGiftServiceId, giftMessage, setGiftMessage
+      freeProductOptions, addFreeItem, removeFreeItem, isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage
     }}>
       {children}
     </CartContext.Provider>

@@ -35,8 +35,7 @@ public class OrderResponse {
     private String trackingNumber;
     private java.time.LocalDate expectedDeliveryDate;
     private String shipmentNotes;
-    private Long giftServiceId;
-    private String giftServiceName;
+    private Boolean isGiftWrapped;
     private java.math.BigDecimal giftServicePrice;
     private String giftMessage;
     private List<OrderItemResponse> items;

@@ -5,19 +5,16 @@ import { useAuth } from '../hooks/useAuth';
 import { formatPrice } from '../utils/formatPrice';
 import { profileService } from '../services/profileService';
 import { orderService } from '../services/orderService';
-import { giftServiceService } from '../services/giftServiceService';
-import type { GiftServiceItem } from '../services/giftServiceService';
 import type { Address } from '../types';
 import { AddressModal } from '../components/customer/AddressModal';
 import { getImageUrl } from '../utils/getImageUrl';
-import { GiftWrappingOptions } from '../components/common/GiftWrappingOptions';
 
 import { useStoreSettings } from '../context/StoreSettingsContext';
 import { getPromoIcon, getPromoHeadline } from '../utils/promotionHelpers';
 
 export const Checkout: React.FC = () => {
   const { settings } = useStoreSettings();
-  const { items, subtotal, offerDiscount, clearCart, couponCode, cartDiscount, appliedPromotions, availablePromotions, lockedPromotions, applyCoupon, removeCoupon, manuallySelectedPromotionId, applyPromotion, removePromotion, unlockMessages, giftServiceId, giftMessage } = useCart();
+  const { items, subtotal, offerDiscount, clearCart, couponCode, cartDiscount, appliedPromotions, availablePromotions, lockedPromotions, applyCoupon, removeCoupon, manuallySelectedPromotionId, applyPromotion, removePromotion, unlockMessages, isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage } = useCart();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -27,11 +24,7 @@ export const Checkout: React.FC = () => {
   const isFreeShipping = appliedPromotions && appliedPromotions.some((p: any) => p.name.includes('Free Shipping'));
   const shippingCost = isFreeShipping ? 0 : (totalAfterOffer > shippingThreshold ? 0 : shippingCharge);
   
-  const [giftServices, setGiftServices] = useState<GiftServiceItem[]>([]);
-  
-  const selectedGiftPrice = giftServiceId && giftServices.find(g => g.id === giftServiceId) 
-    ? (giftServices.find(g => g.id === giftServiceId)?.price || 0) 
-    : 0;
+  const selectedGiftPrice = (isGiftWrapped && settings?.isGiftWrapEnabled) ? (settings.giftWrapPrice || 0) : 0;
 
   const total = totalAfterOffer - cartDiscount + shippingCost + selectedGiftPrice;
   const totalSavings = offerDiscount + cartDiscount;
@@ -52,7 +45,6 @@ export const Checkout: React.FC = () => {
     if (!isAuthenticated) return;
     fetchUserData();
     fetchAddresses();
-    fetchGiftServices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
@@ -76,15 +68,6 @@ export const Checkout: React.FC = () => {
       }
     } catch (err) {
       console.error("Failed to load addresses", err);
-    }
-  };
-
-  const fetchGiftServices = async () => {
-    try {
-      const res = await giftServiceService.getActiveServices();
-      setGiftServices(res.data || []);
-    } catch (err) {
-      console.error("Failed to load gift services", err);
     }
   };
 
@@ -123,7 +106,7 @@ export const Checkout: React.FC = () => {
       setIsSubmitting(true);
       setError('');
 
-      const paymentOrder = await orderService.createPaymentOrder(couponCode || undefined, giftServiceId);
+      const paymentOrder = await orderService.createPaymentOrder(couponCode || undefined, isGiftWrapped, giftMessage);
 
       if (paymentOrder.devMode) {
         // Backend is in PAYMENT_DEV_MODE — there's no real Razorpay order to open a checkout
@@ -138,7 +121,7 @@ export const Checkout: React.FC = () => {
             razorpayPaymentId: `pay_dev_${Date.now()}`,
             razorpaySignature: 'dev_mode_signature',
             paymentMethod: 'cod',
-            giftServiceId: giftServiceId || undefined,
+            isGiftWrapped: isGiftWrapped,
             giftMessage: giftMessage || undefined,
             items: items.map(item => ({
               variantId: item.variantId,
@@ -180,7 +163,7 @@ export const Checkout: React.FC = () => {
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
-              giftServiceId: giftServiceId || undefined,
+              isGiftWrapped: isGiftWrapped,
               giftMessage: giftMessage || undefined,
               items: items.map(item => ({
                 variantId: item.variantId,
@@ -352,7 +335,38 @@ export const Checkout: React.FC = () => {
               </div>
             </section>
 
-            <GiftWrappingOptions />
+            {settings?.isGiftWrapEnabled && (
+              <section className="bg-surface-container rounded-xl p-6 border border-outline-variant">
+                <h2 className="font-headline-md text-headline-md text-on-surface mb-4">Gift Wrapping</h2>
+                <div className="flex items-start gap-4">
+                  <input
+                    type="checkbox"
+                    id="giftWrapCheckbox"
+                    checked={isGiftWrapped}
+                    onChange={(e) => setIsGiftWrapped(e.target.checked)}
+                    className="mt-1 w-5 h-5 text-primary bg-surface border-outline rounded focus:ring-primary focus:ring-2"
+                  />
+                  <div className="flex-1">
+                    <label htmlFor="giftWrapCheckbox" className="font-headline-sm text-lg text-on-surface cursor-pointer">
+                      Pack as gift <span className="text-primary ml-2">(+{formatPrice(settings.giftWrapPrice || 0)})</span>
+                    </label>
+                    <p className="text-sm text-on-surface-variant mt-1 mb-4">Add a special touch to your order.</p>
+                    
+                    {isGiftWrapped && (
+                      <div>
+                        <label className="field-label mb-2 block">Gift Message (Optional)</label>
+                        <textarea
+                          value={giftMessage || ''}
+                          onChange={(e) => setGiftMessage(e.target.value)}
+                          placeholder="Write a message to include with your gift..."
+                          className="w-full bg-surface border border-outline-variant rounded p-3 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none min-h-[80px]"
+                        ></textarea>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
 
             <section>
               <h2 className="font-headline-md text-headline-md text-on-surface mb-6 border-b border-outline-variant pb-4">Order Notes (Optional)</h2>
@@ -603,14 +617,14 @@ export const Checkout: React.FC = () => {
                     {shippingCost === 0 ? <span className="text-primary font-medium tracking-wide">FREE</span> : formatPrice(shippingCost)}
                   </span>
                 </div>
-                {giftServiceId && giftServices.find(g => g.id === giftServiceId) && (
+                {isGiftWrapped && settings?.isGiftWrapEnabled && (
                   <div className="flex justify-between items-center text-sm font-body-md mt-2">
                     <span className="text-on-surface-variant flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-[16px]">redeem</span>
                       Gift Wrapping
                     </span>
                     <span className="font-bold text-on-surface">
-                      +{formatPrice(giftServices.find(g => g.id === giftServiceId)?.price || 0)}
+                      +{formatPrice(settings.giftWrapPrice || 0)}
                     </span>
                   </div>
                 )}

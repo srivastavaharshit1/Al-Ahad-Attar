@@ -12,7 +12,6 @@ import com.alahadattars.exception.BadRequestException;
 import com.alahadattars.mapper.ProductVariantMapper;
 import com.alahadattars.repository.AddressRepository;
 import com.alahadattars.repository.CartRepository;
-import com.alahadattars.repository.GiftServiceRepository;
 import com.alahadattars.repository.OrderRepository;
 import com.alahadattars.repository.PaymentIntentRepository;
 import com.alahadattars.repository.ProductVariantRepository;
@@ -65,7 +64,6 @@ class OrderCancellationServiceTest {
     @Mock private StoreSettingsService storeSettingsService;
     @Mock private NotificationService notificationService;
     @Mock private PaymentService paymentService;
-    @Mock private GiftServiceRepository giftServiceRepository;
     @Mock private PromotionEngineService promotionEngineService;
     @Mock private ObjectMapper objectMapper;
     @Mock private PaymentIntentRepository paymentIntentRepository;

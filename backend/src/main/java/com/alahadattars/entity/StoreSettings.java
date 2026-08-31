@@ -79,6 +79,12 @@ public class StoreSettings {
     
     private String customAnnouncementText;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private Boolean isGiftWrapEnabled = false;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal giftWrapPrice;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

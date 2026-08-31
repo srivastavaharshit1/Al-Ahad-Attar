@@ -7,10 +7,11 @@ export const orderService = {
     return response.data;
   },
 
-  createPaymentOrder: async (couponCode?: string, giftServiceId?: number | null): Promise<PaymentOrderResponse> => {
+  createPaymentOrder: async (couponCode?: string, isGiftWrapped?: boolean, giftMessage?: string | null): Promise<PaymentOrderResponse> => {
     const payload: any = {};
     if (couponCode) payload.couponCode = couponCode;
-    if (giftServiceId) payload.giftServiceId = giftServiceId;
+    if (isGiftWrapped) payload.isGiftWrapped = isGiftWrapped;
+    if (giftMessage) payload.giftMessage = giftMessage;
     const response = await apiClient.post<PaymentOrderResponse>('/payment/create', payload);
     return response.data;
   },
