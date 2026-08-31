@@ -12,6 +12,7 @@ export interface BulkPricingRequest {
     type: BulkPricingType;
     value: number;
     idempotencyKey?: string;
+    productTypeFilter?: string;
 }
 
 export interface BulkPricingPreviewItem {
