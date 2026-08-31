@@ -6,20 +6,14 @@ import { getImageUrl } from '../utils/getImageUrl';
 import { useStoreSettings } from '../context/StoreSettingsContext';
 import { getPromoIcon, getPromoHeadline, estimateSavings } from '../utils/promotionHelpers';
 import { useInView } from '../hooks/useInView';
-import { giftServiceService } from '../services/giftServiceService';
-import type { GiftServiceItem } from '../services/giftServiceService';
-import { GiftWrappingOptions } from '../components/common/GiftWrappingOptions';
-
 export const Cart: React.FC = () => {
   const { settings } = useStoreSettings();
-  const { items, removeItem, updateQuantity, subtotal, offerDiscount, itemCount, appliedPromotions, availablePromotions, lockedPromotions, unlockMessages, cartDiscount, manuallySelectedPromotionId, applyPromotion, removePromotion, removeCoupon, freeProductOptions, addFreeItem, removeFreeItem, applyCoupon, giftServiceId } = useCart();
+  const { items, removeItem, updateQuantity, subtotal, offerDiscount, itemCount, appliedPromotions, availablePromotions, lockedPromotions, unlockMessages, cartDiscount, manuallySelectedPromotionId, applyPromotion, removePromotion, removeCoupon, freeProductOptions, addFreeItem, removeFreeItem, applyCoupon, isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage } = useCart();
 
   // Scroll-reveal refs (called unconditionally, before any early returns)
   const { ref: itemsRef, inView: itemsInView } = useInView<HTMLDivElement>();
   const { ref: summaryRef, inView: summaryInView } = useInView<HTMLDivElement>();
   const [brokenGiftImages, setBrokenGiftImages] = useState<Set<number>>(new Set());
-  const [giftServices, setGiftServices] = useState<GiftServiceItem[]>([]);
-
   const [couponInput, setCouponInput] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [couponError, setCouponError] = useState('');
@@ -40,18 +34,7 @@ export const Cart: React.FC = () => {
 
   const [showAllFreeGifts, setShowAllFreeGifts] = useState(false);
 
-  useEffect(() => {
-    fetchGiftServices();
-  }, []);
 
-  const fetchGiftServices = async () => {
-    try {
-      const res = await giftServiceService.getActiveServices();
-      setGiftServices(res.data || []);
-    } catch (err) {
-      console.error("Failed to load gift services", err);
-    }
-  };
 
   const handleApplyCoupon = async (code?: string | React.FormEvent) => {
     if (code && typeof code !== 'string' && 'preventDefault' in code) {
@@ -84,9 +67,7 @@ export const Cart: React.FC = () => {
   const isFreeShipping = appliedPromotions && appliedPromotions.some((p: any) => p.name.includes('Free Shipping'));
   const shippingCost = isFreeShipping ? 0 : (totalAfterOffer > shippingThreshold ? 0 : shippingCharge);
 
-  const selectedGiftPrice = giftServiceId && giftServices.find(g => g.id === giftServiceId)
-    ? (giftServices.find(g => g.id === giftServiceId)?.price || 0)
-    : 0;
+  const selectedGiftPrice = (isGiftWrapped && settings?.isGiftWrapEnabled) ? (settings.giftWrapPrice || 0) : 0;
 
   const total = totalAfterOffer - cartDiscount + shippingCost + selectedGiftPrice;
 
@@ -540,10 +521,38 @@ export const Cart: React.FC = () => {
           {/* Free Gifts Panel */}
           {renderFreeGiftsPanel()}
 
-          {/* Gift Services Panel */}
-          <div className="mt-8">
-            <GiftWrappingOptions />
-          </div>
+          {settings?.isGiftWrapEnabled && (
+            <div className="mt-8 bg-surface-container rounded-xl p-6 border border-outline-variant">
+              <h2 className="font-headline-md text-headline-md text-on-surface mb-4">Gift Wrapping</h2>
+              <div className="flex items-start gap-4">
+                <input
+                  type="checkbox"
+                  id="giftWrapCheckboxCart"
+                  checked={isGiftWrapped}
+                  onChange={(e) => setIsGiftWrapped(e.target.checked)}
+                  className="mt-1 w-5 h-5 text-primary bg-surface border-outline rounded focus:ring-primary focus:ring-2"
+                />
+                <div className="flex-1">
+                  <label htmlFor="giftWrapCheckboxCart" className="font-headline-sm text-lg text-on-surface cursor-pointer">
+                    Pack as gift <span className="text-primary ml-2">(+{formatPrice(settings.giftWrapPrice || 0)})</span>
+                  </label>
+                  <p className="text-sm text-on-surface-variant mt-1 mb-4">Add a special touch to your order.</p>
+                  
+                  {isGiftWrapped && (
+                    <div>
+                      <label className="field-label mb-2 block">Gift Message (Optional)</label>
+                      <textarea
+                        value={giftMessage || ''}
+                        onChange={(e) => setGiftMessage(e.target.value)}
+                        placeholder="Write a message to include with your gift..."
+                        className="w-full bg-surface border border-outline-variant rounded p-3 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none min-h-[80px]"
+                      ></textarea>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Premium Offer Panel */}
           {renderOfferPanel()}

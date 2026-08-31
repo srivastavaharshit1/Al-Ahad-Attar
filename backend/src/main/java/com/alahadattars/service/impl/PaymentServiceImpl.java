@@ -25,7 +25,6 @@ import jakarta.annotation.PostConstruct;
 import com.alahadattars.repository.ProductVariantRepository;
 import com.alahadattars.entity.ProductVariant;
 import com.alahadattars.entity.PaymentIntent;
-import com.alahadattars.repository.GiftServiceRepository;
 import com.alahadattars.repository.PaymentIntentRepository;
 import com.alahadattars.repository.UserRepository;
 import com.alahadattars.exception.ResourceNotFoundException;
@@ -60,7 +59,6 @@ public class PaymentServiceImpl implements PaymentService {
     private final CartService cartService;
     private final StoreSettingsService storeSettingsService;
     private final ProductVariantRepository productVariantRepository;
-    private final GiftServiceRepository giftServiceRepository;
     private final PaymentIntentRepository paymentIntentRepository;
     private final UserRepository userRepository;
     private final com.alahadattars.repository.OrderRepository orderRepository;
@@ -127,11 +125,9 @@ public class PaymentServiceImpl implements PaymentService {
             BigDecimal secureTotalAmount = cart.getTotal().add(shippingCost);
             
             // Include gift service price if selected
-            if (request.getGiftServiceId() != null) {
-                com.alahadattars.entity.GiftService giftSvc = giftServiceRepository.findById(request.getGiftServiceId()).orElse(null);
-                if (giftSvc != null && giftSvc.isActive()) {
-                    secureTotalAmount = secureTotalAmount.add(giftSvc.getPrice());
-                }
+            Boolean isGiftWrapped = request.getIsGiftWrapped() != null ? request.getIsGiftWrapped() : false;
+            if (isGiftWrapped && settings.getIsGiftWrapEnabled()) {
+                secureTotalAmount = secureTotalAmount.add(settings.getGiftWrapPrice() != null ? settings.getGiftWrapPrice() : BigDecimal.ZERO);
             }
             
             String razorpayOrderId;

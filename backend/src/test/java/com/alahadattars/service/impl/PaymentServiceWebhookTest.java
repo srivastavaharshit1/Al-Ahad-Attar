@@ -3,7 +3,6 @@ package com.alahadattars.service.impl;
 import com.alahadattars.entity.PaymentIntent;
 import com.alahadattars.entity.User;
 import com.alahadattars.repository.CartRepository;
-import com.alahadattars.repository.GiftServiceRepository;
 import com.alahadattars.repository.OrderRepository;
 import com.alahadattars.repository.PaymentIntentRepository;
 import com.alahadattars.repository.ProductVariantRepository;
@@ -44,7 +43,6 @@ class PaymentServiceWebhookTest {
     @Mock private CartService cartService;
     @Mock private StoreSettingsService storeSettingsService;
     @Mock private ProductVariantRepository productVariantRepository;
-    @Mock private GiftServiceRepository giftServiceRepository;
     @Mock private PaymentIntentRepository paymentIntentRepository;
     @Mock private UserRepository userRepository;
     @Mock private OrderRepository orderRepository;

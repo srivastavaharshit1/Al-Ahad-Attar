@@ -33,4 +33,6 @@ public class StoreSettingsRequest {
     private String returnPolicy;
     private Boolean isAnnouncementBarActive;
     private String customAnnouncementText;
+    private Boolean isGiftWrapEnabled;
+    private BigDecimal giftWrapPrice;
 }

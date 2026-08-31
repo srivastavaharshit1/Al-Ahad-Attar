@@ -42,8 +42,7 @@ export interface Order {
   shipmentNotes?: string;
   notes?: string;
   // Gift service snapshot
-  giftServiceId?: number | null;
-  giftServiceName?: string | null;
+  isGiftWrapped?: boolean;
   giftServicePrice?: number | null;
   giftMessage?: string | null;
   items: OrderItem[];
@@ -67,7 +66,7 @@ export interface OrderRequest {
   notes?: string;
   couponCode?: string;
   simulatePaymentFailure?: boolean;
-  giftServiceId?: number | null;
+  isGiftWrapped?: boolean;
   giftMessage?: string | null;
   items: any[];
 }

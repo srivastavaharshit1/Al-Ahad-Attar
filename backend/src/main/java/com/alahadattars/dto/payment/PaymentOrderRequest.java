@@ -16,6 +16,6 @@ public class PaymentOrderRequest {
     private String currency;
     private String receipt;
     private String orderNumber;
-    private Long giftServiceId;
+    private Boolean isGiftWrapped;
     private String couponCode;
 }

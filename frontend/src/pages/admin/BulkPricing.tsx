@@ -18,6 +18,7 @@ export const BulkPricing: React.FC = () => {
   const [type, setType] = useState<BulkPricingType>('PERCENTAGE');
   const [size, setSize] = useState<string>('');
   const [productTypeFilter, setProductTypeFilter] = useState<string>('');
+  const [subcategory, setSubcategory] = useState<string>('');
   const [value, setValue] = useState<string>('');
   
   const [previewData, setPreviewData] = useState<BulkPricingPreviewResponse | null>(null);
@@ -28,7 +29,7 @@ export const BulkPricing: React.FC = () => {
 
   useEffect(() => {
     setIdempotencyKey(crypto.randomUUID());
-  }, [scope, categoryId, productTypeFilter, operation, type, size, value]);
+  }, [scope, categoryId, subcategory, productTypeFilter, operation, type, size, value]);
 
   useEffect(() => {
     categoryService.getActiveCategories().then(res => setCategories(res.data || [])).catch(console.error);
@@ -55,6 +56,7 @@ export const BulkPricing: React.FC = () => {
       const res = await bulkPricingService.preview({
         scope,
         categoryId: scope === 'CATEGORY' ? parseInt(categoryId) : undefined,
+        subcategory: scope === 'CATEGORY' && subcategory ? subcategory : undefined,
         productTypeFilter: scope === 'CATEGORY' && productTypeFilter ? productTypeFilter : undefined,
         operation,
         size: size || undefined,
@@ -78,6 +80,7 @@ export const BulkPricing: React.FC = () => {
       const res = await bulkPricingService.apply({
         scope,
         categoryId: scope === 'CATEGORY' ? parseInt(categoryId) : undefined,
+        subcategory: scope === 'CATEGORY' && subcategory ? subcategory : undefined,
         productTypeFilter: scope === 'CATEGORY' && productTypeFilter ? productTypeFilter : undefined,
         operation,
         size: size || undefined,
@@ -132,6 +135,7 @@ export const BulkPricing: React.FC = () => {
                   value={categoryId}
                   onChange={(e) => {
                     setCategoryId(e.target.value);
+                    setSubcategory('');
                     setPreviewData(null);
                   }}
                   className="w-full h-11 px-4 rounded-xl border border-outline-variant bg-surface-container-lowest focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
@@ -141,6 +145,40 @@ export const BulkPricing: React.FC = () => {
                   {categories.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
+                </select>
+              </div>
+            )}
+
+            {scope === 'CATEGORY' && categories.find(c => c.id.toString() === categoryId)?.name?.toLowerCase() === 'bakhoor' && (
+              <div>
+                <label className="block text-sm font-medium mb-1">Subcategory (Optional)</label>
+                <select
+                  value={subcategory}
+                  onChange={(e) => {
+                    setSubcategory(e.target.value);
+                    setPreviewData(null);
+                  }}
+                  className="w-full h-11 px-4 rounded-xl border border-outline-variant bg-surface-container-lowest focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                >
+                  <option value="">All Bakhoor</option>
+                  <option value="Incense Sticks">Incense Sticks</option>
+                </select>
+              </div>
+            )}
+
+            {scope === 'CATEGORY' && categories.find(c => c.id.toString() === categoryId)?.name?.toLowerCase() === 'perfumes' && (
+              <div>
+                <label className="block text-sm font-medium mb-1">Subcategory (Optional)</label>
+                <select
+                  value={subcategory}
+                  onChange={(e) => {
+                    setSubcategory(e.target.value);
+                    setPreviewData(null);
+                  }}
+                  className="w-full h-11 px-4 rounded-xl border border-outline-variant bg-surface-container-lowest focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                >
+                  <option value="">All Perfumes</option>
+                  <option value="Car Perfumes">Car Perfumes</option>
                 </select>
               </div>
             )}
@@ -223,14 +261,17 @@ export const BulkPricing: React.FC = () => {
                   className="w-full h-11 px-4 rounded-xl border border-outline-variant bg-surface-container-lowest focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                 >
                   <option value="PERCENTAGE">Percentage (%)</option>
-                  <option value="FIXED">Fixed Amount (₹)</option>
+                  <option value="FIXED">Add/Subtract Fixed Amount (₹)</option>
                 </select>
+                <p className="text-xs text-on-surface-variant mt-1">
+                  Note: This will {operation === 'INCREASE' ? 'add to' : 'subtract from'} the existing price. To set an exact final price, change Operation to "Set Exact Price".
+                </p>
               </div>
             )}
 
             <div>
               <label className="block text-sm font-medium mb-1">
-                {operation === 'SET' ? 'New Price (₹)' : (type === 'PERCENTAGE' ? 'Percentage (%)' : 'Amount (₹)')}
+                {operation === 'SET' ? 'New Exact Price (₹)' : (type === 'PERCENTAGE' ? 'Percentage (%)' : 'Amount (₹)')}
               </label>
               <Input
                 type="number"
@@ -282,8 +323,8 @@ export const BulkPricing: React.FC = () => {
                 </div>
                 <div className="bg-surface-container p-4 rounded-xl">
                   <div className="text-sm text-on-surface-variant">Net Value Change</div>
-                  <div className={`text-xl font-medium mt-1 ${operation === 'INCREASE' ? 'text-green-600' : 'text-red-600'}`}>
-                    {operation === 'INCREASE' ? '+' : '-'} {formatPrice(Math.abs(previewData.newTotalValue - previewData.currentTotalValue))}
+                  <div className={`text-xl font-medium mt-1 ${operation === 'DECREASE' ? 'text-red-600' : 'text-green-600'}`}>
+                    {previewData.newTotalValue < previewData.currentTotalValue ? '-' : '+'} {formatPrice(Math.abs(previewData.newTotalValue - previewData.currentTotalValue))}
                   </div>
                 </div>
               </div>

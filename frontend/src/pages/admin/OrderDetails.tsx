@@ -152,7 +152,7 @@ export const AdminOrderDetails: React.FC = () => {
           </div>
 
           {/* Gift Service - Packing Team Info */}
-          {order.giftServiceName && (
+          {order.isGiftWrapped && (
             <div className="bg-accent-soft border border-accent/30 rounded-xl p-6">
               <div className="flex items-center gap-2 mb-3">
                 <span className="material-symbols-outlined text-accent-hover text-[20px]">redeem</span>
@@ -160,7 +160,7 @@ export const AdminOrderDetails: React.FC = () => {
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-label-lg text-on-secondary-container">{order.giftServiceName}</p>
+                  <p className="font-label-lg text-on-secondary-container">Gift Wrapped</p>
                   {order.giftMessage && (
                     <div className="mt-2">
                       <p className="text-xs text-on-secondary-container/80 uppercase tracking-wider mb-1">Gift Message</p>
@@ -213,8 +213,8 @@ export const AdminOrderDetails: React.FC = () => {
                 <p className="text-primary">Coupon Discount: -{formatPrice(order.couponDiscountAmount)}</p>
               )}
               <p className="text-on-surface-variant">Shipping: {order.shippingCost === 0 ? <span className="text-tertiary">Free</span> : formatPrice(order.shippingCost)}</p>
-              {order.giftServiceName && order.giftServicePrice != null && order.giftServicePrice > 0 && (
-                <p className="text-on-secondary-container">Gift Wrapping ({order.giftServiceName}): {formatPrice(order.giftServicePrice)}</p>
+              {order.isGiftWrapped && order.giftServicePrice != null && order.giftServicePrice > 0 && (
+                <p className="text-on-secondary-container">Gift Wrapping: {formatPrice(order.giftServicePrice)}</p>
               )}
               <p className="font-headline-md mt-2 pt-2 border-t border-outline-variant/50">Total: {formatPrice(order.totalAmount)}</p>
             </div>
