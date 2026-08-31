@@ -82,7 +82,7 @@ export const BulkPricing: React.FC = () => {
         operation,
         size: size || undefined,
         type,
-        value: parseFloat(value),
+        value: parsedValue,
         idempotencyKey
       });
       toast.success(res.message || 'Prices successfully updated');
@@ -248,7 +248,11 @@ export const BulkPricing: React.FC = () => {
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoadingPreview}>
-              {isLoadingPreview ? <Loader className="w-5 h-5" /> : 'Generate Preview'}
+              {isLoadingPreview ? (
+                <div className="w-5 h-5 flex justify-center items-center scale-50">
+                  <Loader />
+                </div>
+              ) : 'Generate Preview'}
             </Button>
           </form>
         </div>
@@ -265,7 +269,7 @@ export const BulkPricing: React.FC = () => {
 
           {isLoadingPreview && (
             <div className="flex justify-center py-8">
-              <Loader className="w-8 h-8 text-primary" />
+              <Loader />
             </div>
           )}
 
