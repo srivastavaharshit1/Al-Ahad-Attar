@@ -60,6 +60,7 @@ const AdminContactMessages = React.lazy(() => import('../pages/admin/ContactMess
 const AdminGiftServices = React.lazy(() => import('../pages/admin/GiftServices').then(m => ({ default: m.GiftServices })));
 const AdminBottles = React.lazy(() => import('../pages/admin/Bottles').then(m => ({ default: m.Bottles })));
 const AdminReviews = React.lazy(() => import('../pages/admin/Reviews').then(m => ({ default: m.Reviews })));
+const AdminBulkPricing = React.lazy(() => import('../pages/admin/BulkPricing').then(m => ({ default: m.BulkPricing })));
 const NotFound = React.lazy(() => import('../pages/NotFound').then(m => ({ default: m.NotFound })));
 
 export const AppRoutes: React.FC = () => {
@@ -109,6 +110,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="/admin" element={<ProtectedRoute requireAdmin={true}><AdminLayout /></ProtectedRoute>}>
           <Route index element={<AdminDashboard />} />
           <Route path="products" element={<AdminProducts />} />
+          <Route path="products/pricing" element={<AdminBulkPricing />} />
           <Route path="products/new" element={<AdminAddProduct />} />
           <Route path="products/:id/edit" element={<AdminEditProduct />} />
           <Route path="orders" element={<AdminOrders />} />

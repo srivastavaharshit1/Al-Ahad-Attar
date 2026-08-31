@@ -7,7 +7,8 @@ import type { AdminNotification } from '../../services/adminNotificationService'
 const NAV_ITEMS = [
   { path: '/admin', label: 'Dashboard', icon: 'dashboard', end: true },
   { path: '/admin/analytics', label: 'Analytics', icon: 'monitoring' },
-  { path: '/admin/products', label: 'Products', icon: 'inventory_2' },
+  { path: '/admin/products', label: 'Products', icon: 'inventory_2', end: true },
+  { path: '/admin/products/pricing', label: 'Bulk Pricing', icon: 'price_change' },
   { path: '/admin/categories', label: 'Categories', icon: 'category' },
   { path: '/admin/orders', label: 'Orders', icon: 'shopping_cart' },
   { path: '/admin/refunds', label: 'Refunds', icon: 'currency_exchange' },
