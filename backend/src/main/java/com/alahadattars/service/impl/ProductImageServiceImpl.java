@@ -169,4 +169,19 @@ public class ProductImageServiceImpl implements ProductImageService {
         
         return productImageMapper.toResponse(savedImage);
     }
+
+    @Override
+    @Transactional
+    public ProductImageResponse updateAltText(Long imageId, String altText) {
+        ProductImage image = productImageRepository.findById(imageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Image not found with ID: " + imageId));
+
+        if (!image.isActive()) {
+            throw new BadRequestException("Cannot update inactive image");
+        }
+
+        image.setAltText(altText);
+        ProductImage savedImage = productImageRepository.save(image);
+        return productImageMapper.toResponse(savedImage);
+    }
 }

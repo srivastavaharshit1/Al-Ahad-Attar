@@ -10,4 +10,5 @@ public interface ProductImageService {
     void deleteImage(Long imageId);
     List<ProductImageResponse> updateDisplayOrder(Long productId, List<Long> orderedImageIds);
     ProductImageResponse setPrimaryImage(Long imageId);
+    ProductImageResponse updateAltText(Long imageId, String altText);
 }

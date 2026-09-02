@@ -18,7 +18,7 @@ export const Search: React.FC = () => {
 
   const [query, setQuery] = useState(initialQuery);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(initialCategoryId);
-  const [sort, setSort] = useState(searchParams.get('sort') || 'createdAt,desc');
+  const [sort, setSort] = useState(searchParams.get('sort') || 'name,asc');
   const [view, setView] = useState<'grid' | 'list'>('grid');
 
   const [results, setResults] = useState<Product[]>([]);
@@ -40,7 +40,7 @@ export const Search: React.FC = () => {
     // Sync URL to State when URL changes externally
     const q = searchParams.get('q') || '';
     const cat = searchParams.get('category') || '';
-    const s = searchParams.get('sort') || 'createdAt,desc';
+    const s = searchParams.get('sort') || 'name,asc';
 
     if (query !== q && document.activeElement !== document.getElementById('searchInput')) {
       setQuery(q);
@@ -91,7 +91,7 @@ export const Search: React.FC = () => {
     if (newCategoryId) params.set('category', newCategoryId);
     else params.delete('category');
 
-    if (newSort !== 'createdAt,desc') params.set('sort', newSort);
+    if (newSort !== 'name,asc') params.set('sort', newSort);
     else params.delete('sort');
 
     if (newPage !== undefined) {
@@ -123,7 +123,7 @@ export const Search: React.FC = () => {
   const clearFilters = () => {
     setQuery('');
     setSelectedCategoryId('');
-    setSort('createdAt,desc');
+    setSort('name,asc');
     setSearchParams(new URLSearchParams());
   };
 
@@ -217,6 +217,7 @@ export const Search: React.FC = () => {
                 onChange={handleSortChange}
                 className="bg-surface border border-outline-variant rounded px-4 py-2 text-sm transition-colors hover:border-accent focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
               >
+                <option value="name,asc">Name: A–Z</option>
                 <option value="createdAt,desc">Newest Arrivals</option>
                 <option value="createdAt,asc">Oldest First</option>
                 <option value="price,asc">Price: Low to High</option>

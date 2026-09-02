@@ -22,8 +22,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
   const defaultVariant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
   
   // For Collection view (ProductSummaryResponse)
-  const primaryImage = product.images?.find(img => img.isPrimary)?.imageUrl || product.images?.[0]?.imageUrl;
-  const image = primaryImage || (product as any).thumbnail || '';
+  let selectedImage = product.images?.find(img => img.isPrimary)?.imageUrl || product.images?.[0]?.imageUrl;
+  
+  if (defaultType && product.images) {
+    const matchedTypeImg = product.images.find(img => img.altText?.toUpperCase() === defaultType.toUpperCase());
+    if (matchedTypeImg) {
+      selectedImage = matchedTypeImg.imageUrl;
+    }
+  }
+
+  const image = selectedImage || (product as any).thumbnail || '';
   const price = defaultVariant?.price || (product as any).minimumPrice || 0;
   const variantId = defaultVariant?.id || (product as any).defaultVariantId;
   const size = defaultVariant?.size || (product as any).defaultVariantSize || '';

@@ -10,24 +10,23 @@ import { AddressModal } from '../components/customer/AddressModal';
 import { getImageUrl } from '../utils/getImageUrl';
 
 import { useStoreSettings } from '../context/StoreSettingsContext';
-import { getPromoIcon, getPromoHeadline } from '../utils/promotionHelpers';
 
 export const Checkout: React.FC = () => {
   const { settings } = useStoreSettings();
-  const { items, subtotal, offerDiscount, clearCart, couponCode, cartDiscount, appliedPromotions, availablePromotions, lockedPromotions, applyCoupon, removeCoupon, manuallySelectedPromotionId, applyPromotion, removePromotion, unlockMessages, isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage } = useCart();
+  const { items, subtotal, offerDiscount, clearCart, couponCode, cartDiscount, applyCoupon, removeCoupon, isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage } = useCart();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const shippingThreshold = settings?.freeShippingThreshold !== undefined ? settings.freeShippingThreshold : 500;
   const totalAfterOffer = subtotal - offerDiscount;
   const shippingCharge = settings?.shippingCharge !== undefined ? settings.shippingCharge : 50;
-  const isFreeShipping = appliedPromotions && appliedPromotions.some((p: any) => p.name.includes('Free Shipping'));
+  const isFreeShipping = false; // Add logic here if free shipping promos are brought back to the new design
   const shippingCost = isFreeShipping ? 0 : (totalAfterOffer > shippingThreshold ? 0 : shippingCharge);
   
   const selectedGiftPrice = (isGiftWrapped && settings?.isGiftWrapEnabled) ? (settings.giftWrapPrice || 0) : 0;
 
   const total = totalAfterOffer - cartDiscount + shippingCost + selectedGiftPrice;
-  const totalSavings = offerDiscount + cartDiscount;
+
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [user, setUser] = useState<any>(null);
@@ -230,193 +229,189 @@ export const Checkout: React.FC = () => {
   }
 
   return (
-    <>
-      <header className="w-full flex justify-center items-center h-24 border-b border-outline-variant/30 bg-surface/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
-        <Link to="/" className="font-headline-md text-headline-md text-primary tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 rounded-sm">Al Ahad Attars</Link>
-      </header>
-      <main className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-10 md:py-16">
-        <div className="mb-12">
-          <h1 className="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-on-surface mb-4">Checkout</h1>
-          <Link to="/cart" className="inline-flex items-center text-on-surface-variant hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 rounded-sm transition-colors font-label-md text-label-md">
-            <span className="material-symbols-outlined mr-2" style={{ fontSize: '18px' }}>arrow_back</span>
-            Return to Cart
-          </Link>
+    <div className="min-h-screen bg-surface-container-lowest flex flex-col font-body">
+      {/* Minimal Header */}
+      <header className="flex items-center justify-between px-6 py-6 border-b border-outline-variant/30 bg-surface-container-lowest sticky top-0 z-50">
+        <Link to="/cart" className="flex items-center gap-1.5 text-sm text-on-surface-variant hover:text-on-surface transition-colors">
+          <span className="material-symbols-outlined text-[16px]">arrow_left</span>
+          Return to Cart
+        </Link>
+        <Link to="/" className="font-headline-lg text-2xl tracking-widest uppercase text-on-surface absolute left-1/2 -translate-x-1/2">
+          AL AHAD ATTARS
+        </Link>
+        <div className="flex items-center gap-1.5 text-sm font-medium text-accent">
+          <span className="material-symbols-outlined text-[16px]">lock</span>
+          Secure Checkout
         </div>
+      </header>
 
-        {error && (
-          <div className="bg-error-container text-on-error-container p-4 rounded-lg mb-8 flex items-start gap-2.5">
-            <span className="material-symbols-outlined text-[18px] mt-0.5 flex-shrink-0">error</span>
-            <p className="leading-relaxed">{error}</p>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter lg:gap-16">
+      <main className="flex-grow max-w-6xl mx-auto w-full px-4 py-12 md:py-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
+          {/* Left Column */}
           <div className="lg:col-span-7 space-y-12">
-            
-            <section>
-              <div className="flex justify-between items-center mb-6 border-b border-outline-variant pb-4">
-                <h2 className="font-headline-md text-headline-md text-on-surface">Shipping Address</h2>
-                <button onClick={() => setIsAddressModalOpen(true)} className="text-primary hover:text-accent-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 rounded-sm font-label-sm transition-colors">Add New Address</button>
+            {/* Header */}
+            <div>
+              <h1 className="font-headline-lg text-4xl mb-2 text-on-surface">Checkout</h1>
+              <p className="flex items-center gap-1.5 text-on-surface-variant text-sm">
+                <span className="material-symbols-outlined text-[16px] text-accent">shield</span>
+                Secure checkout • Your information is protected
+              </p>
+            </div>
+
+            {error && (
+              <div className="bg-error/10 text-error p-4 rounded text-sm flex items-start gap-2">
+                <span className="material-symbols-outlined text-[18px]">error</span>
+                <p>{error}</p>
               </div>
-              
+            )}
+
+            {/* Shipping Address */}
+            <section>
+              <h2 className="font-headline-md text-2xl mb-6 text-on-surface">Shipping Address</h2>
               {addresses.length > 0 ? (
                 <div className="space-y-4">
                   {addresses.map(addr => (
-                    <div key={addr.id} className={`border rounded-DEFAULT p-4 cursor-pointer transition-colors ${selectedAddressId === addr.id ? 'border-primary bg-primary-container/10' : 'border-outline-variant hover:border-primary/50'}`} onClick={() => setSelectedAddressId(addr.id)}>
+                    <div 
+                      key={addr.id} 
+                      className={`border p-6 cursor-pointer relative ${selectedAddressId === addr.id ? 'border-accent bg-[#F9F7F0]' : 'border-outline-variant hover:border-accent/50'}`}
+                      onClick={() => setSelectedAddressId(addr.id)}
+                    >
                       <div className="flex items-start gap-4">
-                        <input type="radio" name="address" checked={selectedAddressId === addr.id} onChange={() => setSelectedAddressId(addr.id)} className="mt-1 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1" />
-                        <div>
-                          <div className="font-headline-sm font-medium">{addr.fullName}</div>
-                          <div className="font-body-md text-on-surface-variant mt-1 leading-relaxed">
-                            {addr.addressLine1}, {addr.addressLine2 && `${addr.addressLine2}, `}
-                            {addr.city}, {addr.state} {addr.postalCode}, {addr.country}
-                          </div>
-                          <div className="font-body-md text-on-surface-variant mt-1">
-                            Phone: {addr.phone}
+                        <div className="mt-1 relative flex items-center justify-center">
+                          <input 
+                            type="radio" 
+                            name="address" 
+                            checked={selectedAddressId === addr.id} 
+                            onChange={() => setSelectedAddressId(addr.id)} 
+                            className="appearance-none w-4 h-4 border-2 border-outline-variant rounded-full checked:border-accent" 
+                          />
+                          {selectedAddressId === addr.id && <div className="absolute w-2 h-2 bg-accent rounded-full pointer-events-none" />}
+                        </div>
+                        <div className="flex-grow text-sm">
+                          <div className="font-medium text-on-surface mb-1 tracking-wide">{addr.fullName}</div>
+                          <div className="text-on-surface-variant leading-relaxed">
+                            {addr.addressLine1}{addr.addressLine2 && `, ${addr.addressLine2}`}
+                            <br />
+                            {addr.city}, {addr.state} {addr.postalCode}
+                            <br />
+                            {addr.phone}
                           </div>
                         </div>
+                        {selectedAddressId === addr.id && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setIsAddressModalOpen(true); }} 
+                            className="text-accent text-[11px] font-medium tracking-wide hover:underline"
+                          >
+                            Edit
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
+                  <button 
+                    onClick={() => setIsAddressModalOpen(true)} 
+                    className="flex items-center gap-1 text-sm text-on-surface-variant hover:text-accent transition-colors tracking-wide mt-6 uppercase text-[12px]"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">add</span>
+                    ADD NEW ADDRESS
+                  </button>
                 </div>
               ) : (
-                <div className="bg-surface-container border border-outline-variant rounded-lg p-6 text-center">
-                  <p className="mb-4 text-on-surface-variant leading-relaxed">You don't have any saved addresses.</p>
-                  <button onClick={() => setIsAddressModalOpen(true)} className="btn btn-primary">Add New Address</button>
+                <div className="border border-outline-variant p-6 text-center">
+                  <p className="mb-4 text-sm text-on-surface-variant">You don't have any saved addresses.</p>
+                  <button onClick={() => setIsAddressModalOpen(true)} className="text-accent text-sm font-medium tracking-widest uppercase hover:underline">Add New Address</button>
                 </div>
               )}
             </section>
-            
-            <section>
-              <h2 className="font-headline-md text-headline-md text-on-surface mb-8 border-b border-outline-variant pb-4">Secure Online Payment</h2>
-              <div className="bg-surface relative border border-primary/20 rounded-xl p-8 shadow-[0_4px_24px_-4px_rgba(212,175,55,0.08)] overflow-hidden">
-                {/* Subtle gold accent top border */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent"></div>
-                
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                    <span className="material-symbols-outlined text-[24px]">lock</span>
-                  </div>
-                  <div>
-                    <h3 className="font-headline-sm text-lg text-on-surface tracking-wide">Secure Checkout</h3>
-                    <p className="font-body-sm text-on-surface-variant mt-1 leading-relaxed">Your payment is encrypted and securely processed by Razorpay.</p>
-                  </div>
-                </div>
 
-                <div className="pt-6 border-t border-outline-variant/30">
-                  <h4 className="font-label-sm uppercase tracking-widest text-on-surface-variant mb-4">Accepted Payment Methods</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    <div className="flex items-center gap-2 text-sm font-body-md text-on-surface bg-surface-container-lowest px-3 py-2 rounded-lg border border-outline-variant/50">
-                      <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span> UPI
-                    </div>
-                    <div className="flex items-center gap-2 text-sm font-body-md text-on-surface bg-surface-container-lowest px-3 py-2 rounded-lg border border-outline-variant/50">
-                      <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span> Credit Cards
-                    </div>
-                    <div className="flex items-center gap-2 text-sm font-body-md text-on-surface bg-surface-container-lowest px-3 py-2 rounded-lg border border-outline-variant/50">
-                      <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span> Debit Cards
-                    </div>
-                    <div className="flex items-center gap-2 text-sm font-body-md text-on-surface bg-surface-container-lowest px-3 py-2 rounded-lg border border-outline-variant/50">
-                      <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span> Net Banking
-                    </div>
-                    <div className="flex items-center gap-2 text-sm font-body-md text-on-surface bg-surface-container-lowest px-3 py-2 rounded-lg border border-outline-variant/50">
-                      <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span> Wallets
-                    </div>
-                    <div className="flex items-center gap-2 text-sm font-body-md text-on-surface bg-surface-container-lowest px-3 py-2 rounded-lg border border-outline-variant/50">
-                      <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span> EMI
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-8 flex justify-end">
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant flex items-center gap-1.5 font-medium">
-                    Powered by <span className="font-bold text-on-surface tracking-wider">Razorpay</span>
-                  </span>
-                </div>
+            {/* Secure Online Payment */}
+            <section>
+              <h2 className="font-headline-md text-2xl mb-2 text-on-surface flex items-center gap-3">
+                <span className="material-symbols-outlined text-accent text-2xl">lock</span>
+                Secure Online Payment
+              </h2>
+              <p className="text-xs text-on-surface-variant mb-6 pb-6 border-b border-outline-variant/30">Your payment is securely processed by Razorpay.</p>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="border border-outline-variant/30 py-5 px-2 text-center text-sm text-on-surface bg-surface-container-lowest shadow-sm">UPI</div>
+                <div className="border border-outline-variant/30 py-5 px-2 text-center text-sm text-on-surface bg-surface-container-lowest shadow-sm">Cards</div>
+                <div className="border border-outline-variant/30 py-5 px-2 text-center text-sm text-on-surface bg-surface-container-lowest shadow-sm">Net Banking</div>
+                <div className="border border-outline-variant/30 py-5 px-2 text-center text-sm text-on-surface bg-surface-container-lowest shadow-sm">Wallets</div>
               </div>
             </section>
 
+            {/* Gift Wrapping */}
             {settings?.isGiftWrapEnabled && (
-              <section className="bg-surface-container rounded-xl p-6 border border-outline-variant">
-                <h2 className="font-headline-md text-headline-md text-on-surface mb-4">Gift Wrapping</h2>
-                <div className="flex items-start gap-4">
+              <section className="border border-outline-variant/30 p-5 bg-surface-container-lowest shadow-sm">
+                <label className="flex items-start gap-4 cursor-pointer">
                   <input
                     type="checkbox"
-                    id="giftWrapCheckbox"
                     checked={isGiftWrapped}
                     onChange={(e) => setIsGiftWrapped(e.target.checked)}
-                    className="mt-1 w-5 h-5 text-primary bg-surface border-outline rounded focus:ring-primary focus:ring-2"
+                    className="mt-1 w-5 h-5 border border-outline-variant text-accent focus:ring-accent accent-accent"
                   />
-                  <div className="flex-1">
-                    <label htmlFor="giftWrapCheckbox" className="font-headline-sm text-lg text-on-surface cursor-pointer">
-                      Pack as gift <span className="text-primary ml-2">(+{formatPrice(settings.giftWrapPrice || 0)})</span>
-                    </label>
-                    <p className="text-sm text-on-surface-variant mt-1 mb-4">Add a special touch to your order.</p>
-                    
-                    {isGiftWrapped && (
-                      <div>
-                        <label className="field-label mb-2 block">Gift Message (Optional)</label>
-                        <textarea
-                          value={giftMessage || ''}
-                          onChange={(e) => setGiftMessage(e.target.value)}
-                          placeholder="Write a message to include with your gift..."
-                          className="w-full bg-surface border border-outline-variant rounded p-3 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none min-h-[80px]"
-                        ></textarea>
-                      </div>
-                    )}
+                  <div>
+                    <div className="text-base text-on-surface">Pack as gift (+{formatPrice(settings.giftWrapPrice || 0)})</div>
+                    <div className="text-sm text-on-surface-variant mt-1">Add a special touch to your order with our signature artisanal wrapping.</div>
                   </div>
-                </div>
+                </label>
+                {isGiftWrapped && (
+                  <div className="mt-4 pl-9">
+                    <textarea
+                      value={giftMessage || ''}
+                      onChange={(e) => setGiftMessage(e.target.value)}
+                      placeholder="Gift Message (Optional)"
+                      className="w-full bg-surface border border-outline-variant p-3 text-sm focus:border-accent focus:outline-none min-h-[80px] resize-y"
+                    />
+                  </div>
+                )}
               </section>
             )}
 
+            {/* Order Notes */}
             <section>
-              <h2 className="font-headline-md text-headline-md text-on-surface mb-6 border-b border-outline-variant pb-4">Order Notes (Optional)</h2>
+              <h2 className="font-body-md font-medium text-base mb-3 text-on-surface">Order Notes <span className="text-on-surface-variant font-normal">(Optional)</span></h2>
               <textarea 
                 value={notes} 
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full bg-transparent border border-outline-variant rounded p-3 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none min-h-[100px]" 
-                placeholder="Notes about your order, e.g. special notes for delivery."
-              ></textarea>
+                placeholder="Any special instructions for delivery or bespoke requests..."
+                className="w-full bg-surface-container-lowest border border-outline-variant/50 p-4 text-sm focus:border-accent focus:outline-none min-h-[120px] resize-y shadow-sm"
+              />
             </section>
 
           </div>
-          
-          {/* Right Side: Order Summary */}
+
+          {/* Right Column: Order Summary */}
           <div className="lg:col-span-5">
-            <div className="bg-surface-container-lowest border border-outline-variant/50 p-8 sticky top-32 rounded-lg shadow-[0_10px_30px_rgba(31,41,55,0.04)]">
-              <h2 className="font-headline-md text-headline-md text-on-surface mb-6">Order Summary</h2>
-              
-              <div className="space-y-6 mb-8 border-b border-outline-variant/30 pb-8 max-h-[40vh] overflow-y-auto pr-2">
+            <div className="border border-outline-variant/30 p-8 sticky top-24 bg-surface-container-lowest shadow-sm">
+              <h2 className="font-headline-md text-2xl mb-8 text-on-surface">Order Summary</h2>
+
+              {/* Items */}
+              <div className="space-y-6 mb-6 pb-6 border-b border-outline-variant/30">
                 {items.length === 0 ? (
-                  <div className="text-center text-on-surface-variant font-body-md">Your cart is empty.</div>
+                  <div className="text-sm text-on-surface-variant">Your cart is empty.</div>
                 ) : items.map((item) => (
-                  <div key={item.id} className="flex items-start gap-4">
-                    <div className="w-20 h-24 bg-surface-container relative shrink-0 rounded overflow-hidden">
+                  <div key={item.id} className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-surface-container shrink-0 p-1">
                       {item.image ? (
                         <img className="w-full h-full object-cover" src={getImageUrl(item.image)} alt={item.name} />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-outline">
-                          <span className="material-symbols-outlined">image</span>
+                          <span className="material-symbols-outlined text-sm">image</span>
                         </div>
                       )}
-                      <span className="absolute -top-2 -right-2 bg-on-surface text-surface w-6 h-6 rounded-full flex items-center justify-center font-label-sm text-label-sm shadow-md">{item.quantity}</span>
                     </div>
-                    <div className="flex-grow flex flex-col justify-between py-1">
+                    <div className="flex-grow flex justify-between items-start text-sm">
                       <div>
-                        <h3 className="font-headline-sm text-on-surface leading-tight">{item.name}</h3>
-                        <p className="font-body-sm text-on-surface-variant mt-1 text-sm">Size: {item.size}</p>
-                        {item.bottle && item.bottle.name && (
-                          <p className="font-body-sm text-on-surface-variant mt-1 text-xs flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px]">liquor</span>
-                            {item.bottle.name}
-                          </p>
-                        )}
+                        <div className="text-on-surface">{item.name}</div>
+                        <div className="text-on-surface-variant text-xs mt-1">Qty {item.quantity}</div>
                       </div>
-                      <div className="font-body-md font-medium text-on-surface mt-2">
+                      <div className="text-on-surface text-right">
                         {formatPrice((item.finalPrice || 0) * item.quantity)}
                         {item.discountAmount && item.discountAmount > 0 && (
-                          <span className="text-xs text-on-surface-variant line-through ml-2">
+                          <div className="text-xs text-on-surface-variant line-through mt-0.5">
                             {formatPrice((item.originalPrice || 0) * item.quantity)}
-                          </span>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -424,257 +419,129 @@ export const Checkout: React.FC = () => {
                 ))}
               </div>
 
-              {/* Offers Section */}
-              {(appliedPromotions.length > 0 || availablePromotions.length > 0 || lockedPromotions.length > 0) && (
-                <div className="border-b border-outline-variant/30 pb-6 mb-6">
-                  {/* Applied Offers Section */}
-                  {appliedPromotions && appliedPromotions.length > 0 && (
-                    <div className="mb-4">
-                      <h3 className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant mb-2">Applied Offer</h3>
-                      {appliedPromotions.map((promo: any) => {
-                          const icon = getPromoIcon(promo);
-                          const isManual = promo.id === manuallySelectedPromotionId;
-                          
-                          return (
-                            <div key={promo.id} className="bg-gradient-to-r from-primary/[0.04] to-transparent border border-primary/25 rounded-lg p-3 mb-2 flex items-start gap-3">
-                              <span className="text-lg mt-0.5" aria-hidden="true">{icon}</span>
-                              <div className="flex-grow min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-label-md text-sm text-primary">{getPromoHeadline(promo)}</span>
-                                  <span className="bg-primary/10 text-primary text-[9px] font-label-md px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                    <span className="material-symbols-outlined text-[10px]">check_circle</span>
-                                    Applied
-                                  </span>
-                                </div>
-                                <div className="flex justify-between items-end mt-1">
-                                  <span className="text-[11px] text-on-surface-variant">
-                                    {isManual ? 'Manually Applied' : 'Automatically Applied'}
-                                  </span>
-                                  {(!promo.stackable) && (
-                                    <button
-                                      onClick={() => removePromotion()}
-                                      className="text-error hover:text-error/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-1 rounded-sm transition-colors flex items-center gap-0.5 font-label-sm uppercase tracking-wider text-[10px] whitespace-nowrap"
-                                    >
-                                      <span className="material-symbols-outlined text-[14px]">close</span>
-                                      Remove
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  )}
+              {/* Discount Code */}
+              <div className="mb-6 pb-6 border-b border-outline-variant/30">
+                <div className="text-[11px] text-on-surface-variant mb-3 tracking-wide">Discount Code</div>
+                {couponCode ? (
+                  <div className="flex items-center justify-between border border-outline-variant p-3 text-sm">
+                    <span className="uppercase tracking-wider">{couponCode}</span>
+                    <button onClick={removeCoupon} className="text-accent uppercase text-xs font-medium tracking-wider hover:underline">Remove</button>
+                  </div>
+                ) : (
+                  <div className="flex border border-outline-variant/50 p-1 relative">
+                    <input 
+                      type="text" 
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                      placeholder="Enter code" 
+                      className="w-full pl-3 pr-20 py-2 text-sm bg-transparent outline-none"
+                    />
+                    <button
+                      onClick={() => handleApplyCoupon()}
+                      disabled={isApplyingCoupon || !couponInput.trim()}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-accent text-[11px] font-medium tracking-[0.15em] uppercase hover:text-accent-hover transition-colors disabled:opacity-50"
+                    >
+                      {isApplyingCoupon ? '...' : 'APPLY'}
+                    </button>
+                  </div>
+                )}
+                {couponError && <p className="text-error text-xs mt-2">{couponError}</p>}
+              </div>
 
-                  {/* Available Offers Section */}
-                  {availablePromotions && availablePromotions.length > 0 && (
-                    <div className="mb-4">
-                      <h3 className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant mb-3">Available Offers</h3>
-                      <div className="space-y-3">
-                        {availablePromotions.map((promo: any) => {
-                          const icon = getPromoIcon(promo);
-                          
-                          return (
-                            <div key={promo.id} className="bg-surface-container border border-outline-variant/40 p-3 rounded-lg flex items-start gap-3 transition-colors">
-                              <span className="text-lg mt-0.5" aria-hidden="true">{icon}</span>
-                              <div className="flex-grow min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-label-md text-sm text-on-surface">
-                                    {getPromoHeadline(promo)}
-                                  </span>
-                                </div>
-                                
-                                <div className="flex items-center justify-between gap-2 mt-1.5">
-                                  {promo.code ? (
-                                    <span className="font-mono text-[11px] font-semibold text-primary bg-primary/[0.06] px-2 py-0.5 rounded border border-primary/10">
-                                      {promo.code}
-                                    </span>
-                                  ) : (
-                                    <span className="text-[11px] text-on-surface-variant">
-                                      Eligible
-                                    </span>
-                                  )}
-                                  
-                                  {promo.code ? (
-                                    <button
-                                      onClick={() => handleApplyCoupon(promo.code || '')}
-                                      disabled={isApplyingCoupon}
-                                      className="text-[11px] font-label-md text-primary hover:text-on-primary hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 px-2.5 py-0.5 rounded border border-primary/20 transition-colors disabled:opacity-50"
-                                    >
-                                      Apply
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={() => applyPromotion(promo.id)}
-                                      className="text-[11px] font-label-md px-2.5 py-0.5 rounded transition-colors text-primary hover:text-on-primary hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 border border-primary/20"
-                                    >
-                                      Apply
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Locked Offers Section */}
-                  {lockedPromotions && lockedPromotions.length > 0 && (
-                    <div className="mb-4">
-                      <h3 className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant mb-3">Locked Offers</h3>
-                      <div className="space-y-3">
-                        {lockedPromotions.map((promo: any) => {
-                          const icon = getPromoIcon(promo);
-                          const msg = unlockMessages?.find((m: any) => m.includes(promo.name)) || 'Conditions not met';
-                          
-                          return (
-                            <div key={promo.id} className="bg-surface-container/50 border border-outline-variant/20 p-3 rounded-lg flex items-start gap-3 transition-colors opacity-75">
-                              <span className="text-lg mt-0.5" aria-hidden="true">{icon}</span>
-                              <div className="flex-grow min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-label-md text-sm text-on-surface-variant">
-                                    {getPromoHeadline(promo)}
-                                  </span>
-                                </div>
-                                <div className="mt-1.5">
-                                  <span className="text-[11px] text-error flex items-center gap-1">
-                                    <span className="material-symbols-outlined text-[12px]">lock</span>
-                                    {msg}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              <div className="space-y-4 font-body-md text-body-md mt-6">
-                
-                {/* Coupon Input Area */}
-                <div className="border-b border-outline-variant/30 pb-6 mb-2">
-                  <h3 className="font-label-md text-on-surface mb-3 uppercase tracking-wider text-sm">Discount Code</h3>
-                  {couponCode ? (
-                    <div className="flex items-center justify-between bg-primary/[0.05] border border-primary/15 rounded-lg p-3 text-primary">
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[18px]">local_offer</span>
-                        <span className="font-label-md uppercase tracking-wider">{couponCode}</span>
-                      </div>
-                      <button onClick={removeCoupon} className="text-on-surface-variant hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-1 rounded-sm transition-colors" title="Remove Coupon" aria-label="Remove coupon">
-                        <span className="material-symbols-outlined text-[20px]">close</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          value={couponInput}
-                          onChange={(e) => setCouponInput(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
-                          placeholder="Enter coupon code" 
-                          className="flex-1 min-w-0 bg-transparent border border-outline-variant rounded-lg px-4 py-3 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none uppercase transition-all"
-                          aria-label="Coupon code input"
-                        />
-                        <button
-                          onClick={() => handleApplyCoupon()}
-                          disabled={isApplyingCoupon || !couponInput.trim()}
-                          className="shrink-0 bg-surface-variant text-on-surface-variant hover:bg-surface-tint hover:text-on-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 px-6 py-3 rounded-lg transition-colors disabled:opacity-50 font-label-md tracking-wider"
-                        >
-                          {isApplyingCoupon ? '…' : 'APPLY'}
-                        </button>
-                      </div>
-                      {couponError && <p className="text-error text-sm mt-2">{couponError}</p>}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex justify-between text-on-surface-variant py-1">
+              {/* Price Breakdown */}
+              <div className="space-y-4 text-sm mb-6 pb-6 border-b border-outline-variant/30">
+                <div className="flex justify-between text-on-surface-variant">
                   <span>Subtotal</span>
-                  <span className="font-medium text-on-surface">{formatPrice(subtotal)}</span>
+                  <span className="text-on-surface">{formatPrice(subtotal)}</span>
                 </div>
+                
+                {/* Packaging Upgrades */}
+                {items.filter(i => i.bottle && i.bottle.price > 0).length > 0 && (
+                  <div className="flex justify-between text-on-surface-variant">
+                    <span>Packaging Upgrades</span>
+                    <span className="text-on-surface">{formatPrice(items.reduce((sum, i) => sum + ((i.bottle?.price || 0) * i.quantity), 0))}</span>
+                  </div>
+                )}
+
+                {/* Gift Wrap */}
+                {isGiftWrapped && settings?.isGiftWrapEnabled && (
+                  <div className="flex justify-between text-on-surface-variant">
+                    <span>Gift Wrapping</span>
+                    <span className="text-on-surface">{formatPrice(selectedGiftPrice)}</span>
+                  </div>
+                )}
+
+                {/* Discounts */}
                 {offerDiscount > 0 && (
-                  <div className="flex justify-between text-primary py-1">
-                    <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">sell</span> Product Discounts</span>
-                    <span className="font-medium">-{formatPrice(offerDiscount)}</span>
+                  <div className="flex justify-between text-accent">
+                    <span>Product Discounts</span>
+                    <span>-{formatPrice(offerDiscount)}</span>
                   </div>
                 )}
                 {cartDiscount > 0 && (
-                  <div className="flex justify-between text-primary py-1">
-                    <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">local_offer</span> Cart Discount</span>
-                    <span className="font-medium">-{formatPrice(cartDiscount)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-on-surface-variant py-1">
-                  <span>Shipping</span>
-                  <span className="text-on-surface font-medium">
-                    {shippingCost === 0 ? <span className="text-primary font-medium tracking-wide">FREE</span> : formatPrice(shippingCost)}
-                  </span>
-                </div>
-                {isGiftWrapped && settings?.isGiftWrapEnabled && (
-                  <div className="flex justify-between items-center text-sm font-body-md mt-2">
-                    <span className="text-on-surface-variant flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[16px]">redeem</span>
-                      Gift Wrapping
-                    </span>
-                    <span className="font-bold text-on-surface">
-                      +{formatPrice(settings.giftWrapPrice || 0)}
-                    </span>
+                  <div className="flex justify-between text-accent">
+                    <span>Cart Discount</span>
+                    <span>-{formatPrice(cartDiscount)}</span>
                   </div>
                 )}
 
-                <div className="border-t border-outline-variant/50 pt-6 mt-6">
-                  <div className="flex justify-between items-end mb-2">
-                    <span className="font-headline-md text-headline-md text-on-surface tracking-wide">Total</span>
-                    <span className="font-headline-md text-headline-md text-on-surface">
-                      <span className="text-sm font-body-md text-on-surface-variant font-normal mr-2">INR</span>{formatPrice(total)}
-                    </span>
-                  </div>
-                  {totalSavings > 0 && (
-                    <div className="text-right">
-                      <span className="text-[11px] font-label-sm uppercase tracking-[0.2em] text-primary/80">
-                        Total Savings: {formatPrice(totalSavings)}
-                      </span>
-                    </div>
-                  )}
+                <div className="flex justify-between text-on-surface-variant">
+                  <span>Shipping</span>
+                  <span className={shippingCost === 0 ? "text-accent font-medium uppercase text-[11px] tracking-wider" : "text-on-surface"}>
+                    {shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
+                  </span>
                 </div>
               </div>
 
-              <div className="mt-8 pt-4 border-t border-outline-variant/30">
-                <button
-                  onClick={placeOrder}
-                  disabled={isSubmitting || !selectedAddressId || items.length === 0}
-                  className="w-full bg-accent hover:bg-accent-hover text-ink py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(212,175,55,0.25)] hover:shadow-[0_10px_25px_rgba(212,175,55,0.35)] transition-all duration-300 disabled:opacity-50 disabled:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2"
-                >
-                  <span className="material-symbols-outlined">{isSubmitting ? 'hourglass_empty' : 'lock'}</span>
-                  <span className="font-label-lg tracking-widest text-[15px]">{isSubmitting ? 'PROCESSING PAYMENT...' : 'PAY SECURELY'}</span>
-                </button>
-                <div className="flex flex-col items-center justify-center gap-2 mt-5">
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant flex items-center gap-1.5 font-medium">
-                    Powered by <span className="font-bold text-on-surface tracking-wider">Razorpay</span>
-                  </span>
-                  <span className="text-[9px] text-on-surface-variant/70 tracking-widest uppercase flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[10px]">shield</span>
-                    256-bit SSL Secure Payment
-                  </span>
+              {/* Total */}
+              <div className="mb-8">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-base text-on-surface">Total</span>
+                  <span className="font-headline-lg text-3xl text-on-surface tracking-wide">{formatPrice(total)}</span>
                 </div>
+                <div className="text-right text-[10px] text-on-surface-variant uppercase tracking-widest">
+                  Includes all taxes
+                </div>
+              </div>
+
+              {/* Pay Button */}
+              <button
+                onClick={placeOrder}
+                disabled={isSubmitting || !selectedAddressId || items.length === 0}
+                className="w-full bg-ink text-surface hover:bg-ink/90 transition-colors py-4 px-6 flex items-center justify-center gap-3 disabled:opacity-50 group shadow-sm"
+              >
+                <span className="material-symbols-outlined text-[18px]">lock</span>
+                <span className="font-label-sm uppercase tracking-[0.2em]">{isSubmitting ? 'Processing...' : 'Pay Securely'}</span>
+                <span className="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+              </button>
+              
+              <div className="text-center text-[9px] text-on-surface-variant uppercase tracking-[0.25em] mt-5">
+                Powered by Razorpay
               </div>
             </div>
           </div>
         </div>
       </main>
+      
+      <footer className="mt-auto border-t border-outline-variant/30 bg-surface-container-lowest py-8">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-on-surface-variant">
+          <div className="uppercase tracking-widest text-[10px]">
+            © {new Date().getFullYear()} AL AHAD ATTARS. HANDCRAFTED IN INDIA.
+          </div>
+          <div className="flex gap-6">
+            <Link to="/privacy" className="hover:text-on-surface transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-on-surface transition-colors">Terms of Service</Link>
+            <Link to="/shipping" className="hover:text-on-surface transition-colors">Shipping Info</Link>
+          </div>
+        </div>
+      </footer>
       <AddressModal
         isOpen={isAddressModalOpen}
         onClose={() => setIsAddressModalOpen(false)}
         onSave={fetchAddresses}
         editAddress={null}
       />
-    </>
+    </div>
   );
 };
