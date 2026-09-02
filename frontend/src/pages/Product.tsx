@@ -66,6 +66,11 @@ export const ProductPage: React.FC = () => {
             setActiveType(initialType);
             const initialVariants = res.data.variants.filter((v: Variant) => v.productType === initialType);
             setSelectedVariant(initialVariants.length > 0 ? initialVariants[0] : res.data.variants[0]);
+            
+            const initialTypeImg = res.data.images.find((img: any) => img.altText?.toUpperCase() === initialType);
+            if (initialTypeImg) {
+              setMainImage(initialTypeImg.imageUrl);
+            }
           }
         }
       } catch (err: any) {
@@ -125,9 +130,16 @@ export const ProductPage: React.FC = () => {
   
   const handleTypeChange = (type: string) => {
     setActiveType(type);
-    const newVariants = product.variants?.filter(v => v.productType === type) || [];
+    const newVariants = product?.variants?.filter(v => v.productType === type) || [];
     if (newVariants.length > 0) {
       setSelectedVariant(newVariants[0]);
+    }
+    
+    if (product?.images) {
+      const typeImg = product.images.find((img: any) => img.altText?.toUpperCase() === type.toUpperCase());
+      if (typeImg) {
+        setMainImage(typeImg.imageUrl);
+      }
     }
   };
 

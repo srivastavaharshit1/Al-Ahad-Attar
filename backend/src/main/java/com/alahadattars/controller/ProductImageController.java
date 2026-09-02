@@ -90,6 +90,23 @@ public class ProductImageController {
                 .build());
     }
 
+    @Operation(summary = "Update image alt text (ADMIN)")
+    @PatchMapping("/api/images/{imageId}/alt-text")
+    @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(value = {"products", "homepage"}, allEntries = true)
+    public ResponseEntity<ApiResponse<ProductImageResponse>> updateAltText(
+            @PathVariable Long imageId,
+            @RequestBody java.util.Map<String, String> payload) {
+        log.info("Received request to update alt text for image ID: {}", imageId);
+        String altText = payload.get("altText");
+        ProductImageResponse response = productImageService.updateAltText(imageId, altText);
+        return ResponseEntity.ok(ApiResponse.<ProductImageResponse>builder()
+                .success(true)
+                .message("Image alt text updated successfully")
+                .data(response)
+                .build());
+    }
+
     @Operation(summary = "Update display order of images (ADMIN)")
     @PatchMapping("/api/products/{productId}/images/reorder")
     @PreAuthorize("hasRole('ADMIN')")

@@ -10,6 +10,7 @@ export type ManagedImage = {
   id: string | number;
   imageUrl: string;
   isPrimary: boolean;
+  altText?: string;
   file?: File; // For local unuploaded files
 };
 
@@ -155,6 +156,26 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
         ...img,
         isPrimary: img.id === imageId
       }));
+      onImagesChange(updatedImages);
+    }
+  };
+
+  const handleAltTextChange = async (imageId: string | number, altText: string) => {
+    if (productId && typeof imageId === 'number') {
+      try {
+        await apiClient.patch(`/images/${imageId}/alt-text`, { altText });
+        const updatedImages = images.map(img => 
+          img.id === imageId ? { ...img, altText } : img
+        );
+        onImagesChange(updatedImages);
+        toast.success("Image type updated");
+      } catch (error: any) {
+        toast.error("Failed to update image type.");
+      }
+    } else {
+      const updatedImages = images.map(img => 
+        img.id === imageId ? { ...img, altText } : img
+      );
       onImagesChange(updatedImages);
     }
   };
@@ -318,6 +339,20 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
+              </div>
+
+              {/* Type Selector (Dropdown below) */}
+              <div className="absolute bottom-0 left-0 w-full bg-surface-container-lowest/90 backdrop-blur-sm border-t border-outline-variant p-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                <select
+                  value={img.altText || ''}
+                  onChange={(e) => handleAltTextChange(img.id, e.target.value)}
+                  className="w-full text-[11px] font-label-sm bg-transparent border-none focus:ring-0 cursor-pointer text-on-surface"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <option value="">Default Image</option>
+                  <option value="ATTAR">Attar Image</option>
+                  <option value="PERFUME">Perfume Image</option>
+                </select>
               </div>
             </div>
           ))}

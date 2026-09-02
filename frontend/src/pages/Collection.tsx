@@ -34,7 +34,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('');
   const [selectedGender, setSelectedGender] = useState('');
   const [selectedBrand, setSelectedBrand] = useState('');
-  const [sortBy, setSortBy] = useState('createdAt,desc');
+  const [sortBy, setSortBy] = useState('name,asc');
   const [searchQuery, setSearchQuery] = useState('');
 
   const { ref: gridRef, inView: gridInView } = useInView(0);
@@ -142,7 +142,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
     setSelectedGender('');
     setSelectedBrand('');
     setSearchQuery('');
-    setSortBy('createdAt,desc');
+    setSortBy('name,asc');
     resetPage();
   };
 
