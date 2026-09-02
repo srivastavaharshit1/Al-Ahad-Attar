@@ -4,21 +4,18 @@ import { useCart } from '../hooks/useCart';
 import { formatPrice } from '../utils/formatPrice';
 import { getImageUrl } from '../utils/getImageUrl';
 import { useStoreSettings } from '../context/StoreSettingsContext';
-import { getPromoIcon, getPromoHeadline, estimateSavings } from '../utils/promotionHelpers';
 import { useInView } from '../hooks/useInView';
+
 export const Cart: React.FC = () => {
   const { settings } = useStoreSettings();
-  const { items, removeItem, updateQuantity, subtotal, offerDiscount, itemCount, appliedPromotions, availablePromotions, lockedPromotions, unlockMessages, cartDiscount, manuallySelectedPromotionId, applyPromotion, removePromotion, removeCoupon, freeProductOptions, addFreeItem, removeFreeItem, applyCoupon, isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage } = useCart();
+  const { items, removeItem, updateQuantity, subtotal, offerDiscount, itemCount, appliedPromotions, availablePromotions, unlockMessages, cartDiscount, removePromotion, removeCoupon, removeFreeItem, applyCoupon, isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage } = useCart();
 
-  // Scroll-reveal refs (called unconditionally, before any early returns)
   const { ref: itemsRef, inView: itemsInView } = useInView<HTMLDivElement>();
   const { ref: summaryRef, inView: summaryInView } = useInView<HTMLDivElement>();
-  const [brokenGiftImages, setBrokenGiftImages] = useState<Set<number>>(new Set());
   const [couponInput, setCouponInput] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [couponError, setCouponError] = useState('');
 
-  // Provide immediate feedback for invalid coupons from backend messages
   useEffect(() => {
     if (unlockMessages && unlockMessages.length > 0) {
       const invalidMsg = unlockMessages.find(msg => msg.toLowerCase().includes('invalid or expired'));
@@ -32,10 +29,6 @@ export const Cart: React.FC = () => {
     }
   }, [unlockMessages]);
 
-  const [showAllFreeGifts, setShowAllFreeGifts] = useState(false);
-
-
-
   const handleApplyCoupon = async (code?: string | React.FormEvent) => {
     if (code && typeof code !== 'string' && 'preventDefault' in code) {
       code.preventDefault();
@@ -47,10 +40,6 @@ export const Cart: React.FC = () => {
     setCouponError('');
     try {
       await applyCoupon(codeToApply);
-      if (typeof code !== 'string') {
-        // Only clear input if they didn't click on an available offer directly
-        // So the input stays there to show what they applied!
-      }
     } catch (err: any) {
       setCouponError(err.response?.data?.message || 'Invalid coupon code');
     } finally {
@@ -59,370 +48,67 @@ export const Cart: React.FC = () => {
   };
 
   const shippingThreshold = settings?.freeShippingThreshold !== undefined ? settings.freeShippingThreshold : 500;
-
   const totalAfterOffer = subtotal - offerDiscount;
   const shippingCharge = settings?.shippingCharge !== undefined ? settings.shippingCharge : 50;
 
-  // If Free Shipping is part of applied promotions, cost is 0
   const isFreeShipping = appliedPromotions && appliedPromotions.some((p: any) => p.name.includes('Free Shipping'));
   const shippingCost = isFreeShipping ? 0 : (totalAfterOffer > shippingThreshold ? 0 : shippingCharge);
-
   const selectedGiftPrice = (isGiftWrapped && settings?.isGiftWrapEnabled) ? (settings.giftWrapPrice || 0) : 0;
-
+  
   const total = totalAfterOffer - cartDiscount + shippingCost + selectedGiftPrice;
+
+  // Calculate packaging upgrades
+  const packagingUpgradesPrice = items.reduce((sum, item) => sum + ((item.bottle?.price || 0) * item.quantity), 0);
+  const itemsSubtotalWithoutPackaging = subtotal - packagingUpgradesPrice;
 
   if (items.length === 0) {
     return (
-      <main className="flex-grow py-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full text-center">
-        <div className="max-w-md mx-auto flex flex-col items-center">
-          <div className="w-16 h-16 border border-accent rounded-full flex items-center justify-center mb-6">
-            <span className="material-symbols-outlined text-accent text-2xl">shopping_bag</span>
+      <div className="bg-[#f9f8f6] min-h-screen">
+        <main className="flex-grow py-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full text-center">
+          <div className="max-w-md mx-auto flex flex-col items-center">
+            <div className="w-16 h-16 border border-[#d4af37] rounded-full flex items-center justify-center mb-6">
+              <span className="material-symbols-outlined text-[#d4af37] text-2xl">shopping_bag</span>
+            </div>
+            <h1 className="font-headline-md text-on-surface mb-4 tracking-widest uppercase">Your Cart is Empty</h1>
+            <p className="font-body-lg text-body-lg text-on-surface-variant mb-8 leading-relaxed">
+              Looks like you haven't added anything to your cart yet. Explore our luxury fragrance collection.
+            </p>
+            <Link to="/collection" className="bg-[#2a2321] hover:bg-[#1f1a18] text-white px-8 py-3 uppercase tracking-wider font-label-md text-xs transition-colors">
+              Continue Shopping
+            </Link>
           </div>
-          <h1 className="font-headline-md text-on-surface mb-4 tracking-widest uppercase">Your Cart is Empty</h1>
-          <p className="font-body-lg text-body-lg text-on-surface-variant mb-8 leading-relaxed">
-            Looks like you haven't added anything to your cart yet. Explore our luxury fragrance collection.
-          </p>
-          <Link to="/collection" className="btn btn-primary">
-            Continue Shopping
-          </Link>
-        </div>
-      </main>
+        </main>
+      </div>
     );
   }
 
-  // Build promotion status cards
-  const renderOfferPanel = () => {
-    if ((!appliedPromotions || appliedPromotions.length === 0) &&
-      (!availablePromotions || availablePromotions.length === 0) &&
-      (!lockedPromotions || lockedPromotions.length === 0)) {
-      return null;
-    }
-
-    const bestPromo = availablePromotions && availablePromotions.length > 0 ? availablePromotions.reduce((best: any, promo: any) => {
-      return estimateSavings(promo, subtotal) > estimateSavings(best, subtotal) ? promo : best;
-    }, availablePromotions[0]) : null;
-
-    const manuallySelectedPromo = (appliedPromotions || []).concat(availablePromotions || []).concat(lockedPromotions || []).find((p: any) => p.id === manuallySelectedPromotionId);
-    const isManualPromoApplied = manuallySelectedPromo ? appliedPromotions?.some((ap: any) => ap.id === manuallySelectedPromotionId) : false;
-    const isManualPromoInvalid = manuallySelectedPromo && !isManualPromoApplied && manuallySelectedPromotionId !== null;
-
-    return (
-      <div className="mt-10 space-y-6">
-        {/* Invalid Manual Promo Banner */}
-        {isManualPromoInvalid && manuallySelectedPromo && (
-          <div className="bg-error-container/20 border border-error/30 rounded-xl p-4 flex items-center justify-between">
-            <div>
-              <p className="font-label-md text-error flex items-center gap-2 mb-1">
-                <span className="material-symbols-outlined text-[18px]">error</span>
-                Offer Removed: {getPromoHeadline(manuallySelectedPromo)}
-              </p>
-              <p className="font-body-sm text-on-surface-variant">
-                Your cart no longer meets the requirements for this offer.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Applied Offers Section */}
-        {appliedPromotions && appliedPromotions.length > 0 && (
-          <div>
-            <h3 className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant mb-3">Applied Offer</h3>
-            {appliedPromotions.map((promo: any) => {
-              const icon = getPromoIcon(promo);
-              const isManual = promo.id === manuallySelectedPromotionId;
-
-              return (
-                <div key={promo.id} className="rounded-xl border border-primary/25 bg-gradient-to-r from-primary/[0.04] to-transparent overflow-hidden mb-3">
-                  <div className="px-5 py-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3">
-                        <span className="text-2xl mt-0.5" aria-hidden="true">{icon}</span>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-label-lg text-primary">{getPromoHeadline(promo)}</h4>
-                            <span className="bg-primary/10 text-primary text-[10px] font-label-md px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <span className="material-symbols-outlined text-[12px]">check_circle</span>
-                              {isManual ? 'Manually Applied' : 'Automatically Applied'}
-                            </span>
-                          </div>
-                          <p className="font-body-sm text-on-surface-variant">
-                            {promo.description || 'Discount applied to your cart'}
-                          </p>
-                        </div>
-                      </div>
-                      {(!promo.stackable) && (
-                        <button
-                          onClick={() => {
-                            if (promo.code) {
-                              removeCoupon();
-                            } else {
-                              removePromotion();
-                            }
-                          }}
-                          className="text-on-surface-variant hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-1 transition-colors flex items-center gap-1 font-label-sm uppercase tracking-wider text-xs whitespace-nowrap rounded-sm"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">close</span>
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Available Offers Section */}
-        {availablePromotions && availablePromotions.length > 0 && (
-          <div>
-            <h3 className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant mb-3">Available Offers</h3>
-            <div className="space-y-4">
-              {availablePromotions.map((promo: any) => {
-                const unlock = unlockMessages?.find(msg => msg.includes(promo.name));
-                const icon = getPromoIcon(promo);
-                const isBestValue = bestPromo?.id === promo.id;
-                const isEligible = !promo.minCartValue || subtotal >= promo.minCartValue;
-
-                let progressUI = null;
-                if (promo.minCartValue && subtotal < promo.minCartValue) {
-                  const pct = Math.min((subtotal / promo.minCartValue) * 100, 100);
-                  progressUI = (
-                    <div className="mt-3">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[11px] font-label-md text-on-surface-variant tracking-wider uppercase">
-                          Spend {formatPrice(promo.minCartValue - subtotal)} more
-                        </span>
-                        <span className="text-[11px] font-label-md text-primary">{Math.round(pct)}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-outline-variant/30 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-primary to-primary-fixed rounded-full"
-                          style={{ width: `${pct}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div key={promo.id} className={`relative rounded-xl border overflow-hidden transition-all duration-300 border-outline-variant/60 bg-surface-container-lowest ${isBestValue ? 'ring-1 ring-primary/30 shadow-sm' : ''}`}>
-                    {isBestValue && (
-                      <div className="absolute top-0 right-0 bg-primary text-on-primary text-[9px] font-label-md px-2 py-0.5 rounded-bl-lg uppercase tracking-widest">
-                        ⭐ Best Value
-                      </div>
-                    )}
-                    <div className="px-5 py-4">
-                      <div className="flex items-start gap-3">
-                        <span className="text-2xl mt-0.5" aria-hidden="true">{icon}</span>
-                        <div className="flex-grow min-w-0">
-                          <h4 className="font-label-lg text-on-surface mb-0.5">
-                            {getPromoHeadline(promo)}
-                          </h4>
-                          <p className="font-body-sm text-on-surface-variant">
-                            {unlock || promo.description || `Eligible on orders over ₹${promo.minCartValue}`}
-                          </p>
-
-                          {progressUI}
-
-                          {promo.code && (
-                            <div className="mt-2 flex items-center gap-2">
-                              <span className="text-[10px] text-on-surface-variant uppercase tracking-wider">Code:</span>
-                              <span className="font-mono text-xs font-semibold text-primary bg-primary/[0.04] px-1.5 py-0.5 rounded border border-primary/10">{promo.code}</span>
-                            </div>
-                          )}
-
-                          <div className="mt-3 flex justify-end">
-                            <button
-                              onClick={() => applyPromotion(promo.id)}
-                              disabled={!isEligible}
-                              className={`px-4 py-1.5 rounded text-xs font-label-md uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 ${isEligible
-                                  ? 'bg-primary text-on-primary hover:bg-surface-tint'
-                                  : 'bg-surface-variant text-on-surface-variant opacity-50 cursor-not-allowed'
-                                }`}
-                            >
-                              Apply
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Locked Offers Section */}
-        {lockedPromotions && lockedPromotions.length > 0 && (
-          <div>
-            <h3 className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant mb-3 mt-6">Locked Offers</h3>
-            <div className="space-y-4">
-              {lockedPromotions.map((promo: any) => {
-                const unlock = unlockMessages?.find(msg => msg.includes(promo.name)) || 'Conditions not met';
-                const icon = getPromoIcon(promo);
-
-                // For BUY X GET Y progress
-                let progressUI = null;
-                if (promo.minCartValue && subtotal < promo.minCartValue) {
-                  // Threshold progress
-                  const pct = Math.min((subtotal / promo.minCartValue) * 100, 100);
-                  progressUI = (
-                    <div className="mt-3 opacity-60">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[11px] font-label-md text-error tracking-wider uppercase">
-                          {unlock}
-                        </span>
-                        <span className="text-[11px] font-label-md text-on-surface-variant">{Math.round(pct)}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-outline-variant/30 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-on-surface-variant/40 rounded-full"
-                          style={{ width: `${pct}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  );
-                } else {
-                  progressUI = (
-                    <div className="mt-3">
-                      <span className="text-[11px] font-label-md text-error tracking-wider uppercase">
-                        {unlock}
-                      </span>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div key={promo.id} className="relative rounded-xl border overflow-hidden transition-all duration-300 border-outline-variant/30 bg-surface-container-lowest/50 opacity-75">
-                    <div className="px-5 py-4">
-                      <div className="flex items-start gap-3">
-                        <span className="text-2xl mt-0.5" aria-hidden="true">{icon}</span>
-                        <div className="flex-grow min-w-0">
-                          <h4 className="font-label-lg text-on-surface-variant mb-0.5">
-                            {getPromoHeadline(promo)}
-                          </h4>
-                          <p className="font-body-sm text-on-surface-variant">
-                            {promo.description || `Eligible on orders over ₹${promo.minCartValue}`}
-                          </p>
-
-                          {progressUI}
-
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderFreeGiftsPanel = () => {
-    if (!freeProductOptions || freeProductOptions.length === 0) return null;
-
-    // All options come from the single highest-priority qualifying FREE_PRODUCT promo (the engine
-    // stops at the first match), so looking up the promotion for the first option is sufficient.
-    const matchingPromo = (appliedPromotions || []).concat(availablePromotions || [])
-      .find((p: any) => p.id === freeProductOptions[0].promotionId);
-
-    return (
-      <div className="mt-10 space-y-6">
-        <h3 className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant mb-3 flex items-center gap-2">
-          <span className="text-xl">🎁</span> Choose Your Free Gift
-        </h3>
-        {matchingPromo?.generatedDescription && (
-          <p className="text-sm text-on-surface-variant -mt-3">{matchingPromo.generatedDescription}</p>
-        )}
-        <p className="text-xs text-on-surface-variant">{freeProductOptions.length} eligible {freeProductOptions.length === 1 ? 'product' : 'products'} — pick one</p>
-        <div className="rounded-xl border border-outline-variant divide-y divide-outline-variant overflow-hidden bg-surface-container-lowest">
-          {(showAllFreeGifts ? freeProductOptions : freeProductOptions.slice(0, 3)).map((option, idx) => {
-            const isAdded = items.some(item => item.freePromotionId === option.promotionId && Number(item.variantId) === option.variantId);
-            return (
-              <button
-                key={`${option.promotionId}-${option.variantId}-${idx}`}
-                type="button"
-                onClick={() => !isAdded && addFreeItem(option.promotionId, option.variantId)}
-                disabled={isAdded}
-                className={`w-full flex items-center gap-4 p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset ${isAdded ? 'bg-primary/5 cursor-default' : 'hover:bg-surface-container cursor-pointer'}`}
-              >
-                {/* Selection indicator */}
-                <span className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isAdded ? 'border-primary bg-primary' : 'border-outline-variant'}`}>
-                  {isAdded && <span className="material-symbols-outlined text-on-primary text-[14px]">check</span>}
-                </span>
-
-                <div className="w-14 h-14 bg-surface-container rounded overflow-hidden shrink-0 border border-outline-variant/30">
-                  {option.image && !brokenGiftImages.has(option.variantId) ? (
-                    <img
-                      src={getImageUrl(option.image)}
-                      alt={option.productName}
-                      className="w-full h-full object-cover"
-                      onError={() => setBrokenGiftImages(prev => new Set(prev).add(option.variantId))}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-on-surface-variant">
-                      <span className="material-symbols-outlined text-[20px]">image</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex-grow min-w-0">
-                  <h4 className="font-label-md text-on-surface truncate">{option.productName}</h4>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="badge badge-neutral text-[10px]">{option.variant}</span>
-                    {option.categoryName && <span className="text-xs text-on-surface-variant">{option.categoryName}</span>}
-                  </div>
-                </div>
-
-                <div className="shrink-0 text-right">
-                  <span className="font-label-sm text-success uppercase tracking-wide">Free</span>
-                  {isAdded && <p className="text-[10px] text-on-surface-variant mt-0.5">In cart</p>}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        {freeProductOptions.length > 3 && (
-          <div className="mt-4 flex justify-center">
-            <button
-              onClick={() => setShowAllFreeGifts(!showAllFreeGifts)}
-              type="button"
-              className="text-[10px] text-on-surface font-label-md uppercase tracking-[0.2em] border border-outline-variant hover:bg-surface-container px-8 py-3 transition-colors rounded-md"
-            >
-              {showAllFreeGifts ? 'Show Less' : `View All ${freeProductOptions.length} Options`}
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-
   return (
-    <main className="flex-grow py-12 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full">
-      <div className="mb-12">
-        <h1 className="font-display-lg text-display-lg text-on-surface mb-2">Your Cart</h1>
-        <p className="font-body-lg text-body-lg text-on-surface-variant leading-relaxed">
-          {itemCount} {itemCount === 1 ? 'item' : 'items'} in your cart
-        </p>
-      </div>
+    <div className="bg-[#f9f8f6] min-h-screen pt-12 pb-24">
+      <main className="max-w-container-max mx-auto px-4 md:px-12 w-full">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-[#e4dcc8] pb-6 mb-12 gap-4">
+          <h1 className="font-headline-lg text-4xl text-on-surface">Shopping Cart</h1>
+          <div className="text-center font-body-sm text-on-surface-variant flex-1 hidden md:block pb-1">
+            {itemCount} {itemCount === 1 ? 'item' : 'items'}
+          </div>
+          <div className="font-label-md text-[11px] text-[#a68a56] uppercase tracking-[0.15em] text-right pb-1">
+            {shippingCost === 0 
+              ? 'FREE SHIPPING ON YOUR ORDER' 
+              : `ADD ${formatPrice(shippingThreshold - (totalAfterOffer - cartDiscount))} MORE FOR FREE SHIPPING`}
+          </div>
+        </div>
 
-      <div className="flex flex-col lg:flex-row gap-16 items-start">
-        {/* Cart Items List */}
-        <div ref={itemsRef} className={`w-full lg:w-2/3 flex flex-col gap-8 reveal ${itemsInView ? 'in-view' : ''}`}>
-          {items.map((item) => (
-            <div key={item.id} className="flex flex-col sm:flex-row items-center gap-6 pb-8 border-b border-outline-variant/50 relative group">
-              <div className="w-full sm:w-36 h-36 bg-surface-container-lowest border border-outline-variant flex-shrink-0 overflow-hidden rounded-sm">
-                {item.image ? (
-                  <>
+        <div className="flex flex-col lg:flex-row gap-10 items-start">
+          {/* Cart Items List */}
+          <div ref={itemsRef} className={`w-full lg:w-[62%] flex flex-col gap-6 reveal ${itemsInView ? 'in-view' : ''}`}>
+            {items.map((item) => (
+              <div key={item.id} className="bg-white p-6 border border-[#eae5dc] flex flex-col sm:flex-row gap-6 items-start">
+                <div className="w-full sm:w-36 h-36 bg-[#f5f5f5] flex-shrink-0 flex items-center justify-center p-3 border border-[#eae5dc]/50">
+                  {item.image ? (
                     <img
                       src={getImageUrl(item.image)}
                       alt={item.name || 'Product'}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      className="w-full h-full object-contain"
                       onError={(e) => {
                         e.currentTarget.onerror = null;
                         e.currentTarget.style.display = 'none';
@@ -430,313 +116,256 @@ export const Cart: React.FC = () => {
                         if (next) next.classList.remove('hidden');
                       }}
                     />
-                    <div className="hidden w-full h-full flex items-center justify-center text-on-surface-variant">
-                      <span className="material-symbols-outlined text-3xl">image</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-on-surface-variant">
+                  ) : (
+                    <span className="material-symbols-outlined text-3xl text-on-surface-variant">image</span>
+                  )}
+                  <div className="hidden w-full h-full flex items-center justify-center text-on-surface-variant">
                     <span className="material-symbols-outlined text-3xl">image</span>
                   </div>
-                )}
-              </div>
-              <div className="flex-grow flex flex-col sm:flex-row justify-between w-full">
-                <div className="flex flex-col mb-4 sm:mb-0">
-                  <h3 className="font-headline-md text-headline-md text-on-surface mb-1">
-                    {item.name || 'Product'}
-                  </h3>
-                  <div className="flex flex-col gap-1 mb-4">
-                    <div className="flex items-center gap-2">
-                      {item.size && (
-                        <p className="font-body-sm text-body-sm text-on-surface-variant">
-                          Size: {item.size}
-                        </p>
-                      )}
-                      {item.freeItem && (
-                        <span className="bg-primary/10 text-primary text-[10px] font-label-md px-2 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-wider border border-primary/20">
-                          <span className="material-symbols-outlined text-[12px]">featured_seasonal_and_gifts</span>
-                          Free Gift
-                        </span>
-                      )}
-                    </div>
-                    {item.bottle && item.bottle.name && (
-                      <p className="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[14px]">liquor</span>
-                        Bottle: {item.bottle.name}
-                        {item.bottle.price > 0 && ` (+${formatPrice(item.bottle.price)})`}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center border border-outline w-max rounded-sm">
-                    <button
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                      disabled={item.freeItem}
-                      aria-label="Decrease quantity"
-                      className={`px-3 py-1 text-on-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 ${item.freeItem ? 'opacity-50 cursor-not-allowed' : 'hover:text-accent'}`}
-                    >
-                      <span className="material-symbols-outlined text-[18px]">remove</span>
-                    </button>
-                    <span className="px-4 font-body-md text-body-md text-on-surface min-w-[2rem] text-center">{item.quantity}</span>
-                    <button
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      disabled={item.freeItem}
-                      aria-label="Increase quantity"
-                      className={`px-3 py-1 text-on-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 ${item.freeItem ? 'opacity-50 cursor-not-allowed' : 'hover:text-accent'}`}
-                    >
-                      <span className="material-symbols-outlined text-[18px]">add</span>
-                    </button>
-                  </div>
                 </div>
-                <div className="flex flex-row sm:flex-col justify-between items-end sm:items-end">
-                  <span className="font-headline-md text-headline-md text-primary">
-                    {item.freeItem ? 'FREE' : formatPrice((item.finalPrice || 0) * item.quantity)}
-                  </span>
-
-                  {!item.freeItem && item.discountAmount && item.discountAmount > 0 ? (
+                
+                <div className="flex-grow w-full flex flex-col justify-between h-full min-h-[144px]">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-headline-md text-2xl text-on-surface mb-2">
+                        {item.name || 'Product'}
+                      </h3>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#4a7c36]"></div>
+                        <span className="text-xs text-on-surface-variant">In Stock</span>
+                      </div>
+                      <div className="space-y-1">
+                        {item.size && (
+                          <p className="text-sm text-on-surface-variant">
+                            <span className="text-on-surface font-medium">Size:</span> {item.size}
+                          </p>
+                        )}
+                        {item.bottle && item.bottle.name && (
+                          <p className="text-sm text-on-surface-variant">
+                            <span className="text-on-surface font-medium">Packaging:</span> {item.bottle.name} {item.bottle.price > 0 ? `(+${formatPrice(item.bottle.price)})` : ''}
+                          </p>
+                        )}
+                        {item.freeItem && (
+                          <span className="bg-[#a68a56]/10 text-[#a68a56] text-[10px] font-label-md px-2 py-0.5 rounded-full inline-block mt-1 uppercase tracking-wider">
+                            Free Gift
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
                     <div className="text-right">
-                      <span className="text-sm text-on-surface-variant line-through block mt-1">
-                        {formatPrice((item.originalPrice || 0) * item.quantity)}
+                      <span className="font-headline-md text-2xl text-on-surface block">
+                        {item.freeItem ? 'FREE' : formatPrice((item.finalPrice || 0) * item.quantity)}
                       </span>
-                      <span className="text-xs text-primary font-medium block">
-                        Saved {formatPrice(item.discountAmount * item.quantity)}
-                      </span>
+                      {!item.freeItem && item.discountAmount && item.discountAmount > 0 ? (
+                        <div className="mt-1">
+                          <span className="text-xs text-on-surface-variant line-through block">
+                            Base: {formatPrice((item.originalPrice || 0) * item.quantity)}
+                          </span>
+                        </div>
+                      ) : (
+                        !item.freeItem && (
+                           <span className="text-xs text-on-surface-variant block mt-1">
+                             {item.originalPrice !== item.finalPrice ? `Base: ${formatPrice((item.originalPrice || 0) * item.quantity)}` : ''}
+                           </span>
+                        )
+                      )}
                     </div>
-                  ) : (
-                    !item.freeItem && <p className="text-sm text-on-surface-variant mt-1">{formatPrice(item.originalPrice || 0)} each</p>
-                  )}
-
-                  <button
-                    onClick={() => item.freeItem ? removeFreeItem(item.id) : removeItem(item.id)}
-                    aria-label="Remove item"
-                    className="text-on-surface-variant hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-1 transition-colors mt-4 sm:mt-auto flex items-center gap-1 font-label-md text-label-md uppercase tracking-wider rounded-sm"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">close</span>
-                    Remove
-                  </button>
+                  </div>
+                  
+                  <div className="flex justify-between items-end mt-6">
+                    <div className="flex items-center border border-[#eae5dc] w-max bg-white rounded-sm h-8">
+                      <button
+                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        disabled={item.freeItem}
+                        className={`px-3 h-full flex items-center justify-center text-on-surface transition-colors ${item.freeItem ? 'opacity-50 cursor-not-allowed' : 'hover:text-[#a68a56]'}`}
+                      >
+                        <span className="material-symbols-outlined text-[16px] leading-none select-none">&#xe15b;</span> {/* remove icon */}
+                      </button>
+                      <span className="w-8 text-center text-sm">{item.quantity}</span>
+                      <button
+                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        disabled={item.freeItem}
+                        className={`px-3 h-full flex items-center justify-center text-on-surface transition-colors border-l border-[#eae5dc] ${item.freeItem ? 'opacity-50 cursor-not-allowed' : 'hover:text-[#a68a56]'}`}
+                      >
+                         <span className="material-symbols-outlined text-[16px] leading-none select-none">&#xe145;</span> {/* add icon */}
+                      </button>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 text-[11px] font-label-md text-on-surface-variant uppercase tracking-wider">
+                      <button 
+                        onClick={() => item.freeItem ? removeFreeItem(item.id) : removeItem(item.id)} 
+                        className="hover:text-[#93000a] transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
 
-          {/* Free Gifts Panel */}
-          {renderFreeGiftsPanel()}
-
-          {settings?.isGiftWrapEnabled && (
-            <div className="mt-8 bg-surface-container rounded-xl p-6 border border-outline-variant">
-              <h2 className="font-headline-md text-headline-md text-on-surface mb-4">Gift Wrapping</h2>
-              <div className="flex items-start gap-4">
-                <input
-                  type="checkbox"
-                  id="giftWrapCheckboxCart"
-                  checked={isGiftWrapped}
-                  onChange={(e) => setIsGiftWrapped(e.target.checked)}
-                  className="mt-1 w-5 h-5 text-primary bg-surface border-outline rounded focus:ring-primary focus:ring-2"
-                />
+            {/* Gift Box Section */}
+            {settings?.isGiftWrapEnabled && (
+              <div className="bg-[#fcfaf7] border border-[#eae5dc] p-6 flex items-start gap-5 mt-2">
+                <div className="mt-0.5">
+                  <div className="relative flex items-center">
+                    <input
+                      type="checkbox"
+                      id="giftWrapCheckboxCart"
+                      checked={isGiftWrapped}
+                      onChange={(e) => setIsGiftWrapped(e.target.checked)}
+                      className="w-5 h-5 text-[#a68a56] border-[#d4af37] rounded-sm focus:ring-[#a68a56] bg-white cursor-pointer"
+                    />
+                  </div>
+                </div>
                 <div className="flex-1">
-                  <label htmlFor="giftWrapCheckboxCart" className="font-headline-sm text-lg text-on-surface cursor-pointer">
-                    Pack as gift <span className="text-primary ml-2">(+{formatPrice(settings.giftWrapPrice || 0)})</span>
+                  <label htmlFor="giftWrapCheckboxCart" className="font-headline-md text-xl text-on-surface cursor-pointer mb-1 block">
+                    Pack this order as a gift
                   </label>
-                  <p className="text-sm text-on-surface-variant mt-1 mb-4">Add a special touch to your order.</p>
+                  <p className="text-sm text-on-surface-variant">
+                    Add premium gift wrapping and a handwritten heritage note (+{formatPrice(settings.giftWrapPrice || 0)})
+                  </p>
                   
                   {isGiftWrapped && (
-                    <div>
-                      <label className="field-label mb-2 block">Gift Message (Optional)</label>
+                    <div className="mt-4">
                       <textarea
                         value={giftMessage || ''}
                         onChange={(e) => setGiftMessage(e.target.value)}
                         placeholder="Write a message to include with your gift..."
-                        className="w-full bg-surface border border-outline-variant rounded p-3 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none min-h-[80px]"
+                        className="w-full bg-white border border-[#eae5dc] p-3 text-sm text-on-surface focus:border-[#a68a56] focus:ring-1 focus:ring-[#a68a56] outline-none min-h-[80px] resize-y rounded-sm"
                       ></textarea>
                     </div>
                   )}
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Premium Offer Panel */}
-          {renderOfferPanel()}
-        </div>
-
-        {/* Order Summary */}
-        <div ref={summaryRef} className={`w-full lg:w-1/3 bg-surface-container-lowest border border-outline-variant p-8 relative overflow-hidden rounded-sm sticky top-24 reveal ${summaryInView ? 'in-view' : ''}`} style={{ boxShadow: '0 10px 30px rgba(31, 41, 55, 0.04)' }}>
-          <div className="absolute -right-10 -top-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
-          <h2 className="font-headline-lg text-headline-lg text-on-surface mb-8 border-b border-outline-variant/30 pb-4">Order Summary</h2>
-          <div className="space-y-4 mb-6">
-            <div className="flex justify-between items-center">
-              <span className="font-body-md text-body-md text-on-surface-variant">Subtotal ({itemCount} items)</span>
-              <span className="font-body-md text-body-md text-on-surface">{formatPrice(subtotal)}</span>
-            </div>
-            {(offerDiscount + cartDiscount) > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="font-body-md text-body-md text-primary">Discount</span>
-                <span className="font-body-md text-body-md text-primary">-{formatPrice(offerDiscount + cartDiscount)}</span>
-              </div>
             )}
-            <div className="flex justify-between items-center">
-              <span className="font-body-md text-body-md text-on-surface-variant">Shipping</span>
-              <span className="font-body-md text-body-md text-on-surface">
-                {shippingCost === 0 ? (
-                  <span className="text-primary font-medium">Free</span>
-                ) : (
-                  formatPrice(shippingCost)
-                )}
-              </span>
-            </div>
-            {selectedGiftPrice > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="font-body-md text-body-md text-on-surface-variant flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px]">redeem</span>
-                  Gift Wrapping
-                </span>
-                <span className="font-body-md text-body-md text-on-surface">{formatPrice(selectedGiftPrice)}</span>
-              </div>
-            )}
-            {shippingCost > 0 && (!unlockMessages || unlockMessages.length === 0) && (
-              <p className="text-xs text-on-surface-variant">
-                Add {formatPrice(shippingThreshold - (totalAfterOffer - cartDiscount))} more for free shipping
-              </p>
-            )}
-
-            {/* Unlock messages as premium notification cards */}
-            {unlockMessages && unlockMessages.length > 0 && unlockMessages.map((msg, i) => (
-              <div key={i} className="flex items-start gap-2.5 bg-primary/[0.05] border border-primary/10 p-3 rounded-lg">
-                <span className="material-symbols-outlined text-primary text-[16px] mt-0.5 flex-shrink-0">tips_and_updates</span>
-                <p className="text-xs text-primary font-medium leading-relaxed">
-                  {msg}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          {/* Offers & Coupon Section */}
-          <div className="mb-6 pt-6 border-t border-outline-variant/30">
-            {appliedPromotions && appliedPromotions.length > 0 && (
-              <div className="mb-6">
-                {appliedPromotions.map((promo: any) => (
-                  <div key={promo.id} className="flex flex-col gap-1">
-                    <div className="font-label-md text-sm text-primary font-bold flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[16px]">check</span>
-                      Coupon applied: {promo.code || promo.name}
-                    </div>
-                    <div className="flex justify-between items-center text-sm font-body-md mb-1.5">
-                      <span className="text-on-surface-variant">Discount:</span>
-                      <span className="font-bold text-primary">-{formatPrice(promo.discountAmount || cartDiscount || offerDiscount)}</span>
-                    </div>
-                    <div>
-                      <button
-                        onClick={() => {
-                          if (promo.code) removeCoupon();
-                          else removePromotion();
-                          setCouponInput(''); // clear input when removed
-                        }}
-                        className="text-[11px] font-label-md uppercase tracking-wider text-error hover:underline"
-                      >
-                        [ Remove ]
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="space-y-6">
-              {/* Input Area */}
-              <div>
-                <p className="font-label-sm text-on-surface-variant mb-2.5 font-medium">Have a coupon code?</p>
-                <div>
-                  <div className="flex gap-2">
+            
+            {/* Promotions / Coupons (Keep functional but styled minimal) */}
+            {(availablePromotions?.length > 0 || appliedPromotions?.length > 0) && (
+              <div className="bg-white border border-[#eae5dc] p-6 mt-2">
+                 <h3 className="font-headline-md text-xl text-on-surface mb-4">Promotions & Offers</h3>
+                 
+                 {appliedPromotions && appliedPromotions.length > 0 && (
+                   <div className="mb-4 space-y-2">
+                     {appliedPromotions.map((promo: any) => (
+                       <div key={promo.id} className="flex items-center justify-between bg-[#fcfaf7] p-3 border border-[#eae5dc]">
+                         <div className="flex items-center gap-2">
+                           <span className="material-symbols-outlined text-[#a68a56] text-sm">check_circle</span>
+                           <span className="text-sm font-medium">{promo.code || promo.name} applied</span>
+                         </div>
+                         <button 
+                            onClick={() => promo.code ? removeCoupon() : removePromotion()}
+                            className="text-[10px] uppercase tracking-wider text-[#93000a] hover:underline"
+                         >
+                           Remove
+                         </button>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+                 
+                 <div className="flex gap-2">
                     <input
                       type="text"
                       value={couponInput}
                       onChange={(e) => setCouponInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleApplyCoupon();
-                        }
-                      }}
-                      placeholder="Enter coupon code"
-                      className="flex-1 min-w-0 bg-transparent border border-outline-variant rounded-sm px-4 py-2 text-on-surface font-body-md focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary outline-none uppercase transition-all"
-                      aria-label="Coupon code input"
+                      onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                      placeholder="ENTER COUPON CODE"
+                      className="flex-1 bg-transparent border border-[#eae5dc] px-4 py-2 text-sm focus:border-[#a68a56] outline-none uppercase"
                       disabled={isApplyingCoupon}
                     />
                     <button
                       onClick={() => handleApplyCoupon()}
-                      disabled={!!(isApplyingCoupon || !couponInput.trim() || (couponInput.trim() && appliedPromotions?.some((p: any) => p.code && p.code.toLowerCase() === couponInput.trim().toLowerCase())))}
-                      className={`shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent px-6 py-2 rounded-sm transition-colors font-label-md tracking-wider uppercase ${
-                        !!(!couponInput.trim() || isApplyingCoupon || (couponInput.trim() && appliedPromotions?.some((p: any) => p.code && p.code.toLowerCase() === couponInput.trim().toLowerCase())))
-                          ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed'
-                          : 'bg-[#d4af37] text-white hover:bg-[#b8860b] cursor-pointer'
-                      }`}
+                      disabled={!couponInput.trim() || isApplyingCoupon}
+                      className="bg-[#2a2321] text-white px-6 py-2 text-xs uppercase tracking-widest hover:bg-[#1f1a18] disabled:opacity-50 transition-colors"
                     >
-                      {isApplyingCoupon ? '...' : ((couponInput.trim() && appliedPromotions?.some((p: any) => p.code && p.code.toLowerCase() === couponInput.trim().toLowerCase())) ? 'APPLIED' : 'Apply')}
+                      {isApplyingCoupon ? '...' : 'Apply'}
                     </button>
-                  </div>
-                  {couponError && <p className="text-error text-xs mt-2">{couponError}</p>}
-                </div>
+                 </div>
+                 {couponError && <p className="text-[#93000a] text-xs mt-2">{couponError}</p>}
               </div>
+            )}
+            
+            {/* Unlock Messages */}
+            {unlockMessages && unlockMessages.length > 0 && (
+               <div className="space-y-2">
+                 {unlockMessages.map((msg, i) => (
+                   <div key={i} className="text-xs text-[#a68a56] bg-[#a68a56]/5 p-3 border border-[#a68a56]/20 rounded-sm">
+                     {msg}
+                   </div>
+                 ))}
+               </div>
+            )}
+          </div>
 
-              {/* Available Offers */}
-              {(!availablePromotions || availablePromotions.length === 0) ? (
-                <div>
-                  <p className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant/70 mb-2 font-medium">Available Offers</p>
-                  <p className="text-sm text-on-surface-variant italic">No offers available for this order</p>
-                </div>
-              ) : (
-                <div>
-                  <p className="font-label-sm uppercase tracking-[0.15em] text-on-surface-variant mb-3 font-medium">Available Offers</p>
-                  <div className="space-y-3">
-                    {availablePromotions.map((promo: any) => (
-                      <div key={promo.id} className="bg-surface-container-lowest border border-outline-variant/50 p-4 rounded-sm flex items-start gap-3">
-                        <span className="text-xl mt-0.5" aria-hidden="true">{getPromoIcon(promo)}</span>
-                        <div className="flex-grow min-w-0">
-                          <div className="font-label-md text-sm text-on-surface font-semibold mb-0.5">{promo.code || getPromoHeadline(promo)}</div>
-                          <div className="text-xs text-on-surface-variant leading-relaxed">{promo.description || getPromoHeadline(promo)}</div>
-                          <div className="mt-2.5">
-                            {promo.code ? (
-                              <button
-                                onClick={() => handleApplyCoupon(promo.code || '')}
-                                disabled={isApplyingCoupon}
-                                className="text-[11px] font-label-md text-primary hover:underline uppercase tracking-wider font-medium"
-                              >
-                                Apply
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => applyPromotion(promo.id)}
-                                className="text-[11px] font-label-md text-primary hover:underline uppercase tracking-wider font-medium"
-                              >
-                                Apply
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+          {/* Order Summary */}
+          <div ref={summaryRef} className={`w-full lg:w-[38%] bg-white border border-[#eae5dc] p-8 sticky top-24 reveal ${summaryInView ? 'in-view' : ''}`}>
+            <h2 className="font-headline-md text-[26px] text-on-surface mb-6">Order Summary</h2>
+            
+            <div className="w-full h-px bg-[#eae5dc] mb-6"></div>
+            
+            <div className="space-y-4 mb-6">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-on-surface-variant">Items Subtotal</span>
+                <span className="font-medium text-on-surface">{formatPrice(itemsSubtotalWithoutPackaging)}</span>
+              </div>
+              
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-on-surface-variant">Packaging Upgrades</span>
+                <span className="font-medium text-on-surface">{formatPrice(packagingUpgradesPrice)}</span>
+              </div>
+              
+              {(offerDiscount + cartDiscount) > 0 && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-[#a68a56]">Discount</span>
+                  <span className="font-medium text-[#a68a56]">-{formatPrice(offerDiscount + cartDiscount)}</span>
                 </div>
               )}
+              
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-on-surface-variant">Shipping</span>
+                <span className="italic text-on-surface-variant">
+                  {shippingCost === 0 ? 'Complimentary' : formatPrice(shippingCost)}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-on-surface-variant">Gift Wrapping</span>
+                <span className="font-medium text-on-surface">{formatPrice(selectedGiftPrice)}</span>
+              </div>
+            </div>
+            
+            <div className="w-full h-px bg-[#eae5dc] mb-6"></div>
+            
+            <div className="flex justify-between items-center mb-8">
+              <span className="font-label-md text-xs uppercase tracking-[0.2em] text-on-surface-variant">Total</span>
+              <span className="font-headline-md text-3xl text-on-surface">{formatPrice(total)}</span>
+            </div>
+            
+            <Link
+              to="/checkout"
+              className="w-full bg-[#2a2321] hover:bg-[#1f1a18] text-white py-4 flex items-center justify-center gap-2 font-label-md text-xs uppercase tracking-[0.15em] transition-colors"
+            >
+              PROCEED TO CHECKOUT
+              <span className="material-symbols-outlined text-[16px] leading-none select-none">&#xe5c8;</span> {/* arrow_forward */}
+            </Link>
+            
+            <div className="mt-8 flex justify-center gap-6 text-[#8a8171]">
+              <span className="material-symbols-outlined font-light text-[22px] select-none">&#xe897;</span> {/* lock */}
+              <span className="material-symbols-outlined font-light text-[22px] select-none">&#xe558;</span> {/* local_shipping */}
+              <span className="material-symbols-outlined font-light text-[22px] select-none">&#xe86c;</span> {/* verified */}
+            </div>
+            <div className="mt-4 text-center">
+              <p className="text-[10px] font-label-md uppercase tracking-[0.2em] text-[#8a8171] leading-relaxed">
+                SECURE CHECKOUT PROCESS<br/>
+                AUTHENTIC ARTISANAL BLENDS
+              </p>
             </div>
           </div>
-
-          <div className="flex justify-between items-center mb-8 pt-4 border-t border-outline-variant/30">
-            <span className="font-headline-md text-headline-md text-on-surface">Total</span>
-            <span className="font-headline-md text-headline-md text-primary">{formatPrice(total)}</span>
-          </div>
-
-          <Link
-            to="/checkout"
-            className="w-full bg-primary hover:bg-surface-tint text-on-primary font-label-md text-label-md uppercase tracking-wider py-4 transition-colors duration-300 flex justify-center items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-          >
-            Proceed to Checkout
-            <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-          </Link>
-          <p className="font-label-sm text-label-sm text-on-surface-variant/70 text-center mt-4">
-            Secure checkout
-          </p>
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 };
+
