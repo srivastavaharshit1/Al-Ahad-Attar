@@ -137,11 +137,8 @@ public class OrderServiceImpl implements OrderService {
             throw new BadRequestException("This payment has already been used for another order.");
         }
 
-        PaymentStatus initialPaymentStatus = PaymentStatus.PENDING;
-        if (webhookEventRepository.findByPaymentIdAndEventType(request.getRazorpayPaymentId(), "payment.captured").isPresent()) {
-            initialPaymentStatus = PaymentStatus.PAID;
-            log.info("Webhook payment.captured already received for payment {}. Marking order PAID.", request.getRazorpayPaymentId());
-        }
+        // A successful synchronous signature verification is cryptographic proof the payment succeeded.
+        PaymentStatus initialPaymentStatus = PaymentStatus.PAID;
 
         Order order = Order.builder()
                 .orderNumber("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
