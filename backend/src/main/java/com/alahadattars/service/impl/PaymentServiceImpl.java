@@ -214,7 +214,7 @@ public class PaymentServiceImpl implements PaymentService {
         try {
             if (razorpayPaymentId == null || razorpayPaymentId.isBlank()) {
                 return RefundResult.builder()
-                        .success(false)
+                        .outcome(RefundResult.RefundOutcome.DEFINITIVE_FAILURE)
                         .errorMessage("No Razorpay payment ID found on this order. Cannot process refund.")
                         .build();
             }
@@ -226,7 +226,7 @@ public class PaymentServiceImpl implements PaymentService {
                 // one always fails (payment doesn't exist there), which is exactly what surfaced this.
                 String refundId = "rfnd_dev_" + java.util.UUID.randomUUID().toString().replace("-", "");
                 log.info("[dev-mode] Simulated refund {} for payment {} (amount {})", refundId, razorpayPaymentId, amount);
-                return RefundResult.builder().success(true).refundId(refundId).build();
+                return RefundResult.builder().outcome(RefundResult.RefundOutcome.SUCCESS).refundId(refundId).build();
             }
 
             // This SDK version has no idempotency-key support on the refund call, so a lost
@@ -259,20 +259,39 @@ public class PaymentServiceImpl implements PaymentService {
             log.info("Razorpay refund successful. Refund ID: {}", refundId);
 
             return RefundResult.builder()
-                    .success(true)
+                    .outcome(RefundResult.RefundOutcome.SUCCESS)
                     .refundId(refundId)
                     .build();
 
         } catch (RazorpayException e) {
             log.error("Razorpay refund API failed for payment {}: {}", razorpayPaymentId, e.getMessage());
-            return RefundResult.builder()
-                    .success(false)
-                    .errorMessage("Razorpay error: " + e.getMessage())
-                    .build();
+            
+            boolean isTimeout = false;
+            Throwable cause = e.getCause();
+            if (cause instanceof java.net.SocketTimeoutException || cause instanceof java.net.UnknownHostException || cause instanceof java.io.IOException) {
+                isTimeout = true;
+            } else if (e.getMessage() != null) {
+                String msg = e.getMessage().toLowerCase();
+                if (msg.contains("timeout") || msg.contains("timed out") || msg.contains("connection reset") || msg.contains("unknown host")) {
+                    isTimeout = true;
+                }
+            }
+
+            if (isTimeout) {
+                return RefundResult.builder()
+                        .outcome(RefundResult.RefundOutcome.UNKNOWN_TIMEOUT)
+                        .errorMessage("Network timeout while calling Razorpay: " + e.getMessage())
+                        .build();
+            } else {
+                return RefundResult.builder()
+                        .outcome(RefundResult.RefundOutcome.DEFINITIVE_FAILURE)
+                        .errorMessage("Razorpay error: " + e.getMessage())
+                        .build();
+            }
         } catch (Exception e) {
             log.error("Unexpected error during refund for payment {}: {}", razorpayPaymentId, e.getMessage());
             return RefundResult.builder()
-                    .success(false)
+                    .outcome(RefundResult.RefundOutcome.UNKNOWN_TIMEOUT)
                     .errorMessage("Unexpected error: " + e.getMessage())
                     .build();
         }
@@ -300,10 +319,10 @@ public class PaymentServiceImpl implements PaymentService {
                 String status = existing.get("status");
                 String refundId = existing.get("id");
                 if (status != null && status.equalsIgnoreCase("failed")) {
-                    return Optional.of(RefundResult.builder().success(false)
+                    return Optional.of(RefundResult.builder().outcome(RefundResult.RefundOutcome.DEFINITIVE_FAILURE)
                             .errorMessage("Razorpay reports this refund failed.").build());
                 }
-                return Optional.of(RefundResult.builder().success(true).refundId(refundId).build());
+                return Optional.of(RefundResult.builder().outcome(RefundResult.RefundOutcome.SUCCESS).refundId(refundId).build());
             }
         } catch (Exception e) {
             // A failed lookup means the outcome is genuinely unknown, not "no refund exists" — the

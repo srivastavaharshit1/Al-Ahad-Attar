@@ -182,18 +182,21 @@ public class RefundTransactionSupport {
 
     @Transactional
     public Order recordAdminRefundOutcome(Order order, RefundResult result, BigDecimal refundAmount, LocalDateTime initiatedAt) {
-        if (result.isSuccess()) {
-            LocalDateTime completedAt = LocalDateTime.now();
-            order.setRefundStatus(RefundStatus.REFUNDED);
+        if (result.getOutcome() == RefundResult.RefundOutcome.SUCCESS) {
+            order.setRefundStatus(RefundStatus.PROCESSING);
             order.setRefundId(result.getRefundId());
-            order.setRefundCompletedAt(completedAt);
             order.setRefundFailureReason(null);
-            log.info("Refund REFUNDED for order {} | Refund ID: {}", order.getId(), result.getRefundId());
-            saveRefundRecord(order, result.getRefundId(), refundAmount, RefundStatus.REFUNDED, null, initiatedAt, completedAt);
+            log.info("Refund API SUCCESSFUL for order {} | Refund ID: {}. Leaving in PROCESSING state pending webhook.", order.getId(), result.getRefundId());
+            saveRefundRecord(order, result.getRefundId(), refundAmount, RefundStatus.PROCESSING, null, initiatedAt, null);
+        } else if (result.getOutcome() == RefundResult.RefundOutcome.UNKNOWN_TIMEOUT) {
+            order.setRefundStatus(RefundStatus.PROCESSING);
+            order.setRefundFailureReason("API timeout or unknown state. Waiting for webhook reconciliation.");
+            log.warn("Refund API UNKNOWN/TIMEOUT for order {}. Leaving in PROCESSING state pending webhook.", order.getId());
+            saveRefundRecord(order, null, refundAmount, RefundStatus.PROCESSING, "API timeout/unknown", initiatedAt, null);
         } else {
             order.setRefundStatus(RefundStatus.FAILED);
             order.setRefundFailureReason(result.getErrorMessage());
-            log.error("Refund FAILED for order {} | Error: {}", order.getId(), result.getErrorMessage());
+            log.error("Refund FAILED definitively for order {} | Error: {}", order.getId(), result.getErrorMessage());
             saveRefundRecord(order, null, refundAmount, RefundStatus.FAILED, result.getErrorMessage(), initiatedAt, null);
         }
         Order saved = orderRepository.save(order);
@@ -236,7 +239,7 @@ public class RefundTransactionSupport {
         // payment" for the case this webhook is the FIRST thing to ever record the outcome.
         Order order = orderRepository.findByRefundId(razorpayRefundId)
                 .or(() -> paymentId == null ? java.util.Optional.empty()
-                        : orderRepository.findByTransactionIdAndRefundStatus(paymentId, RefundStatus.PROCESSING))
+                        : orderRepository.findByTransactionId(paymentId))
                 .orElse(null);
         if (order == null) {
             log.info("Refund webhook for {} (payment {}) has no matching order to reconcile — already settled or not ours.",
