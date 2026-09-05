@@ -38,7 +38,7 @@ import java.time.LocalDateTime;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-class RefundTransactionSupport {
+public class RefundTransactionSupport {
 
     private final OrderRepository orderRepository;
     private final RefundRepository refundRepository;
@@ -126,7 +126,20 @@ class RefundTransactionSupport {
     }
 
     /** Outcome of the DB-only guard phase of an admin-initiated refund. */
-    record AdminRefundPreparation(Order order, BigDecimal refundAmount, LocalDateTime initiatedAt) {
+    static class AdminRefundPreparation {
+        private final Order order;
+        private final BigDecimal refundAmount;
+        private final LocalDateTime initiatedAt;
+        
+        AdminRefundPreparation(Order order, BigDecimal refundAmount, LocalDateTime initiatedAt) {
+            this.order = order;
+            this.refundAmount = refundAmount;
+            this.initiatedAt = initiatedAt;
+        }
+        
+        public Order order() { return order; }
+        public BigDecimal refundAmount() { return refundAmount; }
+        public LocalDateTime initiatedAt() { return initiatedAt; }
     }
 
     @Transactional
