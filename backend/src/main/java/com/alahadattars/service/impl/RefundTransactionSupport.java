@@ -220,6 +220,9 @@ public class RefundTransactionSupport {
             if (item.getVariant() != null) {
                 org.hibernate.Hibernate.initialize(item.getVariant());
                 org.hibernate.Hibernate.initialize(item.getVariant().getProduct());
+                if (item.getVariant().getProduct() != null) {
+                    org.hibernate.Hibernate.initialize(item.getVariant().getProduct().getImages());
+                }
             }
         }
     }
