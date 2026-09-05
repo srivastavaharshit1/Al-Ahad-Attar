@@ -183,8 +183,8 @@ class OrderConcurrencyIntegrationTest {
         orderService.createOrder(testUser.getEmail(), request);
 
         Order orderAfterCheckout = orderRepository.findByTransactionId(rzpPaymentId).orElseThrow();
-        assertEquals(PaymentStatus.PENDING, orderAfterCheckout.getPaymentStatus(),
-                "Order should be PENDING because webhook hasn't arrived yet");
+        assertEquals(PaymentStatus.PAID, orderAfterCheckout.getPaymentStatus(),
+                "Order should be PAID because synchronous checkout signature verification succeeded");
 
         // Step 2: Webhook arrives after checkout committed.
         JSONObject payload = buildWebhookPayload(rzpPaymentId, rzpOrderId);
@@ -300,7 +300,7 @@ class OrderConcurrencyIntegrationTest {
         orderService.createOrder(testUser.getEmail(), request);
 
         Order pendingOrder = orderRepository.findByTransactionId(rzpPaymentId).orElseThrow();
-        assertEquals(PaymentStatus.PENDING, pendingOrder.getPaymentStatus());
+        assertEquals(PaymentStatus.PAID, pendingOrder.getPaymentStatus());
 
         JSONObject payload = buildWebhookPayload(rzpPaymentId, rzpOrderId);
 
