@@ -79,6 +79,10 @@ public class DataSeeder implements CommandLineRunner {
                     + "Set both environment variables to seed one.");
         } else if (!userRepository.existsByEmail(adminEmail)) {
             log.info("Creating default Admin account: {}", adminEmail);
+            String phone = "+919999999999";
+            if (userRepository.existsByPhone(phone)) {
+                phone = String.format("+919%09d", Math.abs(adminEmail.hashCode() % 1000000000L));
+            }
             User admin = User.builder()
                     .firstName("Super")
                     .lastName("Admin")
@@ -89,7 +93,7 @@ public class DataSeeder implements CommandLineRunner {
                     // validation (ConstraintViolationException) the moment ADMIN_EMAIL/PASSWORD
                     // were actually configured — a real bootstrap-admin-seeding bug, not just a
                     // test artifact.
-                    .phone("+919999999999")
+                    .phone(phone)
                     .password(passwordEncoder.encode(adminPassword))
                     .enabled(true)
                     .emailVerified(true)
