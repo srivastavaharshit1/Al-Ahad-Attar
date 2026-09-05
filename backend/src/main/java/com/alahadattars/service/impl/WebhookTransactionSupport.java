@@ -93,8 +93,19 @@ public class WebhookTransactionSupport {
             var localOrder = localOrderOpt.get();
             if (localOrder.getPaymentStatus() == PaymentStatus.PENDING) {
                 localOrder.setPaymentStatus(PaymentStatus.PAID);
+                
+                // If the order was cancelled by the user before the webhook arrived (e.g. they dropped off 
+                // but the payment cleared later, and they cancelled the PENDING order), we must now flag 
+                // it for a refund since we just received the money.
+                if (localOrder.getStatus() == com.alahadattars.enums.OrderStatus.CANCELLED) {
+                    localOrder.setRefundStatus(com.alahadattars.enums.RefundStatus.REFUND_REQUIRED);
+                    localOrder.setRefundAmount(localOrder.getTotalAmount());
+                    log.info("Webhook transitioned cancelled order {} to PAID. Flagged for refund.", localOrder.getId());
+                } else {
+                    log.info("Webhook updated existing order {} (payment {}) to PAID.", localOrder.getId(), razorpayPaymentId);
+                }
+                
                 orderRepository.save(localOrder);
-                log.info("Webhook updated existing order {} (payment {}) to PAID.", localOrder.getId(), razorpayPaymentId);
             } else {
                 log.info("Razorpay 'payment.captured' for payment {} already processed (status: {}).", razorpayPaymentId, localOrder.getPaymentStatus());
             }

@@ -195,6 +195,11 @@ const CancellationSection: React.FC<CancellationSectionProps> = ({
             </div>
             <p className="text-sm text-on-surface-variant leading-relaxed">
               This order has been cancelled.
+              {order.refundStatus && order.refundStatus !== 'NOT_REQUIRED' && (
+                <span className="block mt-2 font-medium text-primary">
+                  Your money will be transferred to your bank account in 5-7 working days.
+                </span>
+              )}
             </p>
           </div>
         </div>
