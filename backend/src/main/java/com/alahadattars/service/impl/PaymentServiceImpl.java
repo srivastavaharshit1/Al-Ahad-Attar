@@ -27,6 +27,11 @@ import com.alahadattars.entity.ProductVariant;
 import com.alahadattars.entity.PaymentIntent;
 import com.alahadattars.repository.PaymentIntentRepository;
 import com.alahadattars.repository.UserRepository;
+import com.alahadattars.repository.WebhookEventRepository;
+import com.alahadattars.entity.WebhookEvent;
+import com.alahadattars.exception.ResourceNotFoundException;
+import com.alahadattars.enums.PaymentStatus;
+import com.alahadattars.repository.UserRepository;
 import com.alahadattars.exception.ResourceNotFoundException;
 
 import java.util.Optional;
@@ -62,8 +67,10 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentIntentRepository paymentIntentRepository;
     private final UserRepository userRepository;
     private final com.alahadattars.repository.OrderRepository orderRepository;
+    private final WebhookEventRepository webhookEventRepository;
     private final RefundTransactionSupport refundTransactionSupport;
     private final com.alahadattars.service.EmailService emailService;
+    private final WebhookTransactionSupport webhookTransactionSupport;
 
     @PostConstruct
     public void validateRazorpayConfig() {
@@ -310,8 +317,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     public boolean handleWebhookEvent(String rawPayload, String signature) {
         if (webhookSecret == null || webhookSecret.isBlank()) {
-            log.error("Rejected Razorpay webhook call: RAZORPAY_WEBHOOK_SECRET is not configured. "
-                    + "Register the webhook in the Razorpay dashboard and set the secret before enabling this endpoint.");
+            log.error("Rejected Razorpay webhook call: RAZORPAY_WEBHOOK_SECRET is not configured.");
             return false;
         }
         try {
@@ -324,83 +330,29 @@ public class PaymentServiceImpl implements PaymentService {
             return false;
         }
 
-        try {
-            JSONObject body = new JSONObject(rawPayload);
-            String event = body.optString("event", "");
-            JSONObject payload = body.optJSONObject("payload");
-            if (payload == null) {
-                log.warn("Razorpay webhook event '{}' had no payload — ignoring.", event);
-                return true;
-            }
+        JSONObject body = new JSONObject(rawPayload);
+        String event = body.optString("event", "");
+        String eventId = body.optString("id", null);
+        JSONObject payload = body.optJSONObject("payload");
+        
+        if (payload == null || eventId == null) {
+            log.warn("Razorpay webhook event '{}' had no payload or event ID — ignoring.", event);
+            return true;
+        }
 
-            switch (event) {
-                case "payment.captured" -> handlePaymentCaptured(payload);
-                case "refund.processed", "refund.failed" -> handleRefundEvent(event, payload);
-                default -> log.info("Received Razorpay webhook event '{}' — no handler wired for it, ignoring.", event);
-            }
-        } catch (Exception e) {
-            // The signature already verified above — this payload is genuinely from Razorpay, so a
-            // parsing/handling failure here is our bug, not an attack. Log loudly but still return
-            // true (2xx) so Razorpay doesn't retry-storm us over something a retry can't fix.
-            log.error("Error processing Razorpay webhook payload: {}", e.getMessage(), e);
+        switch (event) {
+            case "payment.captured" -> webhookTransactionSupport.handlePaymentCaptured(eventId, event, payload);
+            case "payment.failed" -> webhookTransactionSupport.handlePaymentFailed(eventId, event, payload);
+            case "refund.processed", "refund.failed" -> handleRefundEvent(eventId, event, payload);
+            default -> log.info("Received Razorpay webhook event '{}' — no handler wired for it, ignoring.", event);
         }
         return true;
     }
 
-    /**
-     * The independent backstop for the "customer paid but the browser never completed the
-     * checkout redirect" scenario: if Razorpay confirms a payment was captured for a PaymentIntent
-     * we issued, but no Order was ever created against that payment, this is a stuck checkout that
-     * needs manual reconciliation — logged loudly since there's no way to safely auto-create the
-     * order from a webhook alone (the intent only records amount/user, not the cart/address/coupon
-     * the client would have submitted).
-     */
-    @org.springframework.transaction.annotation.Transactional
-    protected void handlePaymentCaptured(JSONObject payload) {
-        JSONObject paymentEntity = payload.optJSONObject("payment") != null
-                ? payload.getJSONObject("payment").optJSONObject("entity") : null;
-        if (paymentEntity == null) {
-            log.warn("Razorpay 'payment.captured' webhook had no payment.entity — ignoring.");
-            return;
-        }
-        String razorpayOrderId = paymentEntity.optString("order_id", null);
-        String razorpayPaymentId = paymentEntity.optString("id", null);
-        if (razorpayOrderId == null || razorpayPaymentId == null) {
-            log.warn("Razorpay 'payment.captured' webhook missing order_id/payment id — ignoring.");
-            return;
-        }
-
-        if (orderRepository.existsByTransactionId(razorpayPaymentId)) {
-            log.info("Razorpay 'payment.captured' for payment {} already has a matching order — nothing to reconcile.", razorpayPaymentId);
-            return;
-        }
-
-        var intent = paymentIntentRepository.findByRazorpayOrderId(razorpayOrderId).orElse(null);
-        if (intent == null) {
-            log.warn("Razorpay 'payment.captured' for payment {} (order {}) has no matching PaymentIntent on our side — "
-                    + "unexpected, investigate.", razorpayPaymentId, razorpayOrderId);
-            return;
-        }
-
-        if (paymentIntentRepository.markStuckAlerted(intent.getId()) == 0) {
-            log.info("Razorpay 'payment.captured' for payment {} already alerted as stuck. Ignoring duplicate webhook.", razorpayPaymentId);
-            return;
-        }
-
-        log.error("STUCK CHECKOUT: Razorpay captured payment {} for order {} (user {}, amount {}), but no Order was ever "
-                        + "created — the customer's browser likely closed/lost connection before the checkout redirect "
-                        + "completed. This needs manual reconciliation (refund or manually place the order).",
-                razorpayPaymentId, razorpayOrderId,
-                intent.getUser() != null ? intent.getUser().getEmail() : "unknown",
-                intent.getAmount());
-                
-        emailService.sendAdminStuckCheckoutEmail(new com.alahadattars.dto.email.AdminStuckCheckoutEmailData(
-                razorpayPaymentId,
-                razorpayOrderId,
-                intent.getUser() != null ? intent.getUser().getEmail() : "unknown",
-                intent.getAmount()
-        ));
-    }
+    // handlePaymentCaptured and handlePaymentFailed have been moved to WebhookTransactionSupport.
+    // They were previously defined as protected methods here, but @Transactional on a self-invoked
+    // method is silently ignored by Spring's proxy — the pessimistic lock was executing without a
+    // transaction, providing zero concurrency protection. See WebhookTransactionSupport's Javadoc.
 
     /**
      * The independent async source of truth for refund outcomes — closes the gap where an
@@ -410,7 +362,7 @@ public class PaymentServiceImpl implements PaymentService {
      * {@code @Transactional} — see its own Javadoc for why a private/self-invoked method here
      * would silently NOT run in a transaction).
      */
-    private void handleRefundEvent(String event, JSONObject payload) {
+    private void handleRefundEvent(String eventId, String event, JSONObject payload) {
         JSONObject refundEntity = payload.optJSONObject("refund") != null
                 ? payload.getJSONObject("refund").optJSONObject("entity") : null;
         if (refundEntity == null) {
@@ -425,6 +377,23 @@ public class PaymentServiceImpl implements PaymentService {
         if (razorpayRefundId == null) {
             return;
         }
+
+        // Simple idempotency check (we don't lock here as refund handling is largely idempotent via refundTransactionSupport anyway)
+        if (webhookEventRepository.existsById(eventId)) {
+            log.info("Duplicate Razorpay webhook refund event received: {}. Ignoring.", eventId);
+            return;
+        }
+
+        WebhookEvent webhookEvent = WebhookEvent.builder()
+                .eventId(eventId)
+                .eventType(event)
+                .paymentId(paymentId)
+                .receivedAt(java.time.LocalDateTime.now())
+                .build();
+        // Since handleRefundEvent is NOT transactional, this save acts locally.
+        // It's acceptable if concurrent duplicates race and fail on constraint violation here.
+        webhookEventRepository.saveAndFlush(webhookEvent);
+
         refundTransactionSupport.reconcileRefundFromWebhook(razorpayRefundId, paymentId, status);
     }
 }

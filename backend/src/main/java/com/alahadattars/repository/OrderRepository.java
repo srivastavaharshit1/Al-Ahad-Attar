@@ -19,6 +19,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByIdAndUserEmail(Long id, String email);
 
     Optional<Order> findByOrderNumber(String orderNumber);
+    
+    Optional<Order> findByTransactionId(String transactionId);
 
     /** Guards against a Razorpay payment id being attached to more than one order. */
     boolean existsByTransactionId(String transactionId);

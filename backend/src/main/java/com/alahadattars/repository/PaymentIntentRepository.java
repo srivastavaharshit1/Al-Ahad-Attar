@@ -15,6 +15,10 @@ public interface PaymentIntentRepository extends JpaRepository<PaymentIntent, Lo
 
     Optional<PaymentIntent> findByRazorpayOrderId(String razorpayOrderId);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM PaymentIntent p WHERE p.razorpayOrderId = :razorpayOrderId")
+    Optional<PaymentIntent> findByRazorpayOrderIdForUpdate(@Param("razorpayOrderId") String razorpayOrderId);
+
     /**
      * Conditionally marks the intent spent. Returns 0 when it was already consumed, which is what makes
      * replaying the same Razorpay triple fail even under concurrent requests.

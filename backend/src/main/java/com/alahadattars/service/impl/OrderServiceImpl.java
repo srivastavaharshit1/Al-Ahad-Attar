@@ -24,6 +24,7 @@ import com.alahadattars.repository.ProductVariantRepository;
 import com.alahadattars.repository.PromotionRedemptionRepository;
 import com.alahadattars.repository.PromotionRepository;
 import com.alahadattars.repository.UserRepository;
+import com.alahadattars.repository.WebhookEventRepository;
 import com.alahadattars.entity.PaymentIntent;
 import com.alahadattars.entity.Promotion;
 import com.alahadattars.entity.PromotionRedemption;
@@ -88,6 +89,7 @@ public class OrderServiceImpl implements OrderService {
     private final RefundTransactionSupport refundTransactionSupport;
     private final com.alahadattars.repository.BottleRepository bottleRepository;
     private final com.alahadattars.service.StorageService storageService;
+    private final WebhookEventRepository webhookEventRepository;
 
     private static final DateTimeFormatter EMAIL_DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
 
@@ -113,7 +115,10 @@ public class OrderServiceImpl implements OrderService {
 
         // A valid signature only proves *a* payment happened for *a* Razorpay order. Bind it to the payment
         // we actually initiated: same user, unspent, and (below, once the total is known) the same amount.
-        PaymentIntent intent = paymentIntentRepository.findByRazorpayOrderId(request.getRazorpayOrderId())
+        // CRITICAL CONCURRENCY FIX: We acquire the PESSIMISTIC_WRITE lock here *before* checking the webhook
+        // event repository. This perfectly eliminates the TOCTOU gap by forcing any concurrent webhook delivery
+        // to queue at the database level until this transaction commits.
+        PaymentIntent intent = paymentIntentRepository.findByRazorpayOrderIdForUpdate(request.getRazorpayOrderId())
                 .orElseThrow(() -> new BadRequestException("Unknown payment reference. Please restart checkout."));
 
         if (intent.getUser() == null || !intent.getUser().getId().equals(user.getId())) {
@@ -132,12 +137,18 @@ public class OrderServiceImpl implements OrderService {
             throw new BadRequestException("This payment has already been used for another order.");
         }
 
+        PaymentStatus initialPaymentStatus = PaymentStatus.PENDING;
+        if (webhookEventRepository.findByPaymentIdAndEventType(request.getRazorpayPaymentId(), "payment.captured").isPresent()) {
+            initialPaymentStatus = PaymentStatus.PAID;
+            log.info("Webhook payment.captured already received for payment {}. Marking order PAID.", request.getRazorpayPaymentId());
+        }
+
         Order order = Order.builder()
                 .orderNumber("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .user(user)
                 .shippingAddress(shippingAddress)
                 .status(OrderStatus.CONFIRMED)
-                .paymentStatus(PaymentStatus.PAID)
+                .paymentStatus(initialPaymentStatus)
                 .paymentMethod("ONLINE")
                 .transactionId(request.getRazorpayPaymentId())
                 .notes(request.getNotes())
