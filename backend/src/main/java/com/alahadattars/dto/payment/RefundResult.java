@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 public class RefundResult {
     public enum RefundOutcome {
         SUCCESS,
+        PROCESSED,
         DEFINITIVE_FAILURE,
         UNKNOWN_TIMEOUT
     }

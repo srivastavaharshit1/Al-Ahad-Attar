@@ -258,8 +258,14 @@ public class PaymentServiceImpl implements PaymentService {
 
             log.info("Razorpay refund successful. Refund ID: {}", refundId);
 
+            RefundResult.RefundOutcome outcome = RefundResult.RefundOutcome.SUCCESS;
+            String status = refund.get("status");
+            if (status != null && status.equalsIgnoreCase("processed")) {
+                outcome = RefundResult.RefundOutcome.PROCESSED;
+            }
+
             return RefundResult.builder()
-                    .outcome(RefundResult.RefundOutcome.SUCCESS)
+                    .outcome(outcome)
                     .refundId(refundId)
                     .build();
 
@@ -321,6 +327,8 @@ public class PaymentServiceImpl implements PaymentService {
                 if (status != null && status.equalsIgnoreCase("failed")) {
                     return Optional.of(RefundResult.builder().outcome(RefundResult.RefundOutcome.DEFINITIVE_FAILURE)
                             .errorMessage("Razorpay reports this refund failed.").build());
+                } else if (status != null && status.equalsIgnoreCase("processed")) {
+                    return Optional.of(RefundResult.builder().outcome(RefundResult.RefundOutcome.PROCESSED).refundId(refundId).build());
                 }
                 return Optional.of(RefundResult.builder().outcome(RefundResult.RefundOutcome.SUCCESS).refundId(refundId).build());
             }
