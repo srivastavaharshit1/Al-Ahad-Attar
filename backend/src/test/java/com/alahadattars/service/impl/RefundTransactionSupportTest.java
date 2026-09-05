@@ -287,23 +287,23 @@ class RefundTransactionSupportTest {
     }
 
     @Test
-    void recordAdminRefundOutcome_success_marksRefundedAndReturnsSavedOrder() {
+    void recordAdminRefundOutcome_success_marksProcessingAndReturnsSavedOrder() {
         stubSaves();
-        RefundResult result = RefundResult.builder().success(true).refundId("rfnd_xyz").build();
+        RefundResult result = RefundResult.builder().outcome(RefundResult.RefundOutcome.SUCCESS).refundId("rfnd_xyz").build();
 
         Order saved = support.recordAdminRefundOutcome(order, result, new BigDecimal("999.00"), java.time.LocalDateTime.now());
 
-        assertEquals(RefundStatus.REFUNDED, saved.getRefundStatus());
+        assertEquals(RefundStatus.PROCESSING, saved.getRefundStatus());
         assertEquals("rfnd_xyz", saved.getRefundId());
         ArgumentCaptor<Refund> captor = ArgumentCaptor.forClass(Refund.class);
         verify(refundRepository).save(captor.capture());
-        assertEquals(RefundStatus.REFUNDED, captor.getValue().getStatus());
+        assertEquals(RefundStatus.PROCESSING, captor.getValue().getStatus());
     }
 
     @Test
     void recordAdminRefundOutcome_failure_marksFailed() {
         stubSaves();
-        RefundResult result = RefundResult.builder().success(false).errorMessage("Razorpay error: Gateway timeout").build();
+        RefundResult result = RefundResult.builder().outcome(RefundResult.RefundOutcome.DEFINITIVE_FAILURE).errorMessage("Razorpay error: Gateway timeout").build();
 
         Order saved = support.recordAdminRefundOutcome(order, result, new BigDecimal("999.00"), java.time.LocalDateTime.now());
 
@@ -336,7 +336,7 @@ class RefundTransactionSupportTest {
         order.setStatus(OrderStatus.CANCELLED);
         order.setRefundStatus(RefundStatus.PROCESSING);
         when(orderRepository.findByRefundId("rfnd_2")).thenReturn(Optional.empty());
-        when(orderRepository.findByTransactionIdAndRefundStatus("pay_test123", RefundStatus.PROCESSING))
+        when(orderRepository.findByTransactionId("pay_test123"))
                 .thenReturn(Optional.of(order));
         stubSaves();
 
@@ -350,7 +350,7 @@ class RefundTransactionSupportTest {
         order.setStatus(OrderStatus.CANCELLED);
         order.setRefundStatus(RefundStatus.PROCESSING);
         when(orderRepository.findByRefundId("rfnd_3")).thenReturn(Optional.empty());
-        when(orderRepository.findByTransactionIdAndRefundStatus("pay_test123", RefundStatus.PROCESSING))
+        when(orderRepository.findByTransactionId("pay_test123"))
                 .thenReturn(Optional.of(order));
         stubSaves();
 
@@ -363,7 +363,7 @@ class RefundTransactionSupportTest {
     @Test
     void reconcileWebhook_noMatchingOrder_isNoOp() {
         when(orderRepository.findByRefundId("rfnd_4")).thenReturn(Optional.empty());
-        when(orderRepository.findByTransactionIdAndRefundStatus("pay_unknown", RefundStatus.PROCESSING))
+        when(orderRepository.findByTransactionId("pay_unknown"))
                 .thenReturn(Optional.empty());
 
         support.reconcileRefundFromWebhook("rfnd_4", "pay_unknown", "processed");

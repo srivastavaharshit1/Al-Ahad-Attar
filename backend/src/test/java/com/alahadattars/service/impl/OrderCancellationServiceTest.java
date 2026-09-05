@@ -166,7 +166,7 @@ class OrderCancellationServiceTest {
         when(refundTransactionSupport.claimAdminRefundProcessing(ORDER_ID, ADMIN_EMAIL))
                 .thenReturn(new RefundTransactionSupport.AdminRefundPreparation(order, new BigDecimal("999.00"), initiatedAt));
         when(paymentService.initiateRefund(eq("pay_test123"), eq(new BigDecimal("999.00"))))
-                .thenReturn(RefundResult.builder().success(true).refundId("rfnd_xyz").build());
+                .thenReturn(RefundResult.builder().outcome(RefundResult.RefundOutcome.SUCCESS).refundId("rfnd_xyz").build());
         when(refundTransactionSupport.recordAdminRefundOutcome(eq(order), any(RefundResult.class), eq(new BigDecimal("999.00")), eq(initiatedAt)))
                 .thenReturn(order);
 
@@ -185,7 +185,7 @@ class OrderCancellationServiceTest {
         when(refundTransactionSupport.claimAdminRefundProcessing(ORDER_ID, ADMIN_EMAIL))
                 .thenReturn(new RefundTransactionSupport.AdminRefundPreparation(order, new BigDecimal("999.00"), initiatedAt));
         when(paymentService.initiateRefund(anyString(), any(BigDecimal.class)))
-                .thenReturn(RefundResult.builder().success(false).errorMessage("Razorpay error").build());
+                .thenReturn(RefundResult.builder().outcome(RefundResult.RefundOutcome.DEFINITIVE_FAILURE).errorMessage("Razorpay error").build());
         when(refundTransactionSupport.recordAdminRefundOutcome(eq(order), any(RefundResult.class), any(), eq(initiatedAt)))
                 .thenReturn(order);
 
@@ -219,7 +219,7 @@ class OrderCancellationServiceTest {
         order.setRefundInitiatedAt(LocalDateTime.now());
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
         when(paymentService.checkExistingRefund(eq("pay_test123"), eq(new BigDecimal("999.00"))))
-                .thenReturn(Optional.of(RefundResult.builder().success(true).refundId("rfnd_reconciled").build()));
+                .thenReturn(Optional.of(RefundResult.builder().outcome(RefundResult.RefundOutcome.SUCCESS).refundId("rfnd_reconciled").build()));
         when(refundTransactionSupport.recordAdminRefundOutcome(eq(order), any(RefundResult.class), eq(new BigDecimal("999.00")), any()))
                 .thenReturn(order);
 

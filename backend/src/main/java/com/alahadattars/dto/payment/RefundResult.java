@@ -14,7 +14,17 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RefundResult {
-    private boolean success;
+    public enum RefundOutcome {
+        SUCCESS,
+        DEFINITIVE_FAILURE,
+        UNKNOWN_TIMEOUT
+    }
+
+    private RefundOutcome outcome;
     private String refundId;
     private String errorMessage;
+
+    public boolean isSuccess() {
+        return outcome == RefundOutcome.SUCCESS;
+    }
 }

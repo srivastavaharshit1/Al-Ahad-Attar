@@ -670,8 +670,9 @@ public class OrderServiceImpl implements OrderService {
         User user = savedOrder.getUser();
         String customerName = user != null ? (user.getFirstName() + " " + user.getLastName()) : "Customer";
 
-        if (result.isSuccess()) {
-            log.info("Refund REFUNDED for order {} | Refund ID: {} | Admin: {}", savedOrder.getId(), result.getRefundId(), adminEmail);
+        if (result.getOutcome() == RefundResult.RefundOutcome.SUCCESS) {
+            log.info("Refund API SUCCESSFUL (awaiting webhook for REFUNDED state) for order {} | Refund ID: {} | Admin: {}", savedOrder.getId(), result.getRefundId(), adminEmail);
+            // We can notify the customer since Razorpay synchronously confirmed it.
             if (user != null && user.getEmail() != null) {
                 emailService.sendRefundSuccessfulEmail(new RefundSuccessfulEmailData(
                         user.getEmail(),
@@ -679,7 +680,7 @@ public class OrderServiceImpl implements OrderService {
                         savedOrder.getOrderNumber(),
                         savedOrder.getRefundAmount(),
                         savedOrder.getRefundId(),
-                        formatEmailDate(savedOrder.getRefundCompletedAt())
+                        formatEmailDate(LocalDateTime.now())
                 ));
             }
             try {
@@ -687,6 +688,9 @@ public class OrderServiceImpl implements OrderService {
             } catch (Exception e) {
                 log.warn("Failed to send refund completion notification for order {}: {}", savedOrder.getId(), e.getMessage());
             }
+        } else if (result.getOutcome() == RefundResult.RefundOutcome.UNKNOWN_TIMEOUT) {
+            log.warn("Refund API UNKNOWN/TIMEOUT for order {} | Admin: {}. Kept in PROCESSING.", savedOrder.getId(), adminEmail);
+            // Do not send success or failure emails. Wait for webhook or manual reconciliation.
         } else {
             log.error("Refund FAILED for order {} | Error: {} | Admin: {}", savedOrder.getId(), result.getErrorMessage(), adminEmail);
             emailService.sendAdminRefundFailedEmail(new AdminRefundFailedEmailData(
