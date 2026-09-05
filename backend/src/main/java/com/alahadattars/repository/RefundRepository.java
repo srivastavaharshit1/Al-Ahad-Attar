@@ -14,4 +14,6 @@ public interface RefundRepository extends JpaRepository<Refund, Long> {
     List<Refund> findByOrderOrderByCreatedAtDesc(Order order);
 
     boolean existsByOrderAndStatusIn(Order order, List<RefundStatus> statuses);
+
+    java.util.Optional<Refund> findByRazorpayRefundId(String razorpayRefundId);
 }
