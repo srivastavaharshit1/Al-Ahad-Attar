@@ -670,8 +670,8 @@ public class OrderServiceImpl implements OrderService {
         User user = savedOrder.getUser();
         String customerName = user != null ? (user.getFirstName() + " " + user.getLastName()) : "Customer";
 
-        if (result.getOutcome() == RefundResult.RefundOutcome.SUCCESS) {
-            log.info("Refund API SUCCESSFUL (awaiting webhook for REFUNDED state) for order {} | Refund ID: {} | Admin: {}", savedOrder.getId(), result.getRefundId(), adminEmail);
+        if (result.getOutcome() == RefundResult.RefundOutcome.SUCCESS || result.getOutcome() == RefundResult.RefundOutcome.PROCESSED) {
+            log.info("Refund API {} for order {} | Refund ID: {} | Admin: {}", result.getOutcome().name(), savedOrder.getId(), result.getRefundId(), adminEmail);
             // We can notify the customer since Razorpay synchronously confirmed it.
             if (user != null && user.getEmail() != null) {
                 emailService.sendRefundSuccessfulEmail(new RefundSuccessfulEmailData(

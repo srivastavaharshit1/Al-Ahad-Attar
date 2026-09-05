@@ -188,6 +188,13 @@ public class RefundTransactionSupport {
             order.setRefundFailureReason(null);
             log.info("Refund API SUCCESSFUL for order {} | Refund ID: {}. Leaving in PROCESSING state pending webhook.", order.getId(), result.getRefundId());
             saveRefundRecord(order, result.getRefundId(), refundAmount, RefundStatus.PROCESSING, null, initiatedAt, null);
+        } else if (result.getOutcome() == RefundResult.RefundOutcome.PROCESSED) {
+            order.setRefundStatus(RefundStatus.REFUNDED);
+            order.setRefundId(result.getRefundId());
+            order.setRefundFailureReason(null);
+            order.setRefundCompletedAt(LocalDateTime.now());
+            log.info("Refund API returned PROCESSED for order {} | Refund ID: {}. Marking REFUNDED immediately.", order.getId(), result.getRefundId());
+            saveRefundRecord(order, result.getRefundId(), refundAmount, RefundStatus.REFUNDED, null, initiatedAt, order.getRefundCompletedAt());
         } else if (result.getOutcome() == RefundResult.RefundOutcome.UNKNOWN_TIMEOUT) {
             order.setRefundStatus(RefundStatus.PROCESSING);
             order.setRefundFailureReason("API timeout or unknown state. Waiting for webhook reconciliation.");
