@@ -145,14 +145,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGlobalException(Exception ex) {
+        // Full exception (including ex.getMessage(), which can contain SQL/constraint text or
+        // internal class/field names) is logged server-side only — never echoed back to the
+        // client, which would leak internals useful for reconnaissance.
         log.error("An unexpected error occurred: ", ex);
-        String details = ex.toString();
-        if (ex.getCause() != null) {
-            details += " (Cause: " + ex.getCause().toString() + ")";
-        }
         ApiResponse<Void> response = ApiResponse.<Void>builder()
                 .success(false)
-                .message("DEBUG_ERROR: " + details)
+                .message("An unexpected error occurred. Please try again or contact support.")
                 .build();
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }

@@ -294,16 +294,27 @@ public class RefundTransactionSupport {
 
     private Refund saveRefundRecord(Order order, String razorpayRefundId, BigDecimal amount, RefundStatus status,
                                      String failureReason, LocalDateTime initiatedAt, LocalDateTime completedAt) {
-        Refund refund = Refund.builder()
-                .order(order)
-                .paymentId(order.getTransactionId())
-                .razorpayRefundId(razorpayRefundId)
-                .amount(amount)
-                .status(status)
-                .failureReason(failureReason)
-                .initiatedAt(initiatedAt)
-                .completedAt(completedAt)
-                .build();
+        Refund refund = null;
+        if (razorpayRefundId != null) {
+            refund = refundRepository.findByRazorpayRefundId(razorpayRefundId).orElse(null);
+        }
+        
+        if (refund == null) {
+            refund = Refund.builder()
+                    .order(order)
+                    .paymentId(order.getTransactionId())
+                    .razorpayRefundId(razorpayRefundId)
+                    .amount(amount)
+                    .initiatedAt(initiatedAt)
+                    .build();
+        }
+        
+        refund.setStatus(status);
+        refund.setFailureReason(failureReason);
+        if (completedAt != null && refund.getCompletedAt() == null) {
+            refund.setCompletedAt(completedAt);
+        }
+        
         return refundRepository.save(refund);
     }
 }
