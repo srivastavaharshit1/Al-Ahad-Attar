@@ -383,11 +383,11 @@ export const About: React.FC = () => {
             id="cta-heading"
             className="font-['Playfair_Display'] text-[2rem] md:text-[2.75rem] leading-[1.15] tracking-tight text-[#121c2a] font-semibold mb-6 max-w-lg mx-auto"
           >
-            {cta.title}
+            What Are You Waiting For?
           </h2>
           <div className="w-10 h-px bg-accent mx-auto mb-7" aria-hidden="true" />
           <p className="text-[#5b5346] text-base md:text-[17px] leading-[1.8] font-light max-w-md mx-auto mb-12">
-            {cta.description}
+            Discover Your Signature Fragrance Today.
           </p>
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
             <Link

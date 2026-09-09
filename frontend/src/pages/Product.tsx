@@ -406,7 +406,9 @@ export const ProductPage: React.FC = () => {
 
               {product.category?.name === 'Bakhoor' || filteredVariants.length === 1 ? (
                 <div>
-                  <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-3">Weight</h3>
+                  <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-3">
+                    {product.category?.name?.toLowerCase() === 'car perfume' || filteredVariants[0]?.size?.toLowerCase().includes('pc') ? 'Quantity' : 'Weight'}
+                  </h3>
                   <div className="px-6 py-3 border border-outline-variant rounded-DEFAULT font-label-md text-label-md text-on-surface inline-block bg-surface-bright">
                     {filteredVariants[0]?.size} Pack
                   </div>
