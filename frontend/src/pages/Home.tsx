@@ -317,19 +317,26 @@ const PromoBannerSection = ({ banners }: { banners: any[] }) => {
       <div className="relative h-[600px] w-full overflow-hidden flex items-center justify-center text-center">
         <div className="absolute inset-0 z-0">
           <div className="w-full h-full bg-cover bg-center transition-transform duration-[15000ms] scale-105 hover:scale-110" style={{backgroundImage: `url('${getImageUrl(banner.imageUrl)}')`}}></div>
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"></div>
+          {/* Base cinematic overlay */}
+          <div className="absolute inset-0 bg-[#121c2a]/20"></div>
+          {/* Central darkening for typography contrast */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(25,15,5,0.45)_0%,_rgba(25,15,5,0.1)_45%,_transparent_75%)]"></div>
+          {/* Subtle bottom gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#121c2a]/30 to-transparent"></div>
         </div>
         
-        <div className="relative z-10 px-6 max-w-3xl flex flex-col items-center">
-          <span className="text-[#d4af37] text-[10px] font-label-md uppercase tracking-[0.4em] mb-6 block border border-[#d4af37] px-4 py-2">
-            {banner.subtitle || 'LIMITED EDITION'}
-          </span>
-          <h2 className="font-headline-lg text-4xl md:text-6xl text-white mb-8 leading-[1.2] font-normal tracking-wide">
-            {banner.title}
-          </h2>
+        <div className="relative z-10 px-6 w-full max-w-[1000px] flex flex-col items-center">
+          <div className="flex flex-col items-center mb-8 text-center" style={{ textShadow: '0 3px 18px rgba(0,0,0,0.45)' }}>
+            <h2 className="font-['Playfair_Display'] text-2xl md:text-[30px] lg:text-[34px] text-[#e0c990] mb-3 font-light tracking-wide leading-tight">
+              What Are You Waiting For?
+            </h2>
+            <p className="font-['Playfair_Display'] text-4xl md:text-[48px] lg:text-[54px] text-[#fdf7ea] leading-[1.1] font-medium tracking-tight">
+              Discover Your Signature Fragrance Today.
+            </p>
+          </div>
           {banner.buttonUrl && (
-            <Link to={banner.buttonUrl} className="mt-4 bg-white text-[#121c2a] px-12 py-4 text-[10px] font-label-md uppercase tracking-[0.25em] hover:bg-[#121c2a] hover:text-white transition-all duration-500">
-              {banner.buttonText || 'SHOP GIFT BOXES'}
+            <Link to={banner.buttonUrl} className="bg-[#cda64b] text-[#0a1118] px-7 py-2.5 text-[10px] font-medium uppercase tracking-[0.15em] hover:bg-[#b8913d] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+              {banner.buttonText || 'EXPLORE PRODUCTS'}
             </Link>
           )}
         </div>
