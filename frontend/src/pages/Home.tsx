@@ -331,7 +331,7 @@ const PromoBannerSection = ({ banners }: { banners: any[] }) => {
               What Are You Waiting For?
             </h2>
             <p className="font-['Playfair_Display'] text-4xl md:text-[48px] lg:text-[54px] text-[#fdf7ea] leading-[1.1] font-medium tracking-tight">
-              Discover Your Signature Fragrance Today.
+              Discover Your Signature Fragrance Today
             </p>
           </div>
           {banner.buttonUrl && (
