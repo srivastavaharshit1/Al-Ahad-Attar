@@ -60,6 +60,7 @@ const AdminContactMessages = React.lazy(() => import('../pages/admin/ContactMess
 const AdminBottles = React.lazy(() => import('../pages/admin/Bottles').then(m => ({ default: m.Bottles })));
 const AdminReviews = React.lazy(() => import('../pages/admin/Reviews').then(m => ({ default: m.Reviews })));
 const AdminBulkPricing = React.lazy(() => import('../pages/admin/BulkPricing').then(m => ({ default: m.BulkPricing })));
+const AdminAboutUs = React.lazy(() => import('../pages/admin/AdminAboutUs').then(m => ({ default: m.AdminAboutUs })));
 const NotFound = React.lazy(() => import('../pages/NotFound').then(m => ({ default: m.NotFound })));
 
 export const AppRoutes: React.FC = () => {
@@ -125,6 +126,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="bottles" element={<AdminBottles />} />
           <Route path="reviews" element={<AdminReviews />} />
+          <Route path="about" element={<AdminAboutUs />} />
           {/* Reuses the customer-facing Profile component as-is: /api/profile and
               /api/profile/change-password are role-agnostic (based on the JWT's identity, not
               role), and the component has no customer-specific assumptions, so it renders fine
