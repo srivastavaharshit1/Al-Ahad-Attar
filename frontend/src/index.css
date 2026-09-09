@@ -207,6 +207,9 @@
 @media (prefers-reduced-motion: reduce) {
   .reveal, .card, .product-media img, .btn, .nav { animation: none !important; transition: none !important; }
   .reveal { opacity: 1; transform: none; }
+  /* Hero inline animations and ken-burns zoom */
+  .hero-zoom { animation: none !important; }
+  [style*="animation"] { animation: none !important; opacity: 1 !important; transform: none !important; }
 }
 
 @keyframes modalIn {
@@ -231,6 +234,10 @@
       100% { transform: scale(1.05); }
   }
   @keyframes fadeInUp {
+      from {
+          opacity: 0;
+          transform: translateY(22px);
+      }
       to {
           opacity: 1;
           transform: translateY(0);
