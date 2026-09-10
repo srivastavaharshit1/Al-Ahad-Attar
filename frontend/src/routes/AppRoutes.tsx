@@ -32,7 +32,7 @@ const Search = React.lazy(() => import('../pages/Search').then(m => ({ default: 
 const Offers = React.lazy(() => import('../pages/Offers').then(m => ({ default: m.Offers })));
 const PrivacyPolicy = React.lazy(() => import('../pages/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
 const Terms = React.lazy(() => import('../pages/Terms').then(m => ({ default: m.Terms })));
-const ReturnPolicy = React.lazy(() => import('../pages/ReturnPolicy').then(m => ({ default: m.ReturnPolicy })));
+const ShippingAndReturns = React.lazy(() => import('../pages/ShippingAndReturns').then(m => ({ default: m.ShippingAndReturns })));
 
 // Customer Pages
 const Dashboard = React.lazy(() => import('../pages/customer/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -83,8 +83,10 @@ export const AppRoutes: React.FC = () => {
           <Route path="offers" element={<Offers />} />
           <Route path="privacy-policy" element={<PrivacyPolicy />} />
           <Route path="terms-and-conditions" element={<Terms />} />
-          <Route path="refund-policy" element={<ReturnPolicy />} />
-          <Route path="shipping-policy" element={<ReturnPolicy />} />
+          <Route path="shipping-and-returns" element={<ShippingAndReturns />} />
+          <Route path="refund-policy" element={<Navigate to="/shipping-and-returns" replace />} />
+          <Route path="return-policy" element={<Navigate to="/shipping-and-returns" replace />} />
+          <Route path="shipping-policy" element={<Navigate to="/shipping-and-returns" replace />} />
           
           <Route path="*" element={<NotFound />} />
         </Route>
