@@ -33,6 +33,7 @@ const Offers = React.lazy(() => import('../pages/Offers').then(m => ({ default: 
 const PrivacyPolicy = React.lazy(() => import('../pages/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
 const Terms = React.lazy(() => import('../pages/Terms').then(m => ({ default: m.Terms })));
 const ShippingAndReturns = React.lazy(() => import('../pages/ShippingAndReturns').then(m => ({ default: m.ShippingAndReturns })));
+const FAQ = React.lazy(() => import('../pages/FAQ').then(m => ({ default: m.FAQ })));
 
 // Customer Pages
 const Dashboard = React.lazy(() => import('../pages/customer/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -84,6 +85,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="privacy-policy" element={<PrivacyPolicy />} />
           <Route path="terms-and-conditions" element={<Terms />} />
           <Route path="shipping-and-returns" element={<ShippingAndReturns />} />
+          <Route path="faq" element={<FAQ />} />
           <Route path="refund-policy" element={<Navigate to="/shipping-and-returns" replace />} />
           <Route path="return-policy" element={<Navigate to="/shipping-and-returns" replace />} />
           <Route path="shipping-policy" element={<Navigate to="/shipping-and-returns" replace />} />
