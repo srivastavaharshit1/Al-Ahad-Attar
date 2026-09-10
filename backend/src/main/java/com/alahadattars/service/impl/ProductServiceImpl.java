@@ -296,7 +296,14 @@ public class ProductServiceImpl implements ProductService {
                 }
             }
             if (gender != null) {
-                predicates.add(cb.equal(root.get("gender"), gender));
+                if (gender == Gender.MALE || gender == Gender.FEMALE) {
+                    predicates.add(cb.or(
+                        cb.equal(root.get("gender"), gender),
+                        cb.equal(root.get("gender"), Gender.UNISEX)
+                    ));
+                } else {
+                    predicates.add(cb.equal(root.get("gender"), gender));
+                }
             }
             if (brand != null && !brand.trim().isEmpty()) {
                 predicates.add(cb.equal(root.get("brand"), brand));
