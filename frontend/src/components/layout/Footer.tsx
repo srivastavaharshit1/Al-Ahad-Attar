@@ -13,11 +13,11 @@ export const Footer: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 md:px-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-8">
 
         {/* Column 1: Brand */}
-        <div className="lg:col-span-4 pr-0 lg:pr-8">
+        <div className="lg:col-span-4 pr-0 lg:pr-8 min-w-0">
           <div className="mb-6">
               <div className="flex flex-col items-start">
                 {settings?.brandLogoUrl ? (
-                  <img src={settings.brandLogoUrl} alt={settings.storeName || "Brand Logo"} className="h-20 w-auto object-contain object-left mb-2" />
+                  <img src={settings.brandLogoUrl} alt={settings.storeName || "Brand Logo"} className="h-20 w-auto max-w-full object-contain object-left mb-2" />
                 ) : (
                   <span className="font-headline-md text-2xl text-accent tracking-wider uppercase">{settings?.storeName || 'AL AHAD ATTARS'}</span>
                 )}
@@ -46,7 +46,7 @@ export const Footer: React.FC = () => {
         </div>
 
         {/* Column 2: SHOP */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 min-w-0">
           <h4 className="font-label-md text-[10px] text-accent uppercase tracking-[0.25em] mb-8">Shop</h4>
           <ul className="space-y-4">
             <li><Link to="/category/attars" className={footerLinkClass}>Attars</Link></li>
@@ -58,7 +58,7 @@ export const Footer: React.FC = () => {
         </div>
 
         {/* Column 3: COMPANY */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 min-w-0">
           <h4 className="font-label-md text-[10px] text-accent uppercase tracking-[0.25em] mb-8">Company</h4>
           <ul className="space-y-4">
             <li><Link to="/about" className={footerLinkClass}>About Us</Link></li>
@@ -68,18 +68,17 @@ export const Footer: React.FC = () => {
         </div>
 
         {/* Column 4: CUSTOMER SUPPORT */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 min-w-0">
           <h4 className="font-label-md text-[10px] text-accent uppercase tracking-[0.25em] mb-8">Customer Support</h4>
           <ul className="space-y-4">
-            <li><Link to="/shipping-policy" className={footerLinkClass}>Shipping Policy</Link></li>
-            <li><Link to="/refund-policy" className={footerLinkClass}>Return Policy</Link></li>
+            <li><Link to="/shipping-and-returns" className={footerLinkClass}>Shipping &amp; Returns</Link></li>
             <li><Link to="/privacy-policy" className={footerLinkClass}>Privacy Policy</Link></li>
             <li><Link to="/terms-and-conditions" className={footerLinkClass}>Terms &amp; Conditions</Link></li>
           </ul>
         </div>
 
         {/* Column 5: CONTACT */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 min-w-0">
           <h4 className="font-label-md text-[10px] text-accent uppercase tracking-[0.25em] mb-8">Contact</h4>
           <ul className="space-y-6">
             <li className="font-body-md text-sm text-white/60 font-light leading-relaxed flex items-start gap-3">
