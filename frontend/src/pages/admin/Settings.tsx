@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { storeSettingsService } from '../../services/storeSettingsService';
 import { getImageUrl } from '../../utils/getImageUrl';
+import { defaultPrivacyPolicyMd, defaultTermsMd, defaultShippingMd } from '../../utils/defaultPolicies';
 import toast from 'react-hot-toast';
 
 export const Settings: React.FC = () => {
@@ -50,9 +51,9 @@ export const Settings: React.FC = () => {
       setInstagramHandle(settings.instagramHandle || '');
       setShippingCharge(settings.shippingCharge || 0);
       setFreeShippingThreshold(settings.freeShippingThreshold || 0);
-      setPrivacyPolicy(settings.privacyPolicy || '');
-      setTermsOfService(settings.termsOfService || '');
-      setReturnPolicy(settings.returnPolicy || '');
+      setPrivacyPolicy(settings.privacyPolicy && settings.privacyPolicy !== 'Default Privacy Policy' ? settings.privacyPolicy : defaultPrivacyPolicyMd);
+      setTermsOfService(settings.termsOfService && settings.termsOfService !== 'Default Terms of Service' ? settings.termsOfService : defaultTermsMd);
+      setReturnPolicy(settings.returnPolicy && settings.returnPolicy !== 'Default Return Policy' ? settings.returnPolicy : defaultShippingMd);
       
       setBusinessAddress(settings.businessAddress || '');
       setCity(settings.city || '');
@@ -371,7 +372,7 @@ export const Settings: React.FC = () => {
             </div>
 
             <div>
-              <label className="field-label">Return Policy</label>
+              <label className="field-label">Shipping & Returns Policy</label>
               <textarea className="field-input min-h-[150px] resize-y" value={returnPolicy} onChange={(e) => setReturnPolicy(e.target.value)}></textarea>
             </div>
           </section>
