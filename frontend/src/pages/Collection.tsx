@@ -157,6 +157,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
   };
 
   const hasActiveFilters = selectedCategoryId !== '' || selectedGender !== '' || selectedBrand !== '' || searchQuery !== '';
+  const hasUserFilters = selectedGender !== '' || selectedBrand !== '' || searchQuery !== '';
 
   const pageTitle = activeCategory
     ? `${activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1)} Collection`
@@ -373,12 +374,28 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
           ) : products.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center py-20 md:py-24">
               <div className="w-16 h-16 border border-accent rounded-full flex items-center justify-center mb-6">
-                <span className="material-symbols-outlined text-accent text-2xl">inventory_2</span>
+                {hasUserFilters ? (
+                  <span className="material-symbols-outlined text-accent text-2xl">inventory_2</span>
+                ) : (
+                  <span className="material-symbols-outlined text-accent text-2xl">hourglass_empty</span>
+                )}
               </div>
-              <h3 className="font-headline-md text-on-surface mb-2 tracking-widest uppercase text-lg">No Products Found</h3>
-              <p className="font-body-md text-on-surface-variant mb-8 max-w-sm leading-relaxed">No products matched your filters. Try adjusting your search criteria.</p>
-              {hasActiveFilters && (
-                <button onClick={clearFilters} className="btn btn-primary">
+              <h3 className="font-headline-md font-bold text-on-surface mb-2 tracking-widest uppercase text-lg">
+                {hasUserFilters ? "No Products Found" : "Coming Soon"}
+              </h3>
+              <p className="font-body-md text-on-surface-variant mb-8 max-w-sm leading-relaxed">
+                {hasUserFilters 
+                  ? "No products matched your filters. Try adjusting your search criteria." 
+                  : "We are currently working on bringing you exclusive products in this collection. Please check back later."}
+              </p>
+              {hasUserFilters && (
+                <button onClick={() => {
+                  // Only clear user filters, keep category
+                  setSelectedGender('');
+                  setSelectedBrand('');
+                  setSearchQuery('');
+                  resetPage();
+                }} className="btn btn-primary">
                   Clear Filters
                 </button>
               )}
