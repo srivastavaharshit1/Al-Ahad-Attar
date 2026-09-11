@@ -6,7 +6,7 @@ import { PolicyRenderer } from '../components/ui/PolicyRenderer';
 import { defaultPrivacyPolicyMd } from '../utils/defaultPolicies';
 
 export const PrivacyPolicy: React.FC = () => {
-  const { settings, isLoading } = useStoreSettings();
+  const { settings } = useStoreSettings();
 
   const policyContent = settings?.privacyPolicy && settings.privacyPolicy !== 'Default Privacy Policy' 
     ? settings.privacyPolicy 

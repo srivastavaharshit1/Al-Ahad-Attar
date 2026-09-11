@@ -6,7 +6,7 @@ import { PolicyRenderer } from '../components/ui/PolicyRenderer';
 import { defaultTermsMd } from '../utils/defaultPolicies';
 
 export const Terms: React.FC = () => {
-  const { settings, isLoading } = useStoreSettings();
+  const { settings } = useStoreSettings();
 
   const policyContent = settings?.termsOfService && settings.termsOfService !== 'Default Terms of Service' 
     ? settings.termsOfService 
