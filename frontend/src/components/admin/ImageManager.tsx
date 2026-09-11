@@ -18,9 +18,10 @@ interface ImageManagerProps {
   productId?: number;
   images: ManagedImage[];
   onImagesChange: (images: ManagedImage[]) => void;
+  isFragranceCategory?: boolean;
 }
 
-export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, onImagesChange }) => {
+export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, onImagesChange, isFragranceCategory = true }) => {
   const [uploading, setUploading] = useState(false);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | number | null>(null);
@@ -342,18 +343,20 @@ export const ImageManager: React.FC<ImageManagerProps> = ({ productId, images, o
               </div>
 
               {/* Type Selector (Dropdown below) */}
-              <div className="absolute bottom-0 left-0 w-full bg-surface-container-lowest/90 backdrop-blur-sm border-t border-outline-variant p-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-                <select
-                  value={img.altText || ''}
-                  onChange={(e) => handleAltTextChange(img.id, e.target.value)}
-                  className="w-full text-[11px] font-label-sm bg-transparent border-none focus:ring-0 cursor-pointer text-on-surface"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <option value="">Default Image</option>
-                  <option value="ATTAR">Attar Image</option>
-                  <option value="PERFUME">Perfume Image</option>
-                </select>
-              </div>
+              {isFragranceCategory && (
+                <div className="absolute bottom-0 left-0 w-full bg-surface-container-lowest/90 backdrop-blur-sm border-t border-outline-variant p-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                  <select
+                    value={img.altText || ''}
+                    onChange={(e) => handleAltTextChange(img.id, e.target.value)}
+                    className="w-full text-[11px] font-label-sm bg-transparent border-none focus:ring-0 cursor-pointer text-on-surface"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <option value="">Default Image</option>
+                    <option value="ATTAR">Attar Image</option>
+                    <option value="PERFUME">Perfume Image</option>
+                  </select>
+                </div>
+              )}
             </div>
           ))}
         </div>

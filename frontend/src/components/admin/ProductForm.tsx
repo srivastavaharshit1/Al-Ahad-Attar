@@ -109,6 +109,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   };
 
   const selectedCategory = categories.find(c => c.id.toString() === formData.categoryId.toString());
+  const isFragranceCategory = selectedCategory && (selectedCategory.type === 'ATTARS' || selectedCategory.type === 'PERFUMES');
 
   // Automatically update variants when category changes and it's a new product
   useEffect(() => {
@@ -127,12 +128,12 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         } else if (cat.type === 'BAKHOOR') {
           if (formData.subcategory === 'Incense Sticks') {
             setVariants([
-              { sku: '', size: '100 gm', price: 0, stock: 0, active: true, productType: 'ATTAR' },
-              { sku: '', size: '250 gm', price: 0, stock: 0, active: true, productType: 'ATTAR' }
+              { sku: '', size: '100 gm', price: 0, stock: 0, active: true, productType: 'BAKHOOR' },
+              { sku: '', size: '250 gm', price: 0, stock: 0, active: true, productType: 'BAKHOOR' }
             ]);
           } else {
             setVariants([
-              { sku: '', size: '40 g', price: 0, stock: 0, active: true, productType: 'ATTAR' }
+              { sku: '', size: '40 g', price: 0, stock: 0, active: true, productType: 'BAKHOOR' }
             ]);
           }
         } else if (cat.type === 'PERFUMES') {
@@ -237,6 +238,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         productId={productId}
         images={images}
         onImagesChange={setImages}
+        isFragranceCategory={isFragranceCategory}
       />
 
       {/* Pricing & Inventory */}
@@ -253,19 +255,21 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               >
                 <Trash2 size={18} />
               </button>
-              <div className="md:w-1/3 pt-4 md:pt-0 grid grid-cols-2 gap-4">
-                <div>
-                  <label className="field-label mb-1">Type <span className="text-error">*</span></label>
-                  <select
-                    className="field-input font-body-lg text-body-lg text-accent"
-                    required
-                    value={v.productType || 'ATTAR'}
-                    onChange={e => handleVariantChange(idx, 'productType', e.target.value)}
-                  >
-                    <option value="ATTAR">Attar</option>
-                    <option value="PERFUME">Perfume</option>
-                  </select>
-                </div>
+              <div className={`md:w-1/3 pt-4 md:pt-0 grid ${isFragranceCategory ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
+                {isFragranceCategory && (
+                  <div>
+                    <label className="field-label mb-1">Type <span className="text-error">*</span></label>
+                    <select
+                      className="field-input font-body-lg text-body-lg text-accent"
+                      required
+                      value={v.productType || 'ATTAR'}
+                      onChange={e => handleVariantChange(idx, 'productType', e.target.value)}
+                    >
+                      <option value="ATTAR">Attar</option>
+                      <option value="PERFUME">Perfume</option>
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="field-label mb-1">Variant Size <span className="text-error">*</span></label>
                   <input
@@ -321,7 +325,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           
           <button
             type="button"
-            onClick={() => setVariants(prev => [...prev, { sku: '', size: '', price: 0, stock: 0, active: true, productType: 'ATTAR' }])}
+            onClick={() => setVariants(prev => [...prev, { sku: '', size: '', price: 0, stock: 0, active: true, productType: isFragranceCategory ? 'ATTAR' : (selectedCategory?.type === 'BAKHOOR' ? 'BAKHOOR' : 'GENERAL') }])}
             className="flex items-center justify-center gap-2 py-3 border-2 border-dashed border-outline-variant rounded-lg text-on-surface-variant hover:text-accent hover:border-accent/50 transition-colors font-label-lg"
           >
             <Plus size={20} />
