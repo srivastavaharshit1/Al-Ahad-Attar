@@ -6,7 +6,7 @@ import { PolicyRenderer } from '../components/ui/PolicyRenderer';
 import { defaultShippingMd } from '../utils/defaultPolicies';
 
 export const ShippingAndReturns: React.FC = () => {
-  const { settings, isLoading } = useStoreSettings();
+  const { settings } = useStoreSettings();
 
   const policyContent = settings?.returnPolicy && settings.returnPolicy !== 'Default Return Policy' 
     ? settings.returnPolicy 
