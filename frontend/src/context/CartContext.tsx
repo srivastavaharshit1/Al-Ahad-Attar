@@ -60,6 +60,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [giftMessage, setGiftMessageState] = useState<string | null>(() => storage.get('cart_gift_message', null));
   const { isAuthenticated, user } = useAuth();
   const quantityUpdateTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const quantityUpdateTokens = useRef<Map<string, symbol>>(new Map());
 
   const setIsGiftWrapped = (isWrapped: boolean) => {
     setIsGiftWrappedState(isWrapped);
@@ -73,23 +74,35 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const syncCartState = (cartData: any) => {
     if (!cartData) return;
-    const mappedItems: CartItem[] = (cartData.items || []).map((i: any) => ({
-      id: i.id ? i.id.toString() : Math.random().toString(36).substring(7),
-      productId: i.productId.toString(),
-      variantId: i.variantId.toString(),
-      name: i.name,
-      image: i.image,
-      size: i.size,
-      quantity: i.quantity,
-      price: Number(i.finalPrice || i.price),
-      originalPrice: Number(i.originalPrice || i.price),
-      discountAmount: Number(i.discountAmount || 0),
-      finalPrice: Number(i.finalPrice || i.price),
-      freeItem: i.freeItem,
-      freePromotionId: i.freePromotionId,
-      bottle: i.bottle
-    }));
-    setItems(mappedItems);
+    
+    setItems(prevItems => {
+      const mappedItems: CartItem[] = (cartData.items || []).map((i: any) => {
+        // Try to preserve existing local IDs for guest carts to prevent UI flicker/re-renders
+        const existing = prevItems.find(p => 
+          p.productId.toString() === i.productId.toString() && 
+          p.variantId?.toString() === i.variantId?.toString() &&
+          p.bottle?.id === i.bottle?.id
+        );
+        return {
+          id: i.id ? i.id.toString() : (existing ? existing.id : Math.random().toString(36).substring(7)),
+          productId: i.productId.toString(),
+          variantId: i.variantId.toString(),
+          name: i.name,
+          image: i.image,
+          size: i.size,
+          quantity: i.quantity,
+          price: Number(i.finalPrice || i.price),
+          originalPrice: Number(i.originalPrice || i.price),
+          discountAmount: Number(i.discountAmount || 0),
+          finalPrice: Number(i.finalPrice || i.price),
+          freeItem: i.freeItem,
+          freePromotionId: i.freePromotionId,
+          bottle: i.bottle
+        };
+      });
+      return mappedItems;
+    });
+
     setCartDiscount(Number(cartData.cartDiscount || 0));
     setAppliedPromotions(cartData.appliedPromotions || []);
     setAvailablePromotions(cartData.availablePromotions || []);
@@ -162,6 +175,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     if (isAuthenticated || !isLoaded) return;
     
+    const abortController = new AbortController();
+    
     const evaluate = async () => {
       try {
         const payload = {
@@ -177,14 +192,21 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           manuallySelectedPromotionId
         };
         const res = await cartService.evaluateGuestCart(payload);
-        if (res) syncCartState(res.data);
+        if (res && !abortController.signal.aborted) {
+          syncCartState(res.data);
+        }
       } catch (err) {
-        console.error("Guest cart evaluation failed", err);
+        if (!abortController.signal.aborted) {
+          console.error("Guest cart evaluation failed", err);
+        }
       }
     };
 
     const timeoutId = setTimeout(evaluate, 500); // debounce
-    return () => clearTimeout(timeoutId);
+    return () => {
+      clearTimeout(timeoutId);
+      abortController.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isAuthenticated,
@@ -263,6 +285,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (!isAuthenticated) return;
 
+    const token = Symbol();
+    quantityUpdateTokens.current.set(id, token);
+
     const existingTimer = quantityUpdateTimers.current.get(id);
     if (existingTimer) clearTimeout(existingTimer);
 
@@ -270,13 +295,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       quantityUpdateTimers.current.delete(id);
       try {
         const response = await cartService.updateQuantity(Number(id), quantity);
-        if (response) {
+        // Only sync if this is still the latest update for this item
+        if (response && quantityUpdateTokens.current.get(id) === token) {
           syncCartState(response.data);
         }
       } catch (error) {
         console.error("Failed to update remote cart quantity", error);
         toast.error("Failed to update quantity");
-        if (previousQuantity !== undefined) {
+        if (previousQuantity !== undefined && quantityUpdateTokens.current.get(id) === token) {
           setItems(prev => prev.map(item => item.id === id ? { ...item, quantity: previousQuantity } : item));
         }
       }

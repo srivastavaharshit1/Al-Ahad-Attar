@@ -64,6 +64,11 @@ export interface OrderRequest {
   razorpayPaymentId: string;
   razorpaySignature: string;
   notes?: string;
+  guestEmail?: string;
+  guestName?: string;
+  guestPhone?: string;
+  guestAddress?: any;
+  manuallySelectedPromotionId?: number | null;
   couponCode?: string;
   simulatePaymentFailure?: boolean;
   isGiftWrapped?: boolean;
