@@ -94,7 +94,7 @@ export const Cart: React.FC = () => {
           <div className="font-label-md text-[11px] text-[#a68a56] uppercase tracking-[0.15em] text-right pb-1">
             {shippingCost === 0 
               ? 'FREE SHIPPING ON YOUR ORDER' 
-              : `ADD ${formatPrice(shippingThreshold - (totalAfterOffer - cartDiscount))} MORE FOR FREE SHIPPING`}
+              : `ADD ${formatPrice(shippingThreshold - totalAfterOffer)} MORE FOR FREE SHIPPING`}
           </div>
         </div>
 
@@ -325,8 +325,8 @@ export const Cart: React.FC = () => {
               
               <div className="flex justify-between items-center text-sm">
                 <span className="text-on-surface-variant">Shipping</span>
-                <span className="italic text-on-surface-variant">
-                  {shippingCost === 0 ? 'Complimentary' : formatPrice(shippingCost)}
+                <span className={shippingCost === 0 ? 'text-[#a68a56] font-medium uppercase text-[11px] tracking-wider' : 'font-medium text-on-surface'}>
+                  {shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
                 </span>
               </div>
               
@@ -343,6 +343,36 @@ export const Cart: React.FC = () => {
               <span className="font-headline-md text-3xl text-on-surface">{formatPrice(total)}</span>
             </div>
             
+            {/* Free Shipping Progress — inside Order Summary */}
+            <div className="mb-6 border border-[#eae5dc] bg-[#fcfaf7] p-4">
+              {shippingCost === 0 ? (
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#a68a56] text-[16px] leading-none select-none">local_shipping</span>
+                  <p className="text-[11px] font-label-md uppercase tracking-wider text-[#a68a56]">
+                    You've unlocked complimentary shipping
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[#8a8171] text-[14px] leading-none select-none">local_shipping</span>
+                      <p className="text-[11px] text-on-surface-variant">
+                        Add <span className="font-semibold text-on-surface">{formatPrice(shippingThreshold - totalAfterOffer)}</span> more for free shipping
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-[#8a8171] font-label-md uppercase tracking-wider">Free &gt; {formatPrice(shippingThreshold)}</span>
+                  </div>
+                  <div className="w-full h-1 bg-[#eae5dc] rounded-full overflow-hidden" role="progressbar" aria-label="Free shipping progress" aria-valuemin={0} aria-valuemax={shippingThreshold} aria-valuenow={Math.min(totalAfterOffer, shippingThreshold)}>
+                    <div
+                      className="h-full bg-[#a68a56] rounded-full progress-fill"
+                      style={{ width: `${Math.min((totalAfterOffer / shippingThreshold) * 100, 100)}%` }}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
             <Link
               to="/checkout"
               className="w-full bg-[#2a2321] hover:bg-[#1f1a18] text-white py-4 flex items-center justify-center gap-2 font-label-md text-xs uppercase tracking-[0.15em] transition-colors"
