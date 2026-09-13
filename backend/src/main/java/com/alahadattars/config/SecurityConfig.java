@@ -70,6 +70,8 @@ public class SecurityConfig {
 
                 auth
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/cart/evaluate-guest").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/orders/guest").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/payment/guest/create").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/products/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/categories/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/variants/**").permitAll()

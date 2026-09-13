@@ -32,6 +32,18 @@ public class PaymentController {
         }
     }
 
+    @PostMapping("/guest/create")
+    public ResponseEntity<?> createGuestPaymentOrder(@RequestBody PaymentOrderRequest request) {
+        try {
+            return ResponseEntity.ok(paymentService.createPaymentOrder(null, request));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(400).body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            log.error("Failed to initialize Razorpay payment for guest", e);
+            return ResponseEntity.status(503).body(new ErrorResponse("Unable to initialize secure payment. Payment service is temporarily unavailable."));
+        }
+    }
+
     @PostMapping("/verify")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Boolean> verifyPayment(@RequestBody PaymentVerificationRequest request) {

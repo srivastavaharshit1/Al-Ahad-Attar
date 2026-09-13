@@ -36,14 +36,16 @@ import lombok.ToString;
 public class Address extends BaseEntity {
 
     @ToString.Exclude
-    @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = true)
     private User user;
 
     @NotBlank
     @Column(name = "full_name", nullable = false)
     private String fullName;
+
+    @Column(name = "guest_email", length = 150)
+    private String guestEmail;
 
     @NotBlank
     @ValidPhoneNumber

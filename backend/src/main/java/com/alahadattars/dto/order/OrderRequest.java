@@ -16,7 +16,6 @@ import java.util.List;
 @AllArgsConstructor
 public class OrderRequest {
 
-    @NotNull
     private Long shippingAddressId;
 
     @NotNull
@@ -30,7 +29,17 @@ public class OrderRequest {
 
     private String notes;
     
+    private String guestEmail;
+    
+    private String guestName;
+    
+    private String guestPhone;
+    
+    private com.alahadattars.dto.profile.AddressRequest guestAddress;
+    
     private String couponCode;
+    
+    private Long manuallySelectedPromotionId;
 
     private Boolean simulatePaymentFailure;
 

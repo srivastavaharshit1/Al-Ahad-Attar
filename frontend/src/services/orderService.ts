@@ -3,16 +3,20 @@ import type { Order, ApiResponse, PaymentOrderResponse, OrderRequest } from '../
 
 export const orderService = {
   createOrder: async (orderData: OrderRequest): Promise<ApiResponse<Order>> => {
-    const response = await apiClient.post<ApiResponse<Order>>('/orders', orderData);
+    const isGuest = !!orderData.guestEmail;
+    const url = isGuest ? '/orders/guest' : '/orders';
+    const response = await apiClient.post<ApiResponse<Order>>(url, orderData);
     return response.data;
   },
 
-  createPaymentOrder: async (couponCode?: string, isGiftWrapped?: boolean, giftMessage?: string | null): Promise<PaymentOrderResponse> => {
+  createPaymentOrder: async (couponCode?: string, isGiftWrapped?: boolean, giftMessage?: string | null, guestCart?: any): Promise<PaymentOrderResponse> => {
     const payload: any = {};
     if (couponCode) payload.couponCode = couponCode;
     if (isGiftWrapped) payload.isGiftWrapped = isGiftWrapped;
     if (giftMessage) payload.giftMessage = giftMessage;
-    const response = await apiClient.post<PaymentOrderResponse>('/payment/create', payload);
+    if (guestCart) payload.guestCart = guestCart;
+    const url = guestCart ? '/payment/guest/create' : '/payment/create';
+    const response = await apiClient.post<PaymentOrderResponse>(url, payload);
     return response.data;
   },
   

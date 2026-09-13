@@ -34,6 +34,19 @@ export const Checkout: React.FC = () => {
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [notes, setNotes] = useState('');
 
+  const [checkoutMode, setCheckoutMode] = useState<'auth_entry' | 'guest' | 'user'>(isAuthenticated ? 'user' : 'auth_entry');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestAddress, setGuestAddress] = useState<any>({
+    fullName: '',
+    phone: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: 'India',
+  });
+
   const [couponInput, setCouponInput] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,9 +54,13 @@ export const Checkout: React.FC = () => {
   const [couponError, setCouponError] = useState('');
 
   useEffect(() => {
-    if (!isAuthenticated) return;
-    fetchUserData();
-    fetchAddresses();
+    if (isAuthenticated) {
+      setCheckoutMode('user');
+      fetchUserData();
+      fetchAddresses();
+    } else {
+      setCheckoutMode('auth_entry');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
@@ -96,40 +113,65 @@ export const Checkout: React.FC = () => {
   };
 
   const placeOrder = async () => {
-    if (!selectedAddressId) {
+    const isGuest = checkoutMode === 'guest';
+    if (!isGuest && !selectedAddressId) {
       setError('Please select a shipping address.');
       return;
+    }
+    if (isGuest) {
+      if (!guestEmail || !guestAddress.fullName || !guestAddress.phone || !guestAddress.addressLine1 || !guestAddress.city || !guestAddress.state || !guestAddress.postalCode) {
+        setError('Please fill in all required guest information.');
+        return;
+      }
     }
 
     try {
       setIsSubmitting(true);
       setError('');
 
-      const paymentOrder = await orderService.createPaymentOrder(couponCode || undefined, isGiftWrapped, giftMessage);
+      const guestCart = isGuest ? {
+        items: items.map(item => ({
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity,
+          freeItem: item.freeItem || false,
+          freePromotionId: item.freePromotionId,
+          bottleId: item.bottle?.id
+        }))
+      } : undefined;
+
+      const paymentOrder = await orderService.createPaymentOrder(couponCode || undefined, isGiftWrapped, giftMessage, guestCart);
+
+      const orderData: any = {
+        notes: notes,
+        couponCode: couponCode || undefined,
+        paymentMethod: 'ONLINE',
+        isGiftWrapped: isGiftWrapped,
+        giftMessage: giftMessage || undefined,
+        items: items.map(item => ({
+          variantId: item.variantId,
+          quantity: item.quantity,
+          bottleId: item.bottle?.id || undefined,
+          freeItem: item.freeItem || false,
+          freePromotionId: item.freePromotionId
+        }))
+      };
+
+      if (isGuest) {
+        orderData.guestEmail = guestEmail;
+        orderData.guestName = guestAddress.fullName;
+        orderData.guestPhone = guestAddress.phone;
+        orderData.guestAddress = guestAddress;
+      } else {
+        orderData.shippingAddressId = Number(selectedAddressId);
+      }
 
       if (paymentOrder.devMode) {
-        // Backend is in PAYMENT_DEV_MODE — there's no real Razorpay order to open a checkout
-        // widget against (it would fail validation against Razorpay's own servers), so simulate
-        // a successful payment directly and go straight to order creation.
         try {
-          const orderData = {
-            shippingAddressId: Number(selectedAddressId),
-            notes: notes,
-            couponCode: couponCode || undefined,
-            razorpayOrderId: paymentOrder.razorpayOrderId,
-            razorpayPaymentId: `pay_dev_${Date.now()}`,
-            razorpaySignature: 'dev_mode_signature',
-            paymentMethod: 'cod',
-            isGiftWrapped: isGiftWrapped,
-            giftMessage: giftMessage || undefined,
-            items: items.map(item => ({
-              variantId: item.variantId,
-              quantity: item.quantity,
-              bottleId: item.bottle?.id || undefined,
-              freeItem: item.freeItem || false,
-              freePromotionId: item.freePromotionId
-            }))
-          };
+          orderData.razorpayOrderId = paymentOrder.razorpayOrderId;
+          orderData.razorpayPaymentId = `pay_dev_${Date.now()}`;
+          orderData.razorpaySignature = 'dev_mode_signature';
+          
           const apiRes = await orderService.createOrder(orderData);
           clearCart();
           navigate(`/checkout/success/${apiRes.data?.id}`);
@@ -155,23 +197,9 @@ export const Checkout: React.FC = () => {
         order_id: paymentOrder.razorpayOrderId,
         handler: async function (response: any) {
           try {
-            const orderData = {
-              shippingAddressId: Number(selectedAddressId),
-              notes: notes,
-              couponCode: couponCode || undefined,
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature,
-              isGiftWrapped: isGiftWrapped,
-              giftMessage: giftMessage || undefined,
-              items: items.map(item => ({
-                variantId: item.variantId,
-                quantity: item.quantity,
-                bottleId: item.bottle?.id || undefined,
-                freeItem: item.freeItem || false,
-                freePromotionId: item.freePromotionId
-              }))
-            };
+            orderData.razorpayOrderId = response.razorpay_order_id;
+            orderData.razorpayPaymentId = response.razorpay_payment_id;
+            orderData.razorpaySignature = response.razorpay_signature;
             const apiRes = await orderService.createOrder(orderData);
             clearCart();
             navigate(`/checkout/success/${apiRes.data?.id}`);
@@ -181,16 +209,12 @@ export const Checkout: React.FC = () => {
           }
         },
         modal: {
-          // Fires when the user closes the Razorpay overlay without completing payment (including
-          // clicking outside it). Without this, isSubmitting was cleared right after rzp.open()
-          // returned — re-enabling "Pay Securely" while the modal was still up, so a second click
-          // could create a second payment-order for the same cart while the first was in progress.
           ondismiss: () => setIsSubmitting(false),
         },
         prefill: {
-          name: user?.firstName ? `${user.firstName} ${user.lastName || ''}` : '',
-          email: user?.email,
-          contact: addresses.find(a => a.id === selectedAddressId)?.phone || ''
+          name: isGuest ? guestAddress.fullName : (user?.firstName ? `${user.firstName} ${user.lastName || ''}` : ''),
+          email: isGuest ? guestEmail : user?.email,
+          contact: isGuest ? guestAddress.phone : (addresses.find(a => a.id === selectedAddressId)?.phone || '')
         },
         theme: {
           color: "#121c2a"
@@ -204,10 +228,6 @@ export const Checkout: React.FC = () => {
       });
 
       rzp.open();
-      // isSubmitting deliberately stays true here — the modal is open. It's cleared by the
-      // handler's success (navigation away makes it moot), its catch block, payment.failed, or
-      // modal.ondismiss above — not by a blanket finally, which used to fire immediately after
-      // rzp.open() returns (the modal is non-blocking) rather than when payment actually resolves.
     } catch (err: any) {
       console.error("Failed to initiate payment", err);
       setError(err.response?.data?.message || 'Failed to initiate payment. Please try again.');
@@ -223,9 +243,6 @@ export const Checkout: React.FC = () => {
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
-  }
-  if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return (
@@ -265,8 +282,86 @@ export const Checkout: React.FC = () => {
               </div>
             )}
 
-            {/* Shipping Address */}
-            <section>
+            {checkoutMode === 'auth_entry' ? (
+              <div className="space-y-6">
+                <h2 className="font-headline-md text-2xl mb-4 text-on-surface">How would you like to checkout?</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Option 1 */}
+                  <div className="border border-outline-variant p-6 hover:border-accent transition-colors flex flex-col items-center text-center">
+                    <span className="material-symbols-outlined text-4xl text-accent mb-4">person</span>
+                    <h3 className="font-headline-sm text-xl mb-2 text-on-surface">Existing Customer</h3>
+                    <p className="text-on-surface-variant text-sm mb-6 flex-grow">Login to use your saved addresses and track orders easily.</p>
+                    <Link to="/login?redirect=/checkout" className="w-full block py-3 bg-primary text-on-primary font-medium hover:bg-primary/90 transition-colors uppercase tracking-wider text-sm">
+                      Login
+                    </Link>
+                  </div>
+                  {/* Option 2 */}
+                  <div className="border border-outline-variant p-6 hover:border-accent transition-colors flex flex-col items-center text-center">
+                    <span className="material-symbols-outlined text-4xl text-accent mb-4">person_add</span>
+                    <h3 className="font-headline-sm text-xl mb-2 text-on-surface">New Customer</h3>
+                    <p className="text-on-surface-variant text-sm mb-6 flex-grow">Create an account for a faster checkout process in the future.</p>
+                    <Link to="/register?redirect=/checkout" className="w-full block py-3 bg-surface-container-highest text-on-surface font-medium border border-outline hover:bg-surface-container transition-colors uppercase tracking-wider text-sm">
+                      Create Account
+                    </Link>
+                  </div>
+                  {/* Option 3 */}
+                  <div className="border border-outline-variant p-6 hover:border-accent transition-colors flex flex-col items-center text-center">
+                    <span className="material-symbols-outlined text-4xl text-accent mb-4">shopping_bag</span>
+                    <h3 className="font-headline-sm text-xl mb-2 text-on-surface">Guest Checkout</h3>
+                    <p className="text-on-surface-variant text-sm mb-6 flex-grow">Proceed to checkout without creating an account.</p>
+                    <button onClick={() => setCheckoutMode('guest')} className="w-full py-3 bg-surface-container-highest text-on-surface font-medium border border-outline hover:bg-surface-container transition-colors uppercase tracking-wider text-sm">
+                      Continue as Guest
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+            {checkoutMode === 'guest' ? (
+              <section className="mb-12">
+                <h2 className="font-headline-md text-2xl mb-6 text-on-surface">Guest Information</h2>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Email <span className="text-error">*</span></label>
+                    <input type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} className="w-full border p-3 focus:outline-none focus:border-accent bg-transparent" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Full Name <span className="text-error">*</span></label>
+                      <input type="text" value={guestAddress.fullName} onChange={(e) => setGuestAddress({...guestAddress, fullName: e.target.value})} className="w-full border p-3 focus:outline-none focus:border-accent bg-transparent" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Phone <span className="text-error">*</span></label>
+                      <input type="text" value={guestAddress.phone} onChange={(e) => setGuestAddress({...guestAddress, phone: e.target.value})} className="w-full border p-3 focus:outline-none focus:border-accent bg-transparent" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Address Line 1 <span className="text-error">*</span></label>
+                    <input type="text" value={guestAddress.addressLine1} onChange={(e) => setGuestAddress({...guestAddress, addressLine1: e.target.value})} className="w-full border p-3 focus:outline-none focus:border-accent bg-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Address Line 2 (Optional)</label>
+                    <input type="text" value={guestAddress.addressLine2} onChange={(e) => setGuestAddress({...guestAddress, addressLine2: e.target.value})} className="w-full border p-3 focus:outline-none focus:border-accent bg-transparent" />
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">City <span className="text-error">*</span></label>
+                      <input type="text" value={guestAddress.city} onChange={(e) => setGuestAddress({...guestAddress, city: e.target.value})} className="w-full border p-3 focus:outline-none focus:border-accent bg-transparent" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">State <span className="text-error">*</span></label>
+                      <input type="text" value={guestAddress.state} onChange={(e) => setGuestAddress({...guestAddress, state: e.target.value})} className="w-full border p-3 focus:outline-none focus:border-accent bg-transparent" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Postal Code <span className="text-error">*</span></label>
+                      <input type="text" value={guestAddress.postalCode} onChange={(e) => setGuestAddress({...guestAddress, postalCode: e.target.value})} className="w-full border p-3 focus:outline-none focus:border-accent bg-transparent" />
+                    </div>
+                  </div>
+                </div>
+              </section>
+            ) : (
+            <>
+            <section className="mb-12">
               <h2 className="font-headline-md text-2xl mb-6 text-on-surface">Shipping Address</h2>
               {addresses.length > 0 ? (
                 <div className="space-y-4">
@@ -378,6 +473,10 @@ export const Checkout: React.FC = () => {
                 className="w-full bg-surface-container-lowest border border-outline-variant/50 p-4 text-sm focus:border-accent focus:outline-none min-h-[120px] resize-y shadow-sm"
               />
             </section>
+            </>
+            )}
+            </>
+            )}
 
           </div>
 
@@ -506,15 +605,21 @@ export const Checkout: React.FC = () => {
               </div>
 
               {/* Pay Button */}
-              <button
-                onClick={placeOrder}
-                disabled={isSubmitting || !selectedAddressId || items.length === 0}
-                className="w-full bg-ink text-surface hover:bg-ink/90 transition-colors py-4 px-6 flex items-center justify-center gap-3 disabled:opacity-50 group shadow-sm"
-              >
-                <span className="material-symbols-outlined text-[18px]">lock</span>
-                <span className="font-label-sm uppercase tracking-[0.2em]">{isSubmitting ? 'Processing...' : 'Pay Securely'}</span>
-                <span className="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
-              </button>
+              {checkoutMode === 'auth_entry' ? (
+                <button disabled className="w-full bg-outline/20 text-on-surface-variant hover:bg-outline/20 transition-colors py-4 px-6 flex items-center justify-center gap-3 disabled:opacity-50 group shadow-sm cursor-not-allowed">
+                  <span className="font-label-sm uppercase tracking-[0.2em]">Select checkout method</span>
+                </button>
+              ) : (
+                <button
+                  onClick={placeOrder}
+                  disabled={isSubmitting || (checkoutMode === 'user' && !selectedAddressId) || items.length === 0}
+                  className="w-full bg-ink text-surface hover:bg-ink/90 transition-colors py-4 px-6 flex items-center justify-center gap-3 disabled:opacity-50 group shadow-sm"
+                >
+                  <span className="material-symbols-outlined text-[18px]">lock</span>
+                  <span className="font-label-sm uppercase tracking-[0.2em]">{isSubmitting ? 'Processing...' : 'Pay Securely'}</span>
+                  <span className="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                </button>
+              )}
               
               <div className="text-center text-[9px] text-on-surface-variant uppercase tracking-[0.25em] mt-5">
                 Powered by Razorpay

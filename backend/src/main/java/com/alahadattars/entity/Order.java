@@ -52,9 +52,8 @@ public class Order extends BaseEntity {
     private String orderNumber;
 
     @ToString.Exclude
-    @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = true)
     private User user;
 
     @ToString.Exclude
@@ -97,6 +96,15 @@ public class Order extends BaseEntity {
 
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
+
+    @Column(name = "guest_email", length = 150)
+    private String guestEmail;
+
+    @Column(name = "guest_name", length = 120)
+    private String guestName;
+
+    @Column(name = "guest_phone", length = 20)
+    private String guestPhone;
 
     // Plain TEXT, not a Postgres JSON column: Hibernate binds a String field as varchar, and
     // Postgres has no implicit varchar->json cast on INSERT ("column ... is of type json but
