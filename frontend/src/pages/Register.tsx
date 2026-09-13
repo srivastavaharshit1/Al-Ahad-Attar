@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Input } from '../components/ui/Input';
 import { PhoneInput } from '../components/ui/PhoneInput';
@@ -22,13 +22,15 @@ export const Register: React.FC = () => {
   
   const { register, googleLogin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/account/dashboard';
 
   const handleGoogleSuccess = async (credential: string) => {
     setError('');
     setIsSubmitting(true);
     try {
       await googleLogin(credential);
-      navigate('/account/dashboard', { replace: true });
+      navigate(from, { replace: true });
     } catch (err: any) {
       if (err.response?.data?.message === 'REQUIRES_PHONE') {
         setGoogleToken(credential);
@@ -48,7 +50,7 @@ export const Register: React.FC = () => {
     try {
       await googleLogin(googleToken, formData.phone);
       setShowPhoneModal(false);
-      navigate('/account/dashboard', { replace: true });
+      navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to complete registration.');
     } finally {
@@ -83,7 +85,7 @@ export const Register: React.FC = () => {
         confirmPassword: formData.confirmPassword,
         phone: formData.phone
       });
-      navigate('/account/dashboard', { replace: true });
+      navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to register. Please try again.');
     } finally {

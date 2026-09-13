@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
 import { formatPrice } from '../utils/formatPrice';
@@ -13,14 +13,14 @@ import { useStoreSettings } from '../context/StoreSettingsContext';
 
 export const Checkout: React.FC = () => {
   const { settings } = useStoreSettings();
-  const { items, subtotal, offerDiscount, clearCart, couponCode, cartDiscount, applyCoupon, removeCoupon, isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage } = useCart();
+  const { items, subtotal, offerDiscount, clearCart, couponCode, cartDiscount, applyCoupon, removeCoupon, isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage, appliedPromotions } = useCart();
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
+
   const shippingThreshold = settings?.freeShippingThreshold !== undefined ? settings.freeShippingThreshold : 500;
   const totalAfterOffer = subtotal - offerDiscount;
   const shippingCharge = settings?.shippingCharge !== undefined ? settings.shippingCharge : 50;
-  const isFreeShipping = false; // Add logic here if free shipping promos are brought back to the new design
+  const isFreeShipping = appliedPromotions && appliedPromotions.some((p: any) => p.name?.includes('Free Shipping') || p.description?.includes('Free Shipping'));
   const shippingCost = isFreeShipping ? 0 : (totalAfterOffer > shippingThreshold ? 0 : shippingCharge);
   
   const selectedGiftPrice = (isGiftWrapped && settings?.isGiftWrapEnabled) ? (settings.giftWrapPrice || 0) : 0;
@@ -291,7 +291,7 @@ export const Checkout: React.FC = () => {
                     <span className="material-symbols-outlined text-4xl text-accent mb-4">person</span>
                     <h3 className="font-headline-sm text-xl mb-2 text-on-surface">Existing Customer</h3>
                     <p className="text-on-surface-variant text-sm mb-6 flex-grow">Login to use your saved addresses and track orders easily.</p>
-                    <Link to="/login?redirect=/checkout" className="w-full block py-3 bg-primary text-on-primary font-medium hover:bg-primary/90 transition-colors uppercase tracking-wider text-sm">
+                    <Link to="/login" state={{ from: { pathname: '/checkout' } }} className="w-full block py-3 bg-primary text-on-primary font-medium hover:bg-primary/90 transition-colors uppercase tracking-wider text-sm">
                       Login
                     </Link>
                   </div>
@@ -300,7 +300,7 @@ export const Checkout: React.FC = () => {
                     <span className="material-symbols-outlined text-4xl text-accent mb-4">person_add</span>
                     <h3 className="font-headline-sm text-xl mb-2 text-on-surface">New Customer</h3>
                     <p className="text-on-surface-variant text-sm mb-6 flex-grow">Create an account for a faster checkout process in the future.</p>
-                    <Link to="/register?redirect=/checkout" className="w-full block py-3 bg-surface-container-highest text-on-surface font-medium border border-outline hover:bg-surface-container transition-colors uppercase tracking-wider text-sm">
+                    <Link to="/register" state={{ from: { pathname: '/checkout' } }} className="w-full block py-3 bg-surface-container-highest text-on-surface font-medium border border-outline hover:bg-surface-container transition-colors uppercase tracking-wider text-sm">
                       Create Account
                     </Link>
                   </div>
@@ -635,9 +635,9 @@ export const Checkout: React.FC = () => {
             © {new Date().getFullYear()} AL AHAD ATTARS. HANDCRAFTED IN INDIA.
           </div>
           <div className="flex gap-6">
-            <Link to="/privacy" className="hover:text-on-surface transition-colors">Privacy Policy</Link>
-            <Link to="/terms" className="hover:text-on-surface transition-colors">Terms of Service</Link>
-            <Link to="/shipping" className="hover:text-on-surface transition-colors">Shipping Info</Link>
+            <Link to="/privacy-policy" className="hover:text-on-surface transition-colors">Privacy Policy</Link>
+            <Link to="/terms-and-conditions" className="hover:text-on-surface transition-colors">Terms of Service</Link>
+            <Link to="/shipping-and-returns" className="hover:text-on-surface transition-colors">Shipping Info</Link>
           </div>
         </div>
       </footer>

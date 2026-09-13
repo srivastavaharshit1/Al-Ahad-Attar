@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
 interface PublicOnlyRouteProps {
@@ -8,6 +8,7 @@ interface PublicOnlyRouteProps {
 
 export const PublicOnlyRoute: React.FC<PublicOnlyRouteProps> = ({ children }) => {
   const { isAuthenticated, user, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -18,6 +19,17 @@ export const PublicOnlyRoute: React.FC<PublicOnlyRouteProps> = ({ children }) =>
   }
 
   if (isAuthenticated) {
+    let from = location.state?.from?.pathname;
+    
+    // Prevent open redirect by ensuring the path is relative and not a double-slash URL
+    if (from && (typeof from !== 'string' || !from.startsWith('/') || from.startsWith('//'))) {
+      from = null;
+    }
+
+    if (from) {
+      return <Navigate to={from} replace />;
+    }
+
     if (user?.role === 'ADMIN') {
       return <Navigate to="/admin" replace />;
     }

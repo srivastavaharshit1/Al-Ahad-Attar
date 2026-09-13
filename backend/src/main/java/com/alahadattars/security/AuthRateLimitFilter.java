@@ -35,7 +35,9 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
             "/api/auth/login", "10:60",
             "/api/auth/register", "5:60",
             "/api/auth/forgot-password", "5:300",
-            "/api/auth/reset-password", "10:300"
+            "/api/auth/reset-password", "10:300",
+            "/api/orders/guest", "10:60",
+            "/api/payment/guest/create", "10:60"
     );
 
     // Empty by default — X-Forwarded-For is entirely client-controlled and is only trusted when

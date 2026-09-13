@@ -30,11 +30,16 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      // Check if the user had a token (they were logged in)
+      const hadToken = !!storage.get<string | null>('token', null);
+      
       // Handle unauthorized (token expired/invalid)
       storage.remove('user');
       storage.remove('token');
-      // Only redirect if not already on login page
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+      
+      // Only redirect if they had a token (expired session) and are not already on login
+      // This prevents guest checkout from being blindly redirected if an edge-case 401 occurs
+      if (hadToken && typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
         window.location.href = '/login';
       }
     }
