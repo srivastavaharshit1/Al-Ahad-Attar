@@ -4,6 +4,7 @@ import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { AnnouncementBar } from './AnnouncementBar';
 import { useAuth } from '../../hooks/useAuth';
+import { FloatingWhatsApp } from '../ui/FloatingWhatsApp';
 
 export const CustomerLayout: React.FC = () => {
   const { logout } = useAuth();
@@ -70,6 +71,7 @@ export const CustomerLayout: React.FC = () => {
       </main>
 
       <Footer />
+      <FloatingWhatsApp />
     </div>
   );
 };
