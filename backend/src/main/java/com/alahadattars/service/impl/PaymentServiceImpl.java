@@ -104,7 +104,15 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     public PaymentResponse createPaymentOrder(String email, PaymentOrderRequest request) {
         try {
-            CartResponse cart = cartService.getCart(email);
+            CartResponse cart;
+            if (email == null) {
+                if (request.getGuestCart() == null) {
+                    throw new IllegalStateException("Guest cart payload is missing");
+                }
+                cart = cartService.evaluateGuestCart(request.getGuestCart());
+            } else {
+                cart = cartService.getCart(email);
+            }
             
             if (cart == null || cart.getItems().isEmpty()) {
                 throw new IllegalStateException("Cart is empty");
@@ -164,16 +172,14 @@ public class PaymentServiceImpl implements PaymentService {
                 Order order = razorpay.orders.create(orderRequest);
                 razorpayOrderId = order.get("id");
                 orderStatus = order.get("status");
+                log.info("Initialized real Razorpay order {} for {} (amount {})", order.get("id"), email != null ? email : "guest", secureTotalAmount);
             }
 
             // Record what we asked Razorpay to collect, and for whom. Checkout reconciles the order it is
             // about to create against this row — without it, a valid signature would authorise any basket.
-            com.alahadattars.entity.User user = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
             paymentIntentRepository.save(PaymentIntent.builder()
                     .razorpayOrderId(razorpayOrderId)
-                    .user(user)
+                    .user(email != null ? userRepository.findByEmail(email).orElse(null) : null)
                     .amount(secureTotalAmount)
                     .consumed(false)
                     .build());

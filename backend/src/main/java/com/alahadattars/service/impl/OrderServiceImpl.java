@@ -97,11 +97,32 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     @org.springframework.cache.annotation.CacheEvict(value = "products", allEntries = true)
     public OrderResponse createOrder(String email, OrderRequest request) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        User user = null;
+        Address shippingAddress = null;
 
-        Address shippingAddress = addressRepository.findByIdAndUserAndActiveTrue(request.getShippingAddressId(), user)
-                .orElseThrow(() -> new ResourceNotFoundException("Shipping address not found"));
+        if (email != null) {
+            user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+            shippingAddress = addressRepository.findByIdAndUserAndActiveTrue(request.getShippingAddressId(), user)
+                    .orElseThrow(() -> new ResourceNotFoundException("Shipping address not found"));
+        } else {
+            if (request.getGuestEmail() == null || request.getGuestAddress() == null) {
+                throw new BadRequestException("Guest information is required");
+            }
+            shippingAddress = Address.builder()
+                .fullName(request.getGuestName())
+                .phone(request.getGuestPhone())
+                .guestEmail(request.getGuestEmail())
+                .addressLine1(request.getGuestAddress().getAddressLine1())
+                .addressLine2(request.getGuestAddress().getAddressLine2())
+                .landmark(request.getGuestAddress().getLandmark())
+                .city(request.getGuestAddress().getCity())
+                .state(request.getGuestAddress().getState())
+                .postalCode(request.getGuestAddress().getPostalCode())
+                .country(request.getGuestAddress().getCountry())
+                .build();
+            shippingAddress = addressRepository.save(shippingAddress);
+        }
 
         PaymentVerificationRequest verificationRequest = PaymentVerificationRequest.builder()
                 .razorpayOrderId(request.getRazorpayOrderId())
@@ -121,8 +142,13 @@ public class OrderServiceImpl implements OrderService {
         PaymentIntent intent = paymentIntentRepository.findByRazorpayOrderIdForUpdate(request.getRazorpayOrderId())
                 .orElseThrow(() -> new BadRequestException("Unknown payment reference. Please restart checkout."));
 
-        if (intent.getUser() == null || !intent.getUser().getId().equals(user.getId())) {
+        if (email != null && (intent.getUser() == null || !intent.getUser().getId().equals(user.getId()))) {
             log.warn("Payment intent {} does not belong to user {}", request.getRazorpayOrderId(), email);
+            throw new BadRequestException("Payment does not belong to this account.");
+        }
+        
+        if (email == null && intent.getUser() != null) {
+            log.warn("Payment intent {} does not belong to guest", request.getRazorpayOrderId());
             throw new BadRequestException("Payment does not belong to this account.");
         }
 
@@ -143,6 +169,9 @@ public class OrderServiceImpl implements OrderService {
         Order order = Order.builder()
                 .orderNumber("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .user(user)
+                .guestEmail(request.getGuestEmail())
+                .guestName(request.getGuestName())
+                .guestPhone(request.getGuestPhone())
                 .shippingAddress(shippingAddress)
                 .status(OrderStatus.CONFIRMED)
                 .paymentStatus(initialPaymentStatus)
@@ -155,9 +184,18 @@ public class OrderServiceImpl implements OrderService {
         tempCart.setUser(user);
         tempCart.setItems(new java.util.ArrayList<>());
         // Mirror the promotion the user selected on their real cart. The payment amount was computed from
-        // that cart, so omitting it here would make the reconciliation below reject legitimate checkouts.
-        cartRepository.findByUserEmail(email)
-                .ifPresent(persisted -> tempCart.setManuallySelectedPromotionId(persisted.getManuallySelectedPromotionId()));
+        // If the user's saved cart had a coupon or manual promotion, creating the order consumes them,
+        // so we clear them to ensure the next cart starts fresh.
+        if (email != null) {
+            cartRepository.findByUserEmail(email).ifPresent(cart -> {
+                tempCart.setManuallySelectedPromotionId(cart.getManuallySelectedPromotionId());
+                cart.setCouponCode(null);
+                cart.setManuallySelectedPromotionId(null);
+                cartRepository.save(cart);
+            });
+        } else {
+            tempCart.setManuallySelectedPromotionId(request.getManuallySelectedPromotionId());
+        }
         long tempId = 1;
 
         // First pass: Add all paid items to the cart
@@ -314,7 +352,7 @@ public class OrderServiceImpl implements OrderService {
                 if (promo == null) continue;
 
                 Integer perUserLimit = promo.getPerUserLimit();
-                if (perUserLimit != null && perUserLimit > 0) {
+                if (perUserLimit != null && perUserLimit > 0 && user != null) {
                     long alreadyUsed = promotionRedemptionRepository
                             .countByPromotionIdAndUserId(promo.getId(), user.getId());
                     if (alreadyUsed >= perUserLimit) {
@@ -366,9 +404,13 @@ public class OrderServiceImpl implements OrderService {
         List<EmailOrderItem> emailItems = toEmailItems(savedOrder.getItems());
         EmailAddress emailAddress = toEmailAddress(savedOrder.getShippingAddress());
 
+        String customerName = user != null ? (user.getFirstName() + " " + user.getLastName()) : savedOrder.getGuestName();
+        String customerEmail = user != null ? user.getEmail() : savedOrder.getGuestEmail();
+        String customerPhone = user != null ? user.getPhone() : savedOrder.getGuestPhone();
+
         emailService.sendOrderConfirmedEmail(new OrderConfirmationEmailData(
-                user.getEmail(),
-                user.getFirstName() + " " + user.getLastName(),
+                customerEmail,
+                customerName,
                 savedOrder.getOrderNumber(),
                 formatEmailDate(savedOrder.getCreatedAt()),
                 emailItems,
@@ -379,8 +421,8 @@ public class OrderServiceImpl implements OrderService {
 
         emailService.sendAdminNewOrderEmail(new AdminNewOrderEmailData(
                 savedOrder.getOrderNumber(),
-                user.getFirstName() + " " + user.getLastName(),
-                shippingAddress.getPhone(),
+                customerName,
+                customerPhone,
                 emailAddress,
                 emailItems,
                 savedOrder.getTotalAmount()

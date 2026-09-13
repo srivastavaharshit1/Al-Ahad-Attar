@@ -18,4 +18,6 @@ public class PaymentOrderRequest {
     private String orderNumber;
     private Boolean isGiftWrapped;
     private String couponCode;
+    
+    private com.alahadattars.dto.cart.GuestCartRequest guestCart;
 }

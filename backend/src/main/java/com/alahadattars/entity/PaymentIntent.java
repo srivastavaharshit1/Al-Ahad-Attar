@@ -48,9 +48,8 @@ public class PaymentIntent extends BaseEntity {
     private String razorpayOrderId;
 
     @ToString.Exclude
-    @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = true)
     private User user;
 
     /** Amount we actually asked Razorpay to collect, in rupees. */

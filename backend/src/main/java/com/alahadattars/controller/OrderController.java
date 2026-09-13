@@ -46,6 +46,18 @@ public class OrderController {
                 .build());
     }
 
+    @Operation(summary = "Create a new order from checkout (Guest)")
+    @PostMapping("/guest")
+    public ResponseEntity<ApiResponse<OrderResponse>> createGuestOrder(@Valid @RequestBody OrderRequest request) {
+        log.info("Creating new guest order for email: {}", request.getGuestEmail());
+        OrderResponse response = orderService.createOrder(null, request);
+        return ResponseEntity.ok(ApiResponse.<OrderResponse>builder()
+                .success(true)
+                .message("Guest order created successfully")
+                .data(response)
+                .build());
+    }
+
     @Operation(summary = "Get all orders for the current user")
     @GetMapping
     public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>> getUserOrders(
