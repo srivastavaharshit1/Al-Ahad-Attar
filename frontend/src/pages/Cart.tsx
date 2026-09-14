@@ -179,7 +179,7 @@ export const Cart: React.FC = () => {
                       <span className="text-lg font-serif block" style={{ color: C.navy }}>
                         {item.freeItem ? 'FREE' : formatPrice((item.finalPrice || 0) * item.quantity)}
                       </span>
-                      {!item.freeItem && item.discountAmount && item.discountAmount > 0 && (
+                      {!item.freeItem && item.discountAmount > 0 && (
                         <span className="text-[10px] line-through block mt-1" style={{ color: C.navyLight }}>
                           {formatPrice((item.originalPrice || 0) * item.quantity)}
                         </span>
