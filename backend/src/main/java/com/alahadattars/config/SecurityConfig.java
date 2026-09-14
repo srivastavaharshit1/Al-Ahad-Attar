@@ -57,6 +57,7 @@ public class SecurityConfig {
                 // the X-Razorpay-Signature check inside PaymentController/handleWebhookEvent, not
                 // from Spring Security's auth layer.
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/payment/webhook").permitAll()
+                .requestMatchers("/api/sitemap.xml").permitAll()
                 .requestMatchers("/cleanup-sizes").permitAll();
 
                 // The OpenAPI document describes every endpoint and its request shapes, so it is closed to
