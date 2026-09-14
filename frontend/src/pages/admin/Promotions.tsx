@@ -447,95 +447,161 @@ export const Promotions: React.FC = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingPromoId ? 'Edit Promotion' : 'Create Promotion'}
-        maxWidth="2xl"
+        maxWidth="3xl"
       >
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Basic Details */}
-              <div className="space-y-4">
-                <h3 className="font-headline-sm text-primary border-b border-outline-variant pb-2">Basic Details</h3>
+            <form onSubmit={handleSubmit} className="flex flex-col">
+              {/* Two-column layout: form + live preview */}
+              <div className="flex gap-8">
+
+              {/* ── Main Form ── */}
+              <div className="flex-1 min-w-0 space-y-0 pb-2">
+
+              {/* ① Basic Details */}
+              <div className="pb-6 space-y-4" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="flex items-center gap-2.5 mb-1">
+                  <span className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 select-none" style={{ background: 'var(--accent-soft)', color: 'var(--accent-hover)' }}>1</span>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--text-secondary)' }}>Basic Details</span>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="field-label">Name *</label>
-                    <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="field-input" />
+                  <div className="space-y-1.5">
+                    <label className="field-label">Promotion Name *</label>
+                    <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="field-input" placeholder="e.g. Eid Special — 20% Off" />
                   </div>
-                  <div className="space-y-2">
-                    <label className="field-label">Coupon Code (Optional)</label>
+                  <div className="space-y-1.5">
+                    <label className="field-label">Coupon Code <span className="normal-case font-normal tracking-normal text-[10px] ml-1" style={{ color: 'var(--text-tertiary)' }}>(optional)</span></label>
                     <input
                       type="text"
                       value={formData.code}
                       onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})}
                       className="field-input font-mono"
                       placeholder="e.g. EID200"
-                      disabled={formData.promotionType === 'FREE_SHIPPING' || formData.promotionType === 'FIRST_ORDER'}
+                      disabled={formData.promotionType === 'FREE_SHIPPING' || formData.promotionType === 'FIRST_ORDER' || formData.promotionType === 'FREE_PRODUCT'}
                     />
-                    {(formData.promotionType === 'FREE_SHIPPING' || formData.promotionType === 'FIRST_ORDER') && (
-                      <p className="text-xs text-on-surface-variant">This promotion type is automatic – no coupon code needed.</p>
+                    {(formData.promotionType === 'FREE_SHIPPING' || formData.promotionType === 'FIRST_ORDER' || formData.promotionType === 'FREE_PRODUCT') && (
+                      <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>Automatic promotion — no coupon code needed.</p>
                     )}
                   </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <label className="field-label">Description</label>
-                  <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="field-input" rows={2}></textarea>
+                <div className="space-y-1.5">
+                  <label className="field-label">Description <span className="normal-case font-normal tracking-normal text-[10px] ml-1" style={{ color: 'var(--text-tertiary)' }}>(optional)</span></label>
+                  <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="field-input" rows={2} placeholder="Brief description for admin reference" />
                 </div>
               </div>
 
-              {/* Promotion Type */}
-              <div className="space-y-4">
-                <h3 className="font-headline-sm text-primary border-b border-outline-variant pb-2">Promotion Type</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="field-label">Promotion Type</label>
-                    <select value={formData.promotionType} onChange={e => setFormData({...formData, promotionType: e.target.value})} className="field-input">
-                      <option value="CART_DISCOUNT">Cart Discount (Flat/% OFF entire cart)</option>
-                      <option value="PRODUCT_DISCOUNT">Product Discount (specific products)</option>
-                      <option value="CATEGORY_DISCOUNT">Category Discount (specific categories)</option>
-                      <option value="FREE_SHIPPING">Free Shipping</option>
-                      <option value="FIRST_ORDER">First Order Discount</option>
-                      <option value="FREE_PRODUCT">🎁 Free Product Campaign</option>
-                    </select>
-                  </div>
-                  
-                  {formData.promotionType !== 'FREE_SHIPPING' && formData.promotionType !== 'FIRST_ORDER' && (
-                    <div className="space-y-2">
-                      <label className="field-label">Discount Type</label>
-                      <select value={formData.discountType} onChange={e => setFormData({...formData, discountType: e.target.value})} className="field-input">
-                        <option value="PERCENTAGE">Percentage (%)</option>
-                        <option value="FIXED_AMOUNT">Fixed Amount (₹)</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {formData.promotionType === 'FIRST_ORDER' && (
-                    <div className="space-y-2">
-                      <label className="field-label">Discount Type</label>
-                      <select value={formData.discountType} onChange={e => setFormData({...formData, discountType: e.target.value})} className="field-input">
-                        <option value="PERCENTAGE">Percentage (%)</option>
-                        <option value="FIXED_AMOUNT">Fixed Amount (₹)</option>
-                      </select>
-                    </div>
-                  )}
-
-
+              {/* ② Offer */}
+              <div className="py-6 space-y-5" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="flex items-center gap-2.5 mb-1">
+                  <span className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 select-none" style={{ background: 'var(--accent-soft)', color: 'var(--accent-hover)' }}>2</span>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--text-secondary)' }}>Offer</span>
                 </div>
 
-                {formData.promotionType !== 'FREE_SHIPPING' && formData.promotionType !== 'FIRST_ORDER' && formData.promotionType !== 'FREE_PRODUCT' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="field-label">Discount Value {formData.discountType === 'PERCENTAGE' ? '(%)' : '(₹)'}</label>
-                      <input type="number" min="0" value={formData.discountValue} onChange={e => setFormData({...formData, discountValue: e.target.value})} className="field-input" placeholder="e.g. 20" />
-                    </div>
-                    {formData.discountType === 'PERCENTAGE' && (
-                      <div className="space-y-2">
-                        <label className="field-label">Max Discount Amount ₹ (Optional)</label>
-                        <input type="number" min="0" value={formData.maxDiscountValue} onChange={e => setFormData({...formData, maxDiscountValue: e.target.value})} className="field-input" placeholder="Leave empty for no cap" />
-                      </div>
-                    )}
+                <div className="space-y-1.5">
+                  <label className="field-label">Promotion Type *</label>
+                  <select value={formData.promotionType} onChange={e => setFormData({...formData, promotionType: e.target.value})} className="field-input">
+                    <option value="CART_DISCOUNT">Cart Discount — % or flat off the entire cart</option>
+                    <option value="PRODUCT_DISCOUNT">Product Discount — Discount on specific products</option>
+                    <option value="CATEGORY_DISCOUNT">Category Discount — Discount on a product category</option>
+                    <option value="FREE_SHIPPING">Free Shipping — Remove shipping charges</option>
+                    <option value="FIRST_ORDER">First Order Discount — For new customers only</option>
+                    <option value="FREE_PRODUCT">🎁 Free Product Campaign — Give a free product with qualifying orders</option>
+                  </select>
+                </div>
+
+                {formData.promotionType === 'FREE_SHIPPING' && (
+                  <div className="rounded-lg px-4 py-3 text-sm" style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)' }}>
+                    <p style={{ color: 'var(--text-secondary)' }}>Shipping charges will be automatically waived when the minimum cart value condition is met. No discount value required.</p>
                   </div>
                 )}
+
                 {formData.promotionType === 'FREE_PRODUCT' && (
-                  <div className="p-3 bg-accent-soft border border-accent/30 rounded-lg text-sm text-ink">
-                    <strong className="text-accent-hover">🎁 Free Product Campaign:</strong> Customers who meet the qualification rules can choose a free product. No monetary discount is applied.
+                  <div className="rounded-lg px-4 py-3 text-sm" style={{ background: 'var(--accent-soft)', border: '1px solid rgba(212,175,55,0.35)' }}>
+                    <strong style={{ color: 'var(--accent-hover)' }}>🎁 Free Product Campaign: </strong>
+                    <span style={{ color: 'var(--text)' }}>Customers who meet the qualification rules below can receive a free product. No monetary discount is applied.</span>
+                  </div>
+                )}
+
+                {formData.promotionType !== 'FREE_SHIPPING' && formData.promotionType !== 'FREE_PRODUCT' && (
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="field-label">Discount Type</label>
+                      <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({...formData, discountType: 'PERCENTAGE'})}
+                          className="flex-1 py-2.5 text-sm font-semibold transition-colors"
+                          style={formData.discountType === 'PERCENTAGE'
+                            ? { background: 'var(--ink)', color: 'var(--text-inverse)' }
+                            : { background: 'var(--surface)', color: 'var(--text-secondary)' }}
+                        >
+                          Percentage (%)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({...formData, discountType: 'FIXED_AMOUNT'})}
+                          className="flex-1 py-2.5 text-sm font-semibold transition-colors"
+                          style={formData.discountType === 'FIXED_AMOUNT'
+                            ? { background: 'var(--ink)', color: 'var(--text-inverse)', borderLeft: '1px solid rgba(0,0,0,0.12)' }
+                            : { background: 'var(--surface)', color: 'var(--text-secondary)', borderLeft: '1px solid var(--border)' }}
+                        >
+                          Flat Amount (₹)
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="field-label">Discount Value {formData.discountType === 'PERCENTAGE' ? '(%)' : '(₹)'}</label>
+                        <input type="number" min="0" value={formData.discountValue} onChange={e => setFormData({...formData, discountValue: e.target.value})} className="field-input" placeholder={formData.discountType === 'PERCENTAGE' ? 'e.g. 20' : 'e.g. 200'} />
+                      </div>
+                      {formData.discountType === 'PERCENTAGE' && (
+                        <div className="space-y-1.5">
+                          <label className="field-label">Max Discount (₹) <span className="normal-case font-normal tracking-normal text-[10px] ml-0.5" style={{ color: 'var(--text-tertiary)' }}>(optional)</span></label>
+                          <input type="number" min="0" value={formData.maxDiscountValue} onChange={e => setFormData({...formData, maxDiscountValue: e.target.value})} className="field-input" placeholder="No cap" />
+                          <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>Caps the maximum discount for percentage offers.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {formData.promotionType === 'PRODUCT_DISCOUNT' && (
+                  <div className="space-y-2">
+                    <label className="field-label">Applicable Products</label>
+                    <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Leave all unchecked to apply to ALL products.</p>
+                    <div className="max-h-44 overflow-y-auto rounded-lg p-3 space-y-2" style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)' }}>
+                      {availableProducts.map(p => (
+                        <label key={p.id} className="flex items-center gap-2.5 cursor-pointer">
+                          <input type="checkbox" checked={formData.configuration.applicableProductIds?.includes(p.id)} onChange={e => {
+                            const currentIds = formData.configuration.applicableProductIds || [];
+                            const ids = e.target.checked
+                              ? [...currentIds, p.id]
+                              : currentIds.filter(id => id !== p.id);
+                            setFormData({...formData, configuration: {...formData.configuration, applicableProductIds: ids}});
+                          }} className="accent-primary w-4 h-4" />
+                          <span className="text-sm" style={{ color: 'var(--text)' }}>{p.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {formData.promotionType === 'CATEGORY_DISCOUNT' && (
+                  <div className="space-y-2">
+                    <label className="field-label">Applicable Categories</label>
+                    <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Leave all unchecked to apply to ALL categories.</p>
+                    <div className="max-h-44 overflow-y-auto rounded-lg p-3 space-y-2" style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)' }}>
+                      {availableCategories.map(c => (
+                        <label key={c.id} className="flex items-center gap-2.5 cursor-pointer">
+                          <input type="checkbox" checked={formData.configuration.applicableCategoryIds?.includes(c.id)} onChange={e => {
+                            const currentIds = formData.configuration.applicableCategoryIds || [];
+                            const ids = e.target.checked
+                              ? [...currentIds, c.id]
+                              : currentIds.filter(id => id !== c.id);
+                            setFormData({...formData, configuration: {...formData.configuration, applicableCategoryIds: ids}});
+                          }} className="accent-primary w-4 h-4" />
+                          <span className="text-sm" style={{ color: 'var(--text)' }}>{c.name}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -778,113 +844,134 @@ export const Promotions: React.FC = () => {
                 );
               })()}
 
-              {/* Dynamic Type Config (existing) */}
-              {formData.promotionType === 'PRODUCT_DISCOUNT' && (
-                <div className="space-y-4">
-                  <h3 className="font-headline-sm text-primary border-b border-outline-variant pb-2">Select Products</h3>
-                  <p className="text-xs text-on-surface-variant">Leave all unchecked to apply to ALL products.</p>
-                  <div className="max-h-48 overflow-y-auto bg-surface-container-lowest border border-outline-variant rounded-lg p-3 space-y-2">
-                    {availableProducts.map(p => (
-                      <label key={p.id} className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={formData.configuration.applicableProductIds?.includes(p.id)} onChange={e => {
-                          const currentIds = formData.configuration.applicableProductIds || [];
-                          const ids = e.target.checked 
-                            ? [...currentIds, p.id]
-                            : currentIds.filter(id => id !== p.id);
-                          setFormData({...formData, configuration: {...formData.configuration, applicableProductIds: ids}});
-                        }} className="accent-primary" />
-                        <span className="text-on-surface font-body-md">{p.name}</span>
-                      </label>
-                    ))}
-                  </div>
+              {/* ③ Conditions & Limits */}
+              <div className="py-6 space-y-4" style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+                <div className="flex items-center gap-2.5 mb-1">
+                  <span className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 select-none" style={{ background: 'var(--accent-soft)', color: 'var(--accent-hover)' }}>3</span>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--text-secondary)' }}>Conditions &amp; Limits</span>
                 </div>
-              )}
-
-              {formData.promotionType === 'CATEGORY_DISCOUNT' && (
-                <div className="space-y-4">
-                  <h3 className="font-headline-sm text-primary border-b border-outline-variant pb-2">Select Categories</h3>
-                  <p className="text-xs text-on-surface-variant">Leave all unchecked to apply to ALL categories.</p>
-                  <div className="max-h-48 overflow-y-auto bg-surface-container-lowest border border-outline-variant rounded-lg p-3 space-y-2">
-                    {availableCategories.map(c => (
-                      <label key={c.id} className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={formData.configuration.applicableCategoryIds?.includes(c.id)} onChange={e => {
-                          const currentIds = formData.configuration.applicableCategoryIds || [];
-                          const ids = e.target.checked 
-                            ? [...currentIds, c.id]
-                            : currentIds.filter(id => id !== c.id);
-                          setFormData({...formData, configuration: {...formData.configuration, applicableCategoryIds: ids}});
-                        }} className="accent-primary" />
-                        <span className="text-on-surface font-body-md">{c.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-
-              {/* Conditions and Limits */}
-              <div className="space-y-4">
-                <h3 className="font-headline-sm text-primary border-b border-outline-variant pb-2">Conditions & Limits</h3>
-                
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="field-label">Min Cart Value ₹ (Optional)</label>
+                  <div className="space-y-1.5">
+                    <label className="field-label">Minimum Cart Value (₹)</label>
                     <input type="number" min="0" value={formData.minCartValue} onChange={e => setFormData({...formData, minCartValue: e.target.value})} className="field-input" placeholder="No minimum" />
+                    <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>Promotion applies only when cart reaches this amount.</p>
                   </div>
-                  <div className="space-y-2">
-                    <label className="field-label">Priority (Higher runs first)</label>
-                    <input type="number" value={formData.priority} onChange={e => setFormData({...formData, priority: parseInt(e.target.value)})} className="field-input" />
-                  </div>
+                  {formData.promotionType !== 'FIRST_ORDER' && (
+                    <div className="flex flex-col justify-center">
+                      <label className="flex items-center gap-2.5 cursor-pointer mt-2">
+                        <input type="checkbox" checked={formData.configuration.firstOrderOnly} onChange={e => setFormData({...formData, configuration: {...formData.configuration, firstOrderOnly: e.target.checked}})} className="w-4 h-4 accent-primary" />
+                        <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>First order only</span>
+                      </label>
+                    </div>
+                  )}
                 </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <label className="field-label">Total Usage Limit</label>
                     <input type="number" min="0" value={formData.usageLimit} onChange={e => setFormData({...formData, usageLimit: e.target.value})} className="field-input" placeholder="Unlimited" />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <label className="field-label">Per User Limit</label>
                     <input type="number" min="0" value={formData.perUserLimit} onChange={e => setFormData({...formData, perUserLimit: e.target.value})} className="field-input" placeholder="Unlimited" />
                   </div>
                 </div>
+                <div className="flex flex-wrap gap-x-6 gap-y-3 pt-1">
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input type="checkbox" checked={formData.active} onChange={e => setFormData({...formData, active: e.target.checked})} className="w-4 h-4 accent-primary" />
+                    <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>Active</span>
+                  </label>
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input type="checkbox" checked={formData.stackable} onChange={e => setFormData({...formData, stackable: e.target.checked})} className="w-4 h-4 accent-primary" />
+                    <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>Allow stacking with other offers</span>
+                  </label>
+                </div>
+              </div>
 
+              {/* ④ Schedule */}
+              <div className="py-6 space-y-4" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="flex items-center gap-2.5 mb-1">
+                  <span className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 select-none" style={{ background: 'var(--accent-soft)', color: 'var(--accent-hover)' }}>4</span>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--text-secondary)' }}>Schedule</span>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <label className="field-label">Start Date</label>
                     <input type="datetime-local" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} className="field-input" />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <label className="field-label">End Date</label>
                     <input type="datetime-local" value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} className="field-input" />
                   </div>
                 </div>
+              </div>
 
-                <div className="flex flex-wrap gap-6 pt-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={formData.active} onChange={e => setFormData({...formData, active: e.target.checked})} className="w-5 h-5 accent-primary" />
-                    <span className="field-label">Active</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={formData.stackable} onChange={e => setFormData({...formData, stackable: e.target.checked})} className="w-5 h-5 accent-primary" />
-                    <span className="field-label">Stackable with other offers</span>
-                  </label>
-                  {formData.promotionType !== 'FIRST_ORDER' && (
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={formData.configuration.firstOrderOnly} onChange={e => setFormData({...formData, configuration: {...formData.configuration, firstOrderOnly: e.target.checked}})} className="w-5 h-5 accent-primary" />
-                      <span className="field-label">First Order Only</span>
-                    </label>
+              {/* ⑤ Advanced */}
+              <div className="pt-5">
+                <details className="group">
+                  <summary className="flex items-center gap-2.5 cursor-pointer list-none select-none">
+                    <span className="w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 group-open:rotate-45 transition-transform" style={{ background: 'var(--surface-alt)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>+</span>
+                    <span className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--text-secondary)' }}>Advanced Settings</span>
+                  </summary>
+                  <div className="mt-4 pl-7 space-y-1.5">
+                    <label className="field-label">Priority</label>
+                    <input type="number" value={formData.priority} onChange={e => setFormData({...formData, priority: parseInt(e.target.value)})} className="field-input" style={{ maxWidth: '8rem' }} />
+                    <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>Higher priority promotions run first when multiple promotions are active.</p>
+                  </div>
+                </details>
+              </div>
+
+              </div>
+              {/* end main form column */}
+
+              {/* ── Live Preview Panel (desktop only) ── */}
+              <div className="hidden lg:block w-52 shrink-0">
+                <div className="sticky top-0 rounded-xl p-4 space-y-3" style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)' }}>
+                  <p className="text-[9px] uppercase tracking-[0.2em] font-bold" style={{ color: 'var(--text-tertiary)' }}>Preview</p>
+                  {formData.name
+                    ? <p className="font-serif text-[15px] leading-snug" style={{ color: 'var(--text)' }}>{formData.name}</p>
+                    : <p className="text-sm italic" style={{ color: 'var(--text-tertiary)' }}>Promotion name…</p>
+                  }
+                  {formData.code && (
+                    <span className="font-mono text-[11px] px-2 py-1 rounded block w-fit" style={{ background: 'var(--accent-soft)', color: 'var(--accent-hover)' }}>{formData.code}</span>
+                  )}
+                  {formData.promotionType === 'FREE_SHIPPING' && <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>🚚 Free Shipping</p>}
+                  {formData.promotionType === 'FREE_PRODUCT' && <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>🎁 Free Product</p>}
+                  {formData.promotionType !== 'FREE_SHIPPING' && formData.promotionType !== 'FREE_PRODUCT' && formData.discountValue !== '' && (
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
+                      {formData.discountType === 'PERCENTAGE' ? `${formData.discountValue}% off` : `₹${formData.discountValue} off`}
+                    </p>
+                  )}
+                  <div className="space-y-1 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+                    {formData.minCartValue && <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>Min order: ₹{formData.minCartValue}</p>}
+                    {formData.maxDiscountValue && formData.discountType === 'PERCENTAGE' && <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>Max discount: ₹{formData.maxDiscountValue}</p>}
+                    {(formData.configuration.firstOrderOnly || formData.promotionType === 'FIRST_ORDER') && <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>First order only</p>}
+                    {(formData.startDate || formData.endDate) && (
+                      <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                        {formData.startDate ? new Date(formData.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'}
+                        {' – '}
+                        {formData.endDate ? new Date(formData.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'}
+                      </p>
+                    )}
+                  </div>
+                  {!formData.active && (
+                    <span className="text-[9px] uppercase tracking-widest font-bold px-2 py-1 rounded block w-fit" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}>Inactive</span>
                   )}
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-outline-variant flex justify-end gap-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2 rounded-lg font-label-lg text-on-surface-variant hover:bg-surface-container-high transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">Cancel</button>
-                <button type="submit" className="px-6 py-2 rounded-lg font-label-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2">
+              </div>
+              {/* end two-column row */}
+
+              {/* Sticky footer */}
+              <div className="sticky bottom-0 -mx-6 px-6 py-4 mt-6 flex justify-end gap-3" style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors" style={{ color: 'var(--text-secondary)', border: '1px solid var(--border)', background: 'transparent' }}>Cancel</button>
+                <button type="submit" className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors" style={{ background: 'var(--ink)', color: 'var(--text-inverse)' }}>
                   {editingPromoId ? 'Update Promotion' : 'Save Promotion'}
                 </button>
               </div>
             </form>
       </Modal>
+
 
       <ConfirmationDialog
         isOpen={deleteConfirmId !== null}
