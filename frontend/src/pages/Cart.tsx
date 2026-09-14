@@ -6,9 +6,30 @@ import { getImageUrl } from '../utils/getImageUrl';
 import { useStoreSettings } from '../context/StoreSettingsContext';
 import { useInView } from '../hooks/useInView';
 
+// ─── Stitch Design Token Helpers ────────────────────────────────────────────
+const C = {
+  bg: '#f9f8f6',           // warm ivory page background
+  card: '#ffffff',          // white card surface
+  border: '#e8e0d0',        // muted warm border
+  navy: '#1c2533',          // deep navy text
+  navyLight: '#4a5568',     // secondary text
+  gold: '#8b6914',          // antique gold accent
+  goldBg: '#fdf8ee',        // gold tinted background
+  goldBorder: '#c9a227',    // gold border
+  goldDark: '#755811',      // dark gold for CTAs
+  success: '#2f7a4a',       // green
+  error: '#c0392b',         // error red
+  inputBg: '#fbfaf8'        // slightly off-white for inputs
+};
+
 export const Cart: React.FC = () => {
   const { settings } = useStoreSettings();
-  const { items, removeItem, updateQuantity, subtotal, offerDiscount, itemCount, appliedPromotions, availablePromotions, unlockMessages, cartDiscount, removePromotion, removeCoupon, removeFreeItem, applyCoupon, isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage } = useCart();
+  const { 
+    items, removeItem, updateQuantity, subtotal, offerDiscount, itemCount, 
+    appliedPromotions, unlockMessages, cartDiscount, 
+    removePromotion, removeCoupon, removeFreeItem, applyCoupon, 
+    isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage 
+  } = useCart();
 
   const { ref: itemsRef, inView: itemsInView } = useInView<HTMLDivElement>();
   const { ref: summaryRef, inView: summaryInView } = useInView<HTMLDivElement>();
@@ -40,6 +61,7 @@ export const Cart: React.FC = () => {
     setCouponError('');
     try {
       await applyCoupon(codeToApply);
+      setCouponInput('');
     } catch (err: any) {
       setCouponError(err.response?.data?.message || 'Invalid coupon code');
     } finally {
@@ -57,149 +79,146 @@ export const Cart: React.FC = () => {
   
   const total = totalAfterOffer - cartDiscount + shippingCost + selectedGiftPrice;
 
-  // Calculate packaging upgrades
   const packagingUpgradesPrice = items.reduce((sum, item) => sum + ((item.bottle?.price || 0) * item.quantity), 0);
   const itemsSubtotalWithoutPackaging = subtotal - packagingUpgradesPrice;
 
+  // Free Shipping Progress
+  const amountToFreeShipping = Math.max(0, shippingThreshold - totalAfterOffer);
+  const freeShippingProgress = Math.min(100, (totalAfterOffer / shippingThreshold) * 100);
+
+  // ─── Empty State ────────────────────────────────────────────────────────
   if (items.length === 0) {
     return (
-      <div className="bg-[#f9f8f6] min-h-screen">
-        <main className="flex-grow py-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full text-center">
-          <div className="max-w-md mx-auto flex flex-col items-center">
-            <div className="w-16 h-16 border border-[#d4af37] rounded-full flex items-center justify-center mb-6">
-              <span className="material-symbols-outlined text-[#d4af37] text-2xl">shopping_bag</span>
-            </div>
-            <h1 className="font-headline-md text-on-surface mb-4 tracking-widest uppercase">Your Cart is Empty</h1>
-            <p className="font-body-lg text-body-lg text-on-surface-variant mb-8 leading-relaxed">
-              Looks like you haven't added anything to your cart yet. Explore our luxury fragrance collection.
-            </p>
-            <Link to="/collection" className="bg-[#2a2321] hover:bg-[#1f1a18] text-white px-8 py-3 uppercase tracking-wider font-label-md text-xs transition-colors">
-              Continue Shopping
-            </Link>
+      <div className="min-h-[80vh] flex flex-col items-center justify-center px-4" style={{ backgroundColor: C.bg }}>
+        <div className="max-w-md w-full flex flex-col items-center text-center p-8 bg-white rounded-md border shadow-sm" style={{ borderColor: C.border }}>
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mb-6" style={{ backgroundColor: C.goldBg, border: `1px solid ${C.goldBorder}` }}>
+            <span className="material-symbols-outlined text-[28px]" style={{ color: C.goldDark }}>shopping_bag</span>
           </div>
-        </main>
+          <h1 className="text-2xl font-serif mb-3" style={{ color: C.navy }}>Your Cart is Empty</h1>
+          <p className="text-[13px] mb-8" style={{ color: C.navyLight }}>
+            Looks like you haven't added anything to your cart yet. Explore our luxury fragrance collection.
+          </p>
+          <Link 
+            to="/collection" 
+            className="w-full py-4 rounded text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:brightness-110 shadow-sm"
+            style={{ backgroundColor: C.goldDark }}
+          >
+            CONTINUE SHOPPING
+          </Link>
+        </div>
       </div>
     );
   }
 
+  // ─── Render Cart ────────────────────────────────────────────────────────
   return (
-    <div className="bg-[#f9f8f6] min-h-screen pt-12 pb-24">
-      <main className="max-w-container-max mx-auto px-4 md:px-12 w-full">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-[#e4dcc8] pb-6 mb-12 gap-4">
-          <h1 className="font-headline-lg text-4xl text-on-surface">Shopping Cart</h1>
-          <div className="text-center font-body-sm text-on-surface-variant flex-1 hidden md:block pb-1">
-            {itemCount} {itemCount === 1 ? 'item' : 'items'}
+    <div className="min-h-screen pb-16 md:pb-24" style={{ backgroundColor: C.bg }}>
+      
+      {/* ── Header ── */}
+      <div className="px-4 md:px-8 py-6 md:py-10 bg-white border-b mb-6 md:mb-10" style={{ borderColor: C.border }}>
+        <div className="max-w-[1200px] mx-auto flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: C.goldDark }}>YOUR BAG</div>
+            <h1 className="text-3xl md:text-4xl font-serif" style={{ color: C.navy }}>Shopping Cart</h1>
           </div>
-          <div className="font-label-md text-[11px] text-[#a68a56] uppercase tracking-[0.15em] text-right pb-1">
-            {shippingCost === 0 
-              ? 'FREE SHIPPING ON YOUR ORDER' 
-              : `ADD ${formatPrice(shippingThreshold - totalAfterOffer)} MORE FOR FREE SHIPPING`}
+          <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-none pt-4 md:pt-0" style={{ borderColor: C.border }}>
+             <Link to="/collection" className="text-[10px] font-bold uppercase tracking-widest hover:underline" style={{ color: C.navyLight }}>CONTINUE SHOPPING</Link>
+             <span className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded" style={{ backgroundColor: C.inputBg, color: C.navy, border: `1px solid ${C.border}` }}>
+               {itemCount} {itemCount === 1 ? 'ITEM' : 'ITEMS'}
+             </span>
           </div>
         </div>
+      </div>
 
-        <div className="flex flex-col lg:flex-row gap-10 items-start">
-          {/* Cart Items List */}
-          <div ref={itemsRef} className={`w-full lg:w-[62%] flex flex-col gap-6 reveal ${itemsInView ? 'in-view' : ''}`}>
+      <main className="max-w-[1200px] mx-auto px-4 md:px-8 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
+          
+          {/* ─── LEFT: Cart Items ─── */}
+          <div ref={itemsRef} className={`lg:col-span-7 flex flex-col gap-6 reveal ${itemsInView ? 'in-view' : ''}`}>
             {items.map((item) => (
-              <div key={item.id} className="bg-white p-6 border border-[#eae5dc] flex flex-col sm:flex-row gap-6 items-start">
-                <div className="w-full sm:w-36 h-36 bg-[#f5f5f5] flex-shrink-0 flex items-center justify-center p-3 border border-[#eae5dc]/50">
+              <div key={item.id} className="bg-white p-5 rounded-md border flex flex-col sm:flex-row gap-5" style={{ borderColor: C.border }}>
+                {/* Image */}
+                <div className="w-full sm:w-32 h-32 rounded-md overflow-hidden shrink-0 border" style={{ borderColor: C.border }}>
                   {item.image ? (
                     <img
                       src={getImageUrl(item.image)}
-                      alt={item.name || 'Product'}
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.style.display = 'none';
-                        const next = e.currentTarget.nextElementSibling;
-                        if (next) next.classList.remove('hidden');
-                      }}
+                      alt={item.name}
+                      className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="material-symbols-outlined text-3xl text-on-surface-variant">image</span>
+                    <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: C.bg }}>
+                      <span className="material-symbols-outlined text-2xl" style={{ color: C.navyLight }}>image</span>
+                    </div>
                   )}
-                  <div className="hidden w-full h-full flex items-center justify-center text-on-surface-variant">
-                    <span className="material-symbols-outlined text-3xl">image</span>
-                  </div>
                 </div>
                 
-                <div className="flex-grow w-full flex flex-col justify-between h-full min-h-[144px]">
-                  <div className="flex justify-between items-start">
+                {/* Details */}
+                <div className="flex-grow flex flex-col justify-between">
+                  <div className="flex justify-between items-start gap-4">
                     <div>
-                      <h3 className="font-headline-md text-2xl text-on-surface mb-2">
-                        {item.name || 'Product'}
+                      <h3 className="text-xl font-serif mb-1" style={{ color: C.navy }}>
+                        {item.name}
                       </h3>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#4a7c36]"></div>
-                        <span className="text-xs text-on-surface-variant">In Stock</span>
+                      <div className="text-[11px] mb-2" style={{ color: C.navyLight }}>
+                        <span className="font-semibold" style={{ color: C.navy }}>{item.size}</span> • Concentrated Perfume Oil
                       </div>
-                      <div className="space-y-1">
-                        {item.size && (
-                          <p className="text-sm text-on-surface-variant">
-                            <span className="text-on-surface font-medium">Size:</span> {item.size}
-                          </p>
-                        )}
-                        {item.bottle && item.bottle.name && (
-                          <p className="text-sm text-on-surface-variant">
-                            <span className="text-on-surface font-medium">Packaging:</span> {item.bottle.name} {item.bottle.price > 0 ? `(+${formatPrice(item.bottle.price)})` : ''}
-                          </p>
-                        )}
-                        {item.freeItem && (
-                          <span className="bg-[#a68a56]/10 text-[#a68a56] text-[10px] font-label-md px-2 py-0.5 rounded-full inline-block mt-1 uppercase tracking-wider">
-                            Free Gift
-                          </span>
-                        )}
-                      </div>
+                      
+                      {item.bottle && item.bottle.name && (
+                        <div className="text-[11px] mb-1" style={{ color: C.navyLight }}>
+                          Packaging: {item.bottle.name} {item.bottle.price > 0 ? `(+${formatPrice(item.bottle.price)})` : ''}
+                        </div>
+                      )}
+                      {item.freeItem && (
+                        <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded inline-block mt-1" style={{ backgroundColor: C.goldBg, color: C.goldDark, border: `1px solid ${C.goldBorder}` }}>
+                          FREE GIFT
+                        </span>
+                      )}
                     </div>
                     
-                    <div className="text-right">
-                      <span className="font-headline-md text-2xl text-on-surface block">
+                    <div className="text-right shrink-0">
+                      <span className="text-lg font-serif block" style={{ color: C.navy }}>
                         {item.freeItem ? 'FREE' : formatPrice((item.finalPrice || 0) * item.quantity)}
                       </span>
-                      {!item.freeItem && item.discountAmount && item.discountAmount > 0 ? (
-                        <div className="mt-1">
-                          <span className="text-xs text-on-surface-variant line-through block">
-                            Base: {formatPrice((item.originalPrice || 0) * item.quantity)}
-                          </span>
-                        </div>
-                      ) : (
-                        !item.freeItem && (
-                           <span className="text-xs text-on-surface-variant block mt-1">
-                             {item.originalPrice !== item.finalPrice ? `Base: ${formatPrice((item.originalPrice || 0) * item.quantity)}` : ''}
-                           </span>
-                        )
+                      {!item.freeItem && item.discountAmount && item.discountAmount > 0 && (
+                        <span className="text-[10px] line-through block mt-1" style={{ color: C.navyLight }}>
+                          {formatPrice((item.originalPrice || 0) * item.quantity)}
+                        </span>
                       )}
                     </div>
                   </div>
                   
-                  <div className="flex justify-between items-end mt-6">
-                    <div className="flex items-center border border-[#eae5dc] w-max bg-white rounded-sm h-8">
+                  {/* Actions */}
+                  <div className="flex justify-between items-center mt-6">
+                    <div className="flex items-center border rounded h-8 overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.inputBg }}>
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
                         disabled={item.freeItem}
-                        className={`px-3 h-full flex items-center justify-center text-on-surface transition-colors ${item.freeItem ? 'opacity-50 cursor-not-allowed' : 'hover:text-[#a68a56]'}`}
+                        className="w-8 h-full flex items-center justify-center transition-colors hover:bg-gray-50 disabled:opacity-50"
+                        style={{ color: C.navy }}
                       >
-                        <span className="material-symbols-outlined text-[16px] leading-none select-none">&#xe15b;</span> {/* remove icon */}
+                        <span className="material-symbols-outlined text-[14px]">remove</span>
                       </button>
-                      <span className="w-8 text-center text-sm">{item.quantity}</span>
+                      <span className="w-10 text-center text-[12px] font-semibold border-x flex items-center justify-center h-full bg-white" style={{ borderColor: C.border, color: C.navy }}>
+                        {item.quantity}
+                      </span>
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
                         disabled={item.freeItem}
-                        className={`px-3 h-full flex items-center justify-center text-on-surface transition-colors border-l border-[#eae5dc] ${item.freeItem ? 'opacity-50 cursor-not-allowed' : 'hover:text-[#a68a56]'}`}
+                        className="w-8 h-full flex items-center justify-center transition-colors hover:bg-gray-50 disabled:opacity-50"
+                        style={{ color: C.navy }}
                       >
-                         <span className="material-symbols-outlined text-[16px] leading-none select-none">&#xe145;</span> {/* add icon */}
+                         <span className="material-symbols-outlined text-[14px]">add</span>
                       </button>
                     </div>
                     
-                    <div className="flex items-center gap-4 text-[11px] font-label-md text-on-surface-variant uppercase tracking-wider">
-                      <button 
-                        onClick={() => item.freeItem ? removeFreeItem(item.id) : removeItem(item.id)} 
-                        className="hover:text-[#93000a] transition-colors"
-                      >
-                        Remove
-                      </button>
-                    </div>
+                    <button 
+                      onClick={() => item.freeItem ? removeFreeItem(item.id) : removeItem(item.id)} 
+                      className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 hover:underline"
+                      style={{ color: C.navyLight }}
+                    >
+                      <span className="material-symbols-outlined text-[14px]">delete</span>
+                      REMOVE
+                    </button>
                   </div>
                 </div>
               </div>
@@ -207,24 +226,22 @@ export const Cart: React.FC = () => {
 
             {/* Gift Box Section */}
             {settings?.isGiftWrapEnabled && (
-              <div className="bg-[#fcfaf7] border border-[#eae5dc] p-6 flex items-start gap-5 mt-2">
+              <div className="bg-white border p-5 rounded-md flex items-start gap-4 mt-2" style={{ borderColor: C.border }}>
                 <div className="mt-0.5">
-                  <div className="relative flex items-center">
-                    <input
-                      type="checkbox"
-                      id="giftWrapCheckboxCart"
-                      checked={isGiftWrapped}
-                      onChange={(e) => setIsGiftWrapped(e.target.checked)}
-                      className="w-5 h-5 text-[#a68a56] border-[#d4af37] rounded-sm focus:ring-[#a68a56] bg-white cursor-pointer"
-                    />
+                  <div 
+                    className="w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors border cursor-pointer"
+                    style={{ borderColor: isGiftWrapped ? C.goldDark : C.border, backgroundColor: isGiftWrapped ? C.goldDark : C.inputBg }}
+                    onClick={() => setIsGiftWrapped(!isGiftWrapped)}
+                  >
+                    {isGiftWrapped && <span className="material-symbols-outlined text-[14px] text-white">check</span>}
                   </div>
                 </div>
-                <div className="flex-1">
-                  <label htmlFor="giftWrapCheckboxCart" className="font-headline-md text-xl text-on-surface cursor-pointer mb-1 block">
+                <div className="flex-grow">
+                  <div className="text-[13px] font-bold tracking-wide uppercase mb-1 cursor-pointer" style={{ color: C.navy }} onClick={() => setIsGiftWrapped(!isGiftWrapped)}>
                     Pack this order as a gift
-                  </label>
-                  <p className="text-sm text-on-surface-variant">
-                    Add premium gift wrapping and a handwritten heritage note (+{formatPrice(settings.giftWrapPrice || 0)})
+                  </div>
+                  <p className="text-[11px]" style={{ color: C.navyLight }}>
+                    Add signature artisanal wrapping (+{formatPrice(settings.giftWrapPrice || 0)})
                   </p>
                   
                   {isGiftWrapped && (
@@ -232,8 +249,9 @@ export const Cart: React.FC = () => {
                       <textarea
                         value={giftMessage || ''}
                         onChange={(e) => setGiftMessage(e.target.value)}
-                        placeholder="Write a message to include with your gift..."
-                        className="w-full bg-white border border-[#eae5dc] p-3 text-sm text-on-surface focus:border-[#a68a56] focus:ring-1 focus:ring-[#a68a56] outline-none min-h-[80px] resize-y rounded-sm"
+                        placeholder="Write a message to include with your gift (Optional)"
+                        className="w-full rounded border p-3 text-[12px] outline-none min-h-[80px] resize-y focus:ring-1"
+                        style={{ backgroundColor: C.inputBg, borderColor: C.border, color: C.navy, outlineColor: C.goldDark }}
                       ></textarea>
                     </div>
                   )}
@@ -241,161 +259,171 @@ export const Cart: React.FC = () => {
               </div>
             )}
             
-            {/* Promotions / Coupons (Keep functional but styled minimal) */}
-            {(availablePromotions?.length > 0 || appliedPromotions?.length > 0) && (
-              <div className="bg-white border border-[#eae5dc] p-6 mt-2">
-                 <h3 className="font-headline-md text-xl text-on-surface mb-4">Promotions & Offers</h3>
-                 
-                 {appliedPromotions && appliedPromotions.length > 0 && (
-                   <div className="mb-4 space-y-2">
-                     {appliedPromotions.map((promo: any) => (
-                       <div key={promo.id} className="flex items-center justify-between bg-[#fcfaf7] p-3 border border-[#eae5dc]">
-                         <div className="flex items-center gap-2">
-                           <span className="material-symbols-outlined text-[#a68a56] text-sm">check_circle</span>
-                           <span className="text-sm font-medium">{promo.code || promo.name} applied</span>
-                         </div>
-                         <button 
-                            onClick={() => promo.code ? removeCoupon() : removePromotion()}
-                            className="text-[10px] uppercase tracking-wider text-[#93000a] hover:underline"
-                         >
-                           Remove
-                         </button>
+            {/* Promotions / Coupons */}
+            <div className="bg-white border p-5 rounded-md mt-2" style={{ borderColor: C.border }}>
+               <h3 className="text-[13px] font-bold tracking-wide uppercase mb-4" style={{ color: C.navy }}>Promotions & Offers</h3>
+               
+               {appliedPromotions && appliedPromotions.length > 0 && (
+                 <div className="mb-4 space-y-2">
+                   {appliedPromotions.map((promo: any) => (
+                     <div key={promo.id} className="flex items-center justify-between p-3 rounded border" style={{ backgroundColor: C.goldBg, borderColor: C.goldBorder }}>
+                       <div className="flex items-center gap-2">
+                         <span className="material-symbols-outlined text-[16px]" style={{ color: C.goldDark }}>check_circle</span>
+                         <span className="text-[11px] font-semibold" style={{ color: C.goldDark }}>{promo.code || promo.name} applied</span>
                        </div>
-                     ))}
-                   </div>
-                 )}
-                 
-                 <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={couponInput}
-                      onChange={(e) => setCouponInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
-                      placeholder="ENTER COUPON CODE"
-                      className="flex-1 bg-transparent border border-[#eae5dc] px-4 py-2 text-sm focus:border-[#a68a56] outline-none uppercase"
-                      disabled={isApplyingCoupon}
-                    />
-                    <button
-                      onClick={() => handleApplyCoupon()}
-                      disabled={!couponInput.trim() || isApplyingCoupon}
-                      className="bg-[#2a2321] text-white px-6 py-2 text-xs uppercase tracking-widest hover:bg-[#1f1a18] disabled:opacity-50 transition-colors"
-                    >
-                      {isApplyingCoupon ? '...' : 'Apply'}
-                    </button>
+                       <button 
+                          onClick={() => promo.code ? removeCoupon() : removePromotion()}
+                          className="text-[10px] font-bold uppercase tracking-wider hover:underline"
+                          style={{ color: C.goldDark }}
+                       >
+                         REMOVE
+                       </button>
+                     </div>
+                   ))}
                  </div>
-                 {couponError && <p className="text-[#93000a] text-xs mt-2">{couponError}</p>}
-              </div>
-            )}
-            
-            {/* Unlock Messages */}
-            {unlockMessages && unlockMessages.length > 0 && (
-               <div className="space-y-2">
-                 {unlockMessages.map((msg, i) => (
-                   <div key={i} className="text-xs text-[#a68a56] bg-[#a68a56]/5 p-3 border border-[#a68a56]/20 rounded-sm">
-                     {msg}
-                   </div>
-                 ))}
+               )}
+               
+               <div className="flex rounded overflow-hidden">
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                    placeholder="ENTER DISCOUNT CODE"
+                    className="flex-grow border-y border-l px-4 py-3 text-[11px] font-semibold tracking-wider uppercase outline-none"
+                    style={{ backgroundColor: C.inputBg, borderColor: C.border, color: C.navy }}
+                    disabled={isApplyingCoupon}
+                  />
+                  <button
+                    onClick={() => handleApplyCoupon()}
+                    disabled={!couponInput.trim() || isApplyingCoupon}
+                    className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-white transition-colors disabled:opacity-50"
+                    style={{ backgroundColor: C.navy }}
+                  >
+                    {isApplyingCoupon ? '...' : 'APPLY'}
+                  </button>
                </div>
-            )}
+               {couponError && <p className="text-[11px] mt-2" style={{ color: C.error }}>{couponError}</p>}
+               {unlockMessages && unlockMessages.length > 0 && (
+                 <div className="mt-3 space-y-2">
+                   {unlockMessages.map((msg, i) => (
+                     <div key={i} className="text-[10px] font-bold uppercase tracking-widest p-3 rounded border" style={{ backgroundColor: C.goldBg, color: C.goldDark, borderColor: C.goldBorder }}>
+                       {msg}
+                     </div>
+                   ))}
+                 </div>
+               )}
+            </div>
+            
           </div>
 
-          {/* Order Summary */}
-          <div ref={summaryRef} className={`w-full lg:w-[38%] bg-white border border-[#eae5dc] p-8 sticky top-24 reveal ${summaryInView ? 'in-view' : ''}`}>
-            <h2 className="font-headline-md text-[26px] text-on-surface mb-6">Order Summary</h2>
-            
-            <div className="w-full h-px bg-[#eae5dc] mb-6"></div>
-            
-            <div className="space-y-4 mb-6">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-on-surface-variant">Items Subtotal</span>
-                <span className="font-medium text-on-surface">{formatPrice(itemsSubtotalWithoutPackaging)}</span>
-              </div>
-              
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-on-surface-variant">Packaging Upgrades</span>
-                <span className="font-medium text-on-surface">{formatPrice(packagingUpgradesPrice)}</span>
-              </div>
-              
-              {(offerDiscount + cartDiscount) > 0 && (
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-[#a68a56]">Discount</span>
-                  <span className="font-medium text-[#a68a56]">-{formatPrice(offerDiscount + cartDiscount)}</span>
+          {/* ─── RIGHT: Sticky Order Summary ─── */}
+          <div ref={summaryRef} className={`lg:col-span-5 reveal ${summaryInView ? 'in-view' : ''}`}>
+            <div className="sticky top-24 bg-white border rounded-md shadow-sm" style={{ borderColor: C.border, borderTop: `4px solid ${C.goldDark}` }}>
+              <div className="p-6 md:p-8">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b" style={{ borderColor: C.border }}>
+                  <div>
+                    <div className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: C.goldDark }}>REVIEW ORDER</div>
+                    <span className="text-2xl font-serif" style={{ color: C.navy }}>Order Summary</span>
+                  </div>
                 </div>
-              )}
-              
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-on-surface-variant">Shipping</span>
-                <span className={shippingCost === 0 ? 'text-[#a68a56] font-medium uppercase text-[11px] tracking-wider' : 'font-medium text-on-surface'}>
-                  {shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
-                </span>
-              </div>
-              
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-on-surface-variant">Gift Wrapping</span>
-                <span className="font-medium text-on-surface">{formatPrice(selectedGiftPrice)}</span>
-              </div>
-            </div>
-            
-            <div className="w-full h-px bg-[#eae5dc] mb-6"></div>
-            
-            <div className="flex justify-between items-center mb-8">
-              <span className="font-label-md text-xs uppercase tracking-[0.2em] text-on-surface-variant">Total</span>
-              <span className="font-headline-md text-3xl text-on-surface">{formatPrice(total)}</span>
-            </div>
-            
-            {/* Free Shipping Progress — inside Order Summary */}
-            <div className="mb-6 border border-[#eae5dc] bg-[#fcfaf7] p-4">
-              {shippingCost === 0 ? (
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#a68a56] text-[16px] leading-none select-none">local_shipping</span>
-                  <p className="text-[11px] font-label-md uppercase tracking-wider text-[#a68a56]">
-                    You've unlocked complimentary shipping
+                
+                {/* Free Shipping Progress inside Summary */}
+                <div className="mb-6">
+                  {!isFreeShipping && shippingCost > 0 ? (
+                    <>
+                      <div className="flex justify-between items-center mb-2 text-[10px] uppercase font-bold tracking-wider">
+                        <span className="flex items-center gap-1.5" style={{ color: C.goldDark }}>
+                          <span className="material-symbols-outlined text-[14px]">local_shipping</span>
+                          FREE SHIPPING ELIGIBILITY
+                        </span>
+                        <span style={{ color: C.navy }}>{Math.round(freeShippingProgress)}%</span>
+                      </div>
+                      <div className="w-full h-1 rounded-full mb-2" style={{ backgroundColor: `${C.border}` }}>
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${freeShippingProgress}%`, backgroundColor: C.gold }}
+                        />
+                      </div>
+                      <p className="text-[11px]" style={{ color: C.navyLight }}>
+                        Add {formatPrice(amountToFreeShipping)} more to unlock Free Shipping
+                      </p>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider py-2" style={{ color: C.success }}>
+                      <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                      Free shipping unlocked!
+                    </div>
+                  )}
+                </div>
+
+                <div className="w-full h-px mb-6" style={{ backgroundColor: C.border }}></div>
+                
+                <div className="space-y-3 text-[12px] mb-6">
+                  <div className="flex justify-between">
+                    <span style={{ color: C.navyLight }}>Subtotal</span>
+                    <span style={{ color: C.navy }}>{formatPrice(itemsSubtotalWithoutPackaging)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: C.navyLight }}>Packaging Upgrades</span>
+                    <span className="uppercase" style={{ color: C.goldDark }}>{packagingUpgradesPrice > 0 ? formatPrice(packagingUpgradesPrice) : 'STANDARD (FREE)'}</span>
+                  </div>
+                  {isGiftWrapped && settings?.isGiftWrapEnabled && (
+                    <div className="flex justify-between">
+                      <span style={{ color: C.navyLight }}>Gift Wrapping</span>
+                      <span style={{ color: C.navy }}>{formatPrice(selectedGiftPrice)}</span>
+                    </div>
+                  )}
+                  {(offerDiscount + cartDiscount) > 0 && (
+                    <div className="flex justify-between">
+                      <span style={{ color: C.goldDark }}>Discount</span>
+                      <span style={{ color: C.goldDark }}>-{formatPrice(offerDiscount + cartDiscount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span style={{ color: C.navyLight }}>Standard Shipping</span>
+                    <span style={{ color: shippingCost === 0 ? C.success : C.navy, fontWeight: shippingCost === 0 ? 600 : 400 }}>
+                      {shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="w-full h-px mb-6" style={{ backgroundColor: C.border }}></div>
+                
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <span className="block text-base font-serif" style={{ color: C.navy }}>Total</span>
+                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: C.navyLight }}>INCLUDES ALL TAXES</span>
+                  </div>
+                  <span className="text-3xl font-serif" style={{ color: C.navy }}>{formatPrice(total)}</span>
+                </div>
+                
+                <Link
+                  to="/checkout"
+                  className="w-full py-4 rounded-lg flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:brightness-110 shadow-sm"
+                  style={{ background: `linear-gradient(to right, ${C.gold}, ${C.goldDark})` }}
+                >
+                  <span className="material-symbols-outlined text-[16px]">shopping_cart_checkout</span>
+                  PROCEED TO CHECKOUT
+                </Link>
+                
+                <div className="mt-6 flex justify-center gap-6">
+                  <span className="material-symbols-outlined text-[20px]" style={{ color: C.navyLight }}>lock</span>
+                  <span className="material-symbols-outlined text-[20px]" style={{ color: C.navyLight }}>local_shipping</span>
+                  <span className="material-symbols-outlined text-[20px]" style={{ color: C.navyLight }}>verified</span>
+                </div>
+                <div className="mt-3 text-center">
+                  <p className="text-[9px] font-bold uppercase tracking-widest leading-relaxed" style={{ color: C.navyLight }}>
+                    SECURE CHECKOUT PROCESS<br/>
+                    100% AUTHENTIC ARTISANAL BLENDS
                   </p>
                 </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[#8a8171] text-[14px] leading-none select-none">local_shipping</span>
-                      <p className="text-[11px] text-on-surface-variant">
-                        Add <span className="font-semibold text-on-surface">{formatPrice(shippingThreshold - totalAfterOffer)}</span> more for free shipping
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-[#8a8171] font-label-md uppercase tracking-wider">Free &gt; {formatPrice(shippingThreshold)}</span>
-                  </div>
-                  <div className="w-full h-1 bg-[#eae5dc] rounded-full overflow-hidden" role="progressbar" aria-label="Free shipping progress" aria-valuemin={0} aria-valuemax={shippingThreshold} aria-valuenow={Math.min(totalAfterOffer, shippingThreshold)}>
-                    <div
-                      className="h-full bg-[#a68a56] rounded-full progress-fill"
-                      style={{ width: `${Math.min((totalAfterOffer / shippingThreshold) * 100, 100)}%` }}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-
-            <Link
-              to="/checkout"
-              className="w-full bg-[#2a2321] hover:bg-[#1f1a18] text-white py-4 flex items-center justify-center gap-2 font-label-md text-xs uppercase tracking-[0.15em] transition-colors"
-            >
-              PROCEED TO CHECKOUT
-              <span className="material-symbols-outlined text-[16px] leading-none select-none">&#xe5c8;</span> {/* arrow_forward */}
-            </Link>
-            
-            <div className="mt-8 flex justify-center gap-6 text-[#8a8171]">
-              <span className="material-symbols-outlined font-light text-[22px] select-none">&#xe897;</span> {/* lock */}
-              <span className="material-symbols-outlined font-light text-[22px] select-none">&#xe558;</span> {/* local_shipping */}
-              <span className="material-symbols-outlined font-light text-[22px] select-none">&#xe86c;</span> {/* verified */}
-            </div>
-            <div className="mt-4 text-center">
-              <p className="text-[10px] font-label-md uppercase tracking-[0.2em] text-[#8a8171] leading-relaxed">
-                SECURE CHECKOUT PROCESS<br/>
-                AUTHENTIC ARTISANAL BLENDS
-              </p>
+              </div>
             </div>
           </div>
+          
         </div>
       </main>
     </div>
   );
 };
-
