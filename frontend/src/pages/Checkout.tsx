@@ -503,10 +503,6 @@ export const Checkout: React.FC = () => {
              <span className="material-symbols-outlined text-sm">arrow_back</span>
              <span className="hidden sm:inline">RETURN TO CART</span>
            </Link>
-           <div className="hidden md:flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: C.navyLight }}>
-             <span className="material-symbols-outlined text-[14px]">lock</span>
-             SECURE 256-BIT ENCRYPTED CHECKOUT
-           </div>
            
            <div className="md:hidden">
              <Link to="/" className="block">
