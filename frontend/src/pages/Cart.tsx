@@ -191,7 +191,7 @@ export const Cart: React.FC = () => {
                   <div className="flex justify-between items-center mt-6">
                     <div className="flex items-center border rounded h-8 overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.inputBg }}>
                       <button
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        onClick={() => updateQuantity(item.id, -1, true)}
                         disabled={item.freeItem}
                         className="w-8 h-full flex items-center justify-center transition-colors hover:bg-gray-50 disabled:opacity-50"
                         style={{ color: C.navy }}
@@ -202,7 +202,7 @@ export const Cart: React.FC = () => {
                         {item.quantity}
                       </span>
                       <button
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        onClick={() => updateQuantity(item.id, 1, true)}
                         disabled={item.freeItem}
                         className="w-8 h-full flex items-center justify-center transition-colors hover:bg-gray-50 disabled:opacity-50"
                         style={{ color: C.navy }}

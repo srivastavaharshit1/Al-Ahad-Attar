@@ -9,7 +9,7 @@ interface CartContextType {
   items: CartItem[];
   addItem: (item: CartItem) => void;
   removeItem: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => void;
+  updateQuantity: (id: string, deltaOrQuantity: number, isDelta?: boolean) => void;
   clearCart: () => void;
   itemCount: number;
   subtotal: number;
@@ -61,6 +61,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const { isAuthenticated, user } = useAuth();
   const quantityUpdateTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const quantityUpdateTokens = useRef<Map<string, symbol>>(new Map());
+  const pendingQuantities = useRef<Map<string, number>>(new Map());
+  const pendingRemovals = useRef<Set<string>>(new Set());
 
   const setIsGiftWrapped = (isWrapped: boolean) => {
     setIsGiftWrappedState(isWrapped);
@@ -76,21 +78,36 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!cartData) return;
     
     setItems(prevItems => {
-      const mappedItems: CartItem[] = (cartData.items || []).map((i: any) => {
+      const mappedItems: CartItem[] = (cartData.items || [])
+        .filter((i: any) => {
+          const existing = prevItems.find(p => 
+            p.productId.toString() === i.productId.toString() && 
+            p.variantId?.toString() === i.variantId?.toString() &&
+            p.bottle?.id === i.bottle?.id
+          );
+          const id = i.id ? i.id.toString() : (existing ? existing.id : null);
+          return id ? !pendingRemovals.current.has(id) : true;
+        })
+        .map((i: any) => {
         // Try to preserve existing local IDs for guest carts to prevent UI flicker/re-renders
         const existing = prevItems.find(p => 
           p.productId.toString() === i.productId.toString() && 
           p.variantId?.toString() === i.variantId?.toString() &&
           p.bottle?.id === i.bottle?.id
         );
+        const id = i.id ? i.id.toString() : (existing ? existing.id : Math.random().toString(36).substring(7));
+        
+        const optimisticQty = pendingQuantities.current.get(id);
+        const finalQuantity = optimisticQty !== undefined ? optimisticQty : i.quantity;
+        
         return {
-          id: i.id ? i.id.toString() : (existing ? existing.id : Math.random().toString(36).substring(7)),
+          id,
           productId: i.productId.toString(),
           variantId: i.variantId.toString(),
           name: i.name,
           image: i.image,
           size: i.size,
-          quantity: i.quantity,
+          quantity: finalQuantity,
           price: Number(i.finalPrice || i.price),
           originalPrice: Number(i.originalPrice || i.price),
           discountAmount: Number(i.discountAmount || 0),
@@ -193,6 +210,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         };
         const res = await cartService.evaluateGuestCart(payload);
         if (res && !abortController.signal.aborted) {
+          pendingQuantities.current.clear();
+          pendingRemovals.current.clear();
           syncCartState(res.data);
         }
       } catch (err) {
@@ -249,39 +268,52 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const removeItem = async (id: string) => {
+    pendingRemovals.current.add(id);
+    pendingQuantities.current.delete(id);
+    
+    setItems(prev => prev.filter(item => item.id !== id));
+    
     if (isAuthenticated) {
       try {
         await cartService.removeFromCart(Number(id));
         // Re-fetch full cart to re-evaluate promotions
         const response = await cartService.getCart();
         if (response) {
+          pendingRemovals.current.delete(id);
           syncCartState(response.data);
         }
         toast.success("Item removed from cart");
       } catch (error) {
         console.error("Failed to remove item from remote cart", error);
         toast.error("Failed to remove item");
+        const response = await cartService.getCart();
+        if (response) {
+          pendingRemovals.current.delete(id);
+          syncCartState(response.data);
+        }
       }
     } else {
-      setItems(prev => prev.filter(item => item.id !== id));
       toast.success("Item removed from cart");
     }
   };
 
 
-  const updateQuantity = (id: string, quantity: number) => {
-    if (quantity <= 0) {
+  const updateQuantity = (id: string, deltaOrQuantity: number, isDelta: boolean = false) => {
+    const baseQuantity = pendingQuantities.current.has(id) 
+      ? pendingQuantities.current.get(id)! 
+      : (items.find(i => i.id === id)?.quantity || 0);
+
+    const nextQuantity = isDelta ? baseQuantity + deltaOrQuantity : deltaOrQuantity;
+
+    if (nextQuantity <= 0) {
       removeItem(id);
       return;
     }
 
-    // Update the visible quantity immediately — itemCount/subtotal/offerDiscount below are all
-    // plain reduces over `items`, so this alone makes the whole cart feel instant instead of
-    // waiting out a full server round trip (promotion re-evaluation) on every +/- click, which
-    // is what made this feel "very slow" even though the request itself wasn't catastrophically
-    // so. The actual server sync is debounced below so a burst of clicks becomes one request.
-    const previousQuantity = items.find(item => item.id === id)?.quantity;
-    setItems(prev => prev.map(item => item.id === id ? { ...item, quantity } : item));
+    pendingQuantities.current.set(id, nextQuantity);
+
+    // Update the visible quantity immediately
+    setItems(prev => prev.map(item => item.id === id ? { ...item, quantity: nextQuantity } : item));
 
     if (!isAuthenticated) return;
 
@@ -294,16 +326,17 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     quantityUpdateTimers.current.set(id, setTimeout(async () => {
       quantityUpdateTimers.current.delete(id);
       try {
-        const response = await cartService.updateQuantity(Number(id), quantity);
-        // Only sync if this is still the latest update for this item
+        const response = await cartService.updateQuantity(Number(id), nextQuantity);
         if (response && quantityUpdateTokens.current.get(id) === token) {
+          pendingQuantities.current.delete(id);
           syncCartState(response.data);
         }
       } catch (error) {
         console.error("Failed to update remote cart quantity", error);
         toast.error("Failed to update quantity");
-        if (previousQuantity !== undefined && quantityUpdateTokens.current.get(id) === token) {
-          setItems(prev => prev.map(item => item.id === id ? { ...item, quantity: previousQuantity } : item));
+        if (quantityUpdateTokens.current.get(id) === token) {
+          pendingQuantities.current.delete(id);
+          setItems(prev => prev.map(item => item.id === id ? { ...item, quantity: baseQuantity } : item));
         }
       }
     }, 400));

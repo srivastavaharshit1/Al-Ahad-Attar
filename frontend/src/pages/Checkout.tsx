@@ -72,6 +72,49 @@ export const Checkout: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [couponError, setCouponError] = useState('');
+  const [formErrors, setFormErrors] = useState<{ email?: string, phone?: string }>({});
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string) => {
+    const phoneRegex = /^\d{10}$/;
+    return phoneRegex.test(phone);
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setGuestEmail(val);
+    if (formErrors.email && validateEmail(val)) {
+      setFormErrors((prev) => ({ ...prev, email: undefined }));
+    }
+  };
+
+  const handleEmailBlur = () => {
+    if (guestEmail && !validateEmail(guestEmail)) {
+      setFormErrors((prev) => ({ ...prev, email: 'Please enter a valid email address.' }));
+    } else {
+      setFormErrors((prev) => ({ ...prev, email: undefined }));
+    }
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+    setGuestAddress({ ...guestAddress, phone: val });
+    if (formErrors.phone && validatePhone(val)) {
+      setFormErrors((prev) => ({ ...prev, phone: undefined }));
+    }
+  };
+
+  const handlePhoneBlur = () => {
+    if (guestAddress.phone && !validatePhone(guestAddress.phone)) {
+      setFormErrors((prev) => ({ ...prev, phone: 'Please enter a valid 10-digit mobile number.' }));
+    } else {
+      setFormErrors((prev) => ({ ...prev, phone: undefined }));
+    }
+  };
 
   // ─── Existing Effects & Handlers ─────────────────────────────
   useEffect(() => {
@@ -140,6 +183,16 @@ export const Checkout: React.FC = () => {
     if (isGuest) {
       if (!guestEmail || !guestAddress.fullName || !guestAddress.phone || !guestAddress.addressLine1 || !guestAddress.city || !guestAddress.state || !guestAddress.postalCode) {
         setError('Please fill in all required guest information.');
+        return;
+      }
+      if (!validateEmail(guestEmail)) {
+        setFormErrors((prev) => ({ ...prev, email: 'Please enter a valid email address.' }));
+        setError('Please enter a valid email address.');
+        return;
+      }
+      if (!validatePhone(guestAddress.phone)) {
+        setFormErrors((prev) => ({ ...prev, phone: 'Please enter a valid 10-digit mobile number.' }));
+        setError('Please enter a valid 10-digit mobile number.');
         return;
       }
     }
@@ -641,25 +694,41 @@ export const Checkout: React.FC = () => {
                       <input
                         type="email"
                         value={guestEmail}
-                        onChange={(e) => setGuestEmail(e.target.value)}
+                        onChange={handleEmailChange}
+                        onBlur={handleEmailBlur}
                         placeholder="name@example.com"
                         className={inputCls}
-                        style={{ backgroundColor: C.inputBg }}
+                        style={{ 
+                          backgroundColor: C.inputBg,
+                          borderColor: formErrors.email ? C.error : C.border 
+                        }}
                       />
+                      {formErrors.email && (
+                        <p className="text-[11px] mt-1.5" style={{ color: C.error }}>{formErrors.email}</p>
+                      )}
                     </div>
                     <div>
                       <label className={labelCls}>PHONE NUMBER <span style={{ color: C.error }}>*</span></label>
                       <div className="flex">
-                        <div className="flex items-center justify-center px-4 rounded-l-lg border-y border-l text-sm font-medium shrink-0" style={{ borderColor: C.border, backgroundColor: 'white', color: C.navy }}>+91</div>
+                        <div className="flex items-center justify-center px-4 rounded-l-lg border-y border-l text-sm font-medium shrink-0 transition-colors" style={{ borderColor: formErrors.phone ? C.error : C.border, backgroundColor: 'white', color: C.navy }}>+91</div>
                         <input
                           type="tel"
+                          inputMode="numeric"
+                          maxLength={10}
                           value={guestAddress.phone}
-                          onChange={(e) => setGuestAddress({ ...guestAddress, phone: e.target.value })}
+                          onChange={handlePhoneChange}
+                          onBlur={handlePhoneBlur}
                           placeholder="98765 43210"
                           className={`${inputCls} rounded-l-none rounded-r-lg border-l-0`}
-                          style={{ backgroundColor: C.inputBg }}
+                          style={{ 
+                            backgroundColor: C.inputBg,
+                            borderColor: formErrors.phone ? C.error : C.border
+                          }}
                         />
                       </div>
+                      {formErrors.phone && (
+                        <p className="text-[11px] mt-1.5" style={{ color: C.error }}>{formErrors.phone}</p>
+                      )}
                     </div>
                   </div>
                   <div>
