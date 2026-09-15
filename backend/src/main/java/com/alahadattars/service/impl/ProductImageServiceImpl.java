@@ -33,6 +33,12 @@ public class ProductImageServiceImpl implements ProductImageService {
     @Override
     @Transactional
     public ProductImageResponse uploadImage(Long productId, MultipartFile file) {
+        return uploadImage(productId, file, null);
+    }
+
+    @Override
+    @Transactional
+    public ProductImageResponse uploadImage(Long productId, MultipartFile file, String productType) {
         if (file.isEmpty()) {
             throw new BadRequestException("File is empty");
         }
@@ -40,9 +46,24 @@ public class ProductImageServiceImpl implements ProductImageService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + productId));
 
-        int currentCount = productImageRepository.countByProductAndActiveTrue(product);
-        if (currentCount >= 10) {
-            throw new BadRequestException("Maximum 10 images allowed per product");
+        // Normalise type tag: null / blank → null (shared). "ATTAR" / "PERFUME" stay as-is.
+        final String typeTag = (productType != null && !productType.isBlank())
+                ? productType.trim().toUpperCase()
+                : null;
+
+        // Per-type limit: 10 shared, 10 ATTAR, 10 PERFUME images per product.
+        int currentCount;
+        if (typeTag != null) {
+            currentCount = productImageRepository.countByProductAndAltTextAndActiveTrue(product, typeTag);
+            if (currentCount >= 10) {
+                throw new BadRequestException("Maximum 10 images allowed per " + typeTag.charAt(0)
+                        + typeTag.substring(1).toLowerCase() + " type");
+            }
+        } else {
+            currentCount = productImageRepository.countByProductAndActiveTrue(product);
+            if (currentCount >= 10) {
+                throw new BadRequestException("Maximum 10 images allowed per product");
+            }
         }
 
         try {
@@ -54,21 +75,25 @@ public class ProductImageServiceImpl implements ProductImageService {
                 format = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
             }
 
+            // isPrimary = true only if this is the first image of its type bucket.
+            boolean isPrimary = (currentCount == 0);
+
             ProductImage productImage = ProductImage.builder()
                     .product(product)
                     .imageUrl(storedPath)
                     .format(format)
                     .displayOrder(currentCount)
-                    .isPrimary(currentCount == 0)
+                    .isPrimary(isPrimary)
+                    .altText(typeTag)   // store type tag in altText for type-based filtering
                     .active(true)
                     .build();
 
             product.addImage(productImage);
             ProductImage savedImage = productImageRepository.save(productImage);
 
-            log.info("Uploaded image for product {}: {}", productId, storedPath);
+            log.info("Uploaded {} image for product {}: {}", typeTag != null ? typeTag : "shared", productId, storedPath);
             return productImageMapper.toResponse(savedImage);
-            
+
         } catch (Exception e) {
             log.error("Failed to upload product image: {}", e.getMessage());
             throw new BadRequestException("Failed to upload image: " + e.getMessage());
@@ -81,6 +106,20 @@ public class ProductImageServiceImpl implements ProductImageService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + productId));
 
         return productImageRepository.findByProductAndActiveTrueOrderByDisplayOrderAsc(product)
+                .stream()
+                .map(productImageMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ProductImageResponse> getImagesByProductAndType(Long productId, String productType) {
+        if (productType == null || productType.isBlank()) {
+            return getImagesByProduct(productId);
+        }
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + productId));
+        return productImageRepository
+                .findByProductAndAltTextAndActiveTrueOrderByDisplayOrderAsc(product, productType.trim().toUpperCase())
                 .stream()
                 .map(productImageMapper::toResponse)
                 .collect(Collectors.toList());

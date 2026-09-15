@@ -5,7 +5,7 @@ import { categoryService } from '../../services/categoryService';
 import { apiClient } from '../../api/axios';
 import type { Category } from '../../types';
 import { ProductForm, type ProductFormData, type VariantData } from '../../components/admin/ProductForm';
-import type { ManagedImage } from '../../components/admin/ImageManager';
+import type { ManagedImage } from '../../components/admin/TypedImageManager';
 
 export const AddProduct: React.FC = () => {
   const navigate = useNavigate();
@@ -87,15 +87,17 @@ export const AddProduct: React.FC = () => {
         });
       await Promise.all(variantPromises);
 
-      // 3. Upload Images Concurrently
+      // 3. Upload Images Concurrently (pass productType so the image is tagged correctly)
       const imagePromises = images
         .filter(image => image.file)
         .map(async (image) => {
           const formPayload = new FormData();
           formPayload.append('file', image.file as File, (image.file as File).name);
-          const uploadRes = await apiClient.post(`/products/${productId}/images`, formPayload, {
+          // altText holds the type tag set by TypedImageManager ('ATTAR', 'PERFUME', or undefined)
+          const typeParam = image.altText ? `?productType=${image.altText}` : '';
+          const uploadRes = await apiClient.post(`/products/${productId}/images${typeParam}`, formPayload, {
             headers: { 'Content-Type': 'multipart/form-data' },
-            timeout: 60000 // Increase timeout for large file uploads
+            timeout: 60000
           });
           
           if (image.isPrimary) {

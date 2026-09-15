@@ -46,12 +46,19 @@ export const ProductPage: React.FC = () => {
         if (id) {
           const res = await productService.getProduct(id);
           setProduct(res.data);
-          
-          if (res.data.images && res.data.images.length > 0) {
-            const primary = res.data.images.find((img: any) => img.isPrimary) || res.data.images[0];
-            setMainImage(primary.imageUrl);
-          }
-          
+
+          const imgs: any[] = res.data.images || [];
+
+          // Inline getImagesForType for initial load (mirrors the render-time helper)
+          const getInitialImages = (type: string) => {
+            const sorted = [...imgs].sort((a: any, b: any) => a.displayOrder - b.displayOrder);
+            const typed = sorted.filter((img: any) => img.altText?.toUpperCase() === type.toUpperCase());
+            if (typed.length > 0) return typed;
+            const shared = sorted.filter((img: any) => !img.altText || (img.altText.toUpperCase() !== 'ATTAR' && img.altText.toUpperCase() !== 'PERFUME'));
+            if (shared.length > 0) return shared;
+            return sorted;
+          };
+
           if (res.data.variants && res.data.variants.length > 0) {
             const requestedType = searchParams.get('type')?.toUpperCase();
             let initialType = 'ATTAR';
@@ -62,15 +69,19 @@ export const ProductPage: React.FC = () => {
             } else if (!res.data.variants.some((v: Variant) => v.productType === 'ATTAR') && res.data.variants.some((v: Variant) => v.productType === 'PERFUME')) {
               initialType = 'PERFUME';
             }
-            
+
             setActiveType(initialType);
             const initialVariants = res.data.variants.filter((v: Variant) => v.productType === initialType);
             setSelectedVariant(initialVariants.length > 0 ? initialVariants[0] : res.data.variants[0]);
-            
-            const initialTypeImg = res.data.images.find((img: any) => img.altText?.toUpperCase() === initialType);
-            if (initialTypeImg) {
-              setMainImage(initialTypeImg.imageUrl);
-            }
+
+            // Set initial image to primary of the correct type bucket
+            const initialTypeImages = getInitialImages(initialType);
+            const primary = initialTypeImages.find((img: any) => img.isPrimary) ?? initialTypeImages[0];
+            if (primary) setMainImage(primary.imageUrl);
+          } else if (imgs.length > 0) {
+            // No variants — just show first image
+            const primary = imgs.find((img: any) => img.isPrimary) || imgs[0];
+            setMainImage(primary.imageUrl);
           }
         }
       } catch (err: any) {
@@ -81,6 +92,7 @@ export const ProductPage: React.FC = () => {
     };
     fetchProduct();
   }, [id]);
+
 
   if (isLoading) {
     return (
@@ -111,12 +123,28 @@ export const ProductPage: React.FC = () => {
   const hasPerfume = product.variants?.some(v => v.productType === 'PERFUME');
   const isAttarCategory = product.category?.type === 'ATTARS';
 
-  const sortedImages = [...(product.images || [])].sort((a, b) => a.displayOrder - b.displayOrder);
-  const allImages = sortedImages.map(img => img.imageUrl);
-  
-  if (activeType === 'ATTAR' && isAttarCategory) {
-    allImages.push(window.location.origin + '/attar-sizes.jpg');
-  }
+  /**
+   * Returns the correct image set for the currently active product type.
+   *
+   * Priority:
+   *   1. Images explicitly tagged for this type (altText === type)
+   *   2. Shared/untyped images (altText is null or "") — backward compat fallback
+   *   3. All images — last resort so the gallery is never empty
+   */
+  const getImagesForType = (imgs: typeof product.images, type: string): typeof product.images => {
+    const sorted = [...imgs].sort((a, b) => a.displayOrder - b.displayOrder);
+    // 1. Type-specific
+    const typed = sorted.filter(img => img.altText?.toUpperCase() === type.toUpperCase());
+    if (typed.length > 0) return typed;
+    // 2. Shared / untyped
+    const shared = sorted.filter(img => !img.altText || (img.altText.toUpperCase() !== 'ATTAR' && img.altText.toUpperCase() !== 'PERFUME'));
+    if (shared.length > 0) return shared;
+    // 3. All (legacy products with no type tagging at all)
+    return sorted;
+  };
+
+  const activeImages = getImagesForType(product.images || [], activeType);
+  const allImages = activeImages.map(img => img.imageUrl);
 
   const showTypeToggle = hasAttar && hasPerfume;
   const filteredVariants = (product.variants?.filter(v => v.productType === activeType) || [])
@@ -134,12 +162,12 @@ export const ProductPage: React.FC = () => {
     if (newVariants.length > 0) {
       setSelectedVariant(newVariants[0]);
     }
-    
+
     if (product?.images) {
-      const typeImg = product.images.find((img: any) => img.altText?.toUpperCase() === type.toUpperCase());
-      if (typeImg) {
-        setMainImage(typeImg.imageUrl);
-      }
+      const typeImages = getImagesForType(product.images, type);
+      // Set main image to the primary of this type bucket, or first image
+      const primary = typeImages.find(img => img.isPrimary) ?? typeImages[0];
+      if (primary) setMainImage(primary.imageUrl);
     }
   };
 

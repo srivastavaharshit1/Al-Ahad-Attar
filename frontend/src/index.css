@@ -140,6 +140,8 @@
   .field-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .15); }
   .field-input:disabled { background: var(--surface-alt); color: var(--text-tertiary); cursor: not-allowed; }
   .field-input.is-error { border-color: var(--error); box-shadow: 0 0 0 3px rgba(186,26,26,.1); }
+  /* Compact variant — used inside table cells */
+  .field-input-sm { padding: .4rem .6rem; font-size: 13px; }
   .field-label { display: block; font: 600 11px/1 'Inter', sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: .5rem; }
 
   .modal-overlay { background: rgba(18,28,42,.55); backdrop-filter: blur(4px); animation: fadeIn .3s ease both; }
