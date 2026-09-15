@@ -19,6 +19,8 @@ import com.alahadattars.repository.PromotionRedemptionRepository;
 import com.alahadattars.repository.PromotionRepository;
 import com.alahadattars.service.PromotionEngineService;
 import com.alahadattars.service.StorageService;
+import com.alahadattars.service.promotion.EligibilityConditionFactory;
+import com.alahadattars.service.promotion.ItemEligibilityCondition;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,6 +48,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
     private final PromotionRedemptionRepository promotionRedemptionRepository;
     private final StorageService storageService;
     private final PromotionResponseMapper promotionResponseMapper;
+    private final EligibilityConditionFactory eligibilityConditionFactory;
 
     // ─── evaluateCart ─────────────────────────────────────────────────────────
 
@@ -106,10 +109,11 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
 
         allPromotions.sort((a, b) -> Integer.compare(b.getPriority(), a.getPriority()));
 
-        boolean userHasPreviousOrders = false;
-        if (cart.getUser() != null) {
-            long orderCount = orderRepository.countByUserEmail(cart.getUser().getEmail());
-            userHasPreviousOrders = (orderCount > 0);
+        boolean isGuest = cart.getUser() == null;
+        Long userId = isGuest ? null : cart.getUser().getId();
+        long successfulOrderCount = 0;
+        if (!isGuest) {
+            successfulOrderCount = orderRepository.countSuccessfulOrdersByUserEmail(cart.getUser().getEmail());
         }
 
         List<CartItemResponse> itemResponses = new ArrayList<>();
@@ -157,7 +161,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         List<String> unlockMessages = new ArrayList<>();
         BigDecimal cartDiscountAmount = BigDecimal.ZERO;
 
-        // Phase 1: PRODUCT_DISCOUNT and CATEGORY_DISCOUNT
+        // Phase 1: PRODUCT_DISCOUNT, CATEGORY_DISCOUNT, BUY_X_GET_Y
         for (Promotion promo : allPromotions) {
             if (promo.getPromotionType() == PromotionType.FREE_PRODUCT) continue; // handled in Phase 4
             if (hasAppliedNonStackable && !promo.isStackable()) continue;
@@ -165,25 +169,56 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
             if (promo.getPromotionType() == PromotionType.PRODUCT_DISCOUNT
                     || promo.getPromotionType() == PromotionType.CATEGORY_DISCOUNT) {
                 boolean promoAppliedToAnyItem = false;
+                
+                // Volume Tier Evaluation
+                PromotionConfiguration config = promo.getConfiguration();
+                long totalEligibleQty = 0;
+                if (config != null && config.getVolumeTiers() != null && !config.getVolumeTiers().isEmpty()) {
+                    for (int i = 0; i < itemResponses.size(); i++) {
+                        CartItemResponse itemResponse = itemResponses.get(i);
+                        if (itemResponse.isFreeItem()) continue;
+                        CartItem cartItem = cart.getItems().get(i);
+                        if (isItemEligible(promo, cartItem)) {
+                            totalEligibleQty += itemResponse.getQuantity();
+                        }
+                    }
+                }
+                
+                DiscountType activeDiscountType = promo.getDiscountType();
+                BigDecimal activeDiscountValue = promo.getDiscountValue();
+                
+                if (totalEligibleQty > 0 && config != null && config.getVolumeTiers() != null) {
+                    com.alahadattars.entity.PromotionConfiguration.VolumeTier bestTier = null;
+                    for (com.alahadattars.entity.PromotionConfiguration.VolumeTier tier : config.getVolumeTiers()) {
+                        if (tier.getMinQuantity() != null && totalEligibleQty >= tier.getMinQuantity()) {
+                            if (bestTier == null || tier.getMinQuantity() > bestTier.getMinQuantity()) {
+                                bestTier = tier;
+                            }
+                        }
+                    }
+                    if (bestTier != null) {
+                        activeDiscountType = bestTier.getDiscountType();
+                        activeDiscountValue = bestTier.getDiscountValue();
+                    } else if (promo.getDiscountValue() == null) {
+                        // If root promo has no discount and didn't hit a tier, skip.
+                        continue;
+                    }
+                }
+
                 for (int i = 0; i < itemResponses.size(); i++) {
                     CartItemResponse itemResponse = itemResponses.get(i);
                     if (itemResponse.isFreeItem()) continue; // never discount free items
                     
-                    CartItem cartItem = null;
-                    if (itemResponse.getId() != null) {
-                        final Long lookupId = itemResponse.getId();
-                        cartItem = cart.getItems().stream()
-                                .filter(item -> item.getId() != null && item.getId().equals(lookupId))
-                                .findFirst().orElse(null);
-                    }
-                    if (cartItem == null) {
-                        // Fallback to index if ID is null (e.g. transient item)
-                        cartItem = cart.getItems().get(i);
-                    }
-                    
+                    CartItem cartItem = cart.getItems().get(i);
                     if (isItemEligible(promo, cartItem)) {
-                        BigDecimal itemDiscount = calculateItemDiscount(promo, itemResponse.getOriginalPrice())
-                                .min(itemResponse.getOriginalPrice());
+                        BigDecimal itemDiscount = BigDecimal.ZERO;
+                        if (activeDiscountType == DiscountType.PERCENTAGE) {
+                            itemDiscount = itemResponse.getOriginalPrice().multiply(activeDiscountValue).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+                        } else if (activeDiscountType == DiscountType.FIXED_AMOUNT) {
+                            itemDiscount = activeDiscountValue;
+                        }
+                        itemDiscount = itemDiscount.min(itemResponse.getOriginalPrice());
+                        
                         if (itemDiscount.compareTo(BigDecimal.ZERO) > 0) {
                             itemResponse.setDiscountAmount(itemResponse.getDiscountAmount().add(itemDiscount));
                             itemResponse.setFinalPrice(itemResponse.getOriginalPrice()
@@ -199,6 +234,97 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                 if (promoAppliedToAnyItem) {
                     appliedPromos.add(promo);
                     if (!promo.isStackable()) hasAppliedNonStackable = true;
+                }
+            } else if (promo.getPromotionType() == PromotionType.BUY_X_GET_Y) {
+                PromotionConfiguration config = promo.getConfiguration();
+                if (config == null) continue;
+                
+                long buyOnlyQty = 0;
+                long getOnlyQty = 0;
+                long overlapQty = 0;
+                List<CartItemResponse> getCandidates = new ArrayList<>();
+                
+                // Identify candidates
+                for (int i = 0; i < itemResponses.size(); i++) {
+                    CartItemResponse itemResponse = itemResponses.get(i);
+                    if (itemResponse.isFreeItem()) continue;
+                    CartItem cartItem = cart.getItems().get(i);
+                    
+                    boolean matchesBuy = isItemEligible(promo, cartItem);
+                    boolean matchesGet = isVariantEligibleAsFreeGift(cartItem.getVariant(), config);
+                    
+                    if (matchesBuy && matchesGet) {
+                        getCandidates.add(itemResponse);
+                        overlapQty += itemResponse.getQuantity();
+                    } else if (matchesBuy) {
+                        buyOnlyQty += itemResponse.getQuantity();
+                    } else if (matchesGet) {
+                        getCandidates.add(itemResponse);
+                        getOnlyQty += itemResponse.getQuantity();
+                    }
+                }
+                
+                long totalAwardableQty = calculateBuyXGetYUnlockedRewards(cart, promo, config);
+                long alreadyAdded = cart.getItems().stream()
+                        .filter(item -> item.isFreeItem() && promo.getId().equals(item.getFreePromotionId()))
+                        .mapToLong(CartItem::getQuantity).sum();
+                
+                long remainingToAutoDiscount = totalAwardableQty - alreadyAdded;
+                
+                // If the promotion requires customer selection, we do NOT auto-discount non-free items
+                // the user must manually add the item via the UI to get it for free.
+                if (config.isAllowCustomerSelection()) {
+                    remainingToAutoDiscount = 0; 
+                }
+                
+                if (remainingToAutoDiscount > 0 && !getCandidates.isEmpty()) {
+                    // To prevent self-qualification when overlap exists, we logically consume the most expensive items as the "Buy" quota.
+                    // This is done by sorting get candidates ASCENDING by price, and taking the cheapest ones as rewards.
+                    getCandidates.sort(Comparator.comparing(CartItemResponse::getOriginalPrice));
+                    
+                    long awardedQty = 0;
+                    boolean promoAppliedToAnyItem = false;
+                    
+                    DiscountType rewardType = config.getRewardDiscountType() != null ? config.getRewardDiscountType() : DiscountType.PERCENTAGE;
+                    BigDecimal rewardVal = config.getRewardDiscountValue() != null ? config.getRewardDiscountValue() : new BigDecimal("100");
+                    
+                    for (CartItemResponse getResp : getCandidates) {
+                        if (awardedQty >= remainingToAutoDiscount) break;
+                        
+                        long qtyToDiscount = Math.min(getResp.getQuantity(), remainingToAutoDiscount - awardedQty);
+                        if (qtyToDiscount > 0) {
+                            
+                            BigDecimal itemDiscount = BigDecimal.ZERO;
+                            if (rewardType == DiscountType.PERCENTAGE) {
+                                itemDiscount = getResp.getOriginalPrice().multiply(rewardVal).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+                            } else if (rewardType == DiscountType.FIXED_AMOUNT) {
+                                itemDiscount = rewardVal;
+                            }
+                            itemDiscount = itemDiscount.min(getResp.getOriginalPrice());
+                            
+                            if (itemDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                                // Since discount may apply to only a partial quantity of this cart item line, 
+                                // we technically would need to split the line item if it's partial.
+                                // However, simple cart-level discount aggregation: 
+                                // We add the total absolute discount (itemDiscount * qtyToDiscount) to the line's discount.
+                                BigDecimal totalLineDiscountForThisPromo = itemDiscount.multiply(BigDecimal.valueOf(qtyToDiscount));
+                                getResp.setDiscountAmount(getResp.getDiscountAmount().add(totalLineDiscountForThisPromo));
+                                // Recompute final price (which is an average per item if partially discounted, but total logic holds)
+                                BigDecimal avgDiscountPerItem = getResp.getDiscountAmount().divide(BigDecimal.valueOf(getResp.getQuantity()), 2, RoundingMode.HALF_UP);
+                                getResp.setFinalPrice(getResp.getOriginalPrice().subtract(avgDiscountPerItem).max(BigDecimal.ZERO));
+                                
+                                totalItemDiscounts = totalItemDiscounts.add(totalLineDiscountForThisPromo);
+                                awardedQty += qtyToDiscount;
+                                promoAppliedToAnyItem = true;
+                                if (cleanCoupon != null && cleanCoupon.equalsIgnoreCase(promo.getCode()))
+                                    couponApplied = true;
+                            }
+                        }
+                    }
+                    if (promoAppliedToAnyItem) {
+                        appliedPromos.add(promo);
+                        if (!promo.isStackable()) hasAppliedNonStackable = true;
+                    }
                 }
             }
         }
@@ -218,13 +344,8 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
 
             if (!isCartDiscount && !isFreeShipping && !isFirstOrder) continue;
 
-            if (isFirstOrder && userHasPreviousOrders) {
-                log.info("[FIRST_ORDER] Skipping promo '{}' – user has previous orders", promo.getName());
-                continue;
-            }
-            PromotionConfiguration config = promo.getConfiguration();
-            if (config != null && config.isFirstOrderOnly() && userHasPreviousOrders) {
-                log.info("[FIRST_ORDER_FLAG] Skipping promo '{}' – firstOrderOnly=true", promo.getName());
+            if (!isCustomerEligible(promo, isGuest, successfulOrderCount, userId)) {
+                log.info("[TARGETING] Skipping promo '{}' – customer ineligible", promo.getName());
                 continue;
             }
             if (promo.getMinCartValue() != null
@@ -326,6 +447,13 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         LocalDateTime now = LocalDateTime.now();
         List<Promotion> allActive = promotionRepository.findAllActivePromotions(now);
 
+        boolean isGuest = cart.getUser() == null;
+        Long userId = isGuest ? null : cart.getUser().getId();
+        long successfulOrderCount = 0;
+        if (!isGuest) {
+            successfulOrderCount = orderRepository.countSuccessfulOrdersByUserEmail(cart.getUser().getEmail());
+        }
+
         // Add coupon-based FREE_PRODUCT promotion if applicable
         String cleanCoupon = (couponCode != null && !couponCode.trim().isEmpty())
                 ? couponCode.trim().toUpperCase() : null;
@@ -339,23 +467,36 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         List<FreeProductOptionResponse> options = new ArrayList<>();
 
         for (Promotion promo : allActive) {
-            if (promo.getPromotionType() != PromotionType.FREE_PRODUCT) continue;
+            if (promo.getPromotionType() != PromotionType.FREE_PRODUCT && promo.getPromotionType() != PromotionType.BUY_X_GET_Y) continue;
+            if (!isCustomerEligible(promo, isGuest, successfulOrderCount, userId)) {
+                log.info("[TARGETING] Skipping promo '{}' – customer ineligible", promo.getName());
+                continue;
+            }
             if (!isPromotionValid(promo)) continue;
 
             PromotionConfiguration config = promo.getConfiguration();
             if (config == null) continue;
+            
+            // Only BUY_X_GET_Y with allowCustomerSelection=true populates options (otherwise it auto-discounts existing items)
+            if (promo.getPromotionType() == PromotionType.BUY_X_GET_Y && !config.isAllowCustomerSelection()) continue;
 
-            // Check cart qualification
-            if (!cartQualifiesForFreeProduct(cart, promo, config)) continue;
+            long totalUnlockedQty = 0;
+            if (promo.getPromotionType() == PromotionType.FREE_PRODUCT) {
+                if (!cartQualifiesForFreeProduct(cart, promo, config)) continue;
+                totalUnlockedQty = config.getMaxFreeQuantity() != null ? config.getMaxFreeQuantity() : 1;
+            } else if (promo.getPromotionType() == PromotionType.BUY_X_GET_Y) {
+                totalUnlockedQty = calculateBuyXGetYUnlockedRewards(cart, promo, config);
+                if (totalUnlockedQty <= 0) continue;
+            }
 
             // How many free items from this promo already in cart?
             long alreadyAdded = cart.getItems().stream()
                     .filter(item -> item.isFreeItem() && promo.getId().equals(item.getFreePromotionId()))
                     .mapToLong(CartItem::getQuantity).sum();
 
-            int maxFree = config.getMaxFreeQuantity() != null ? config.getMaxFreeQuantity() : 1;
-            if (alreadyAdded >= maxFree) {
-                log.debug("[FREE_PRODUCT] Promo '{}' already fulfilled (added={})", promo.getName(), alreadyAdded);
+            if (alreadyAdded >= totalUnlockedQty) {
+                log.debug("[{}] Promo '{}' already fulfilled (added={}, unlocked={})", 
+                        promo.getPromotionType(), promo.getName(), alreadyAdded, totalUnlockedQty);
                 continue;
             }
 
@@ -477,31 +618,44 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                 .orElseThrow(() -> new com.alahadattars.exception.ResourceNotFoundException(
                         "Promotion not found: " + promotionId));
 
-        if (promo.getPromotionType() != PromotionType.FREE_PRODUCT)
-            throw new BadRequestException("Promotion " + promotionId + " is not a FREE_PRODUCT type.");
+        if (promo.getPromotionType() != PromotionType.FREE_PRODUCT && promo.getPromotionType() != PromotionType.BUY_X_GET_Y)
+            throw new BadRequestException("Promotion " + promotionId + " does not support free items.");
         if (!promo.isActive())
-            throw new BadRequestException("This free product promotion is currently disabled.");
+            throw new BadRequestException("This promotion is currently disabled.");
         if (!isDateValid(promo, now))
-            throw new BadRequestException("This free product promotion has expired or not yet started.");
+            throw new BadRequestException("This promotion has expired or not yet started.");
         if (!isPromotionValid(promo))
-            throw new BadRequestException("This free product promotion is no longer valid.");
+            throw new BadRequestException("This promotion is no longer valid.");
 
         PromotionConfiguration config = promo.getConfiguration();
         if (config == null)
             throw new BadRequestException("Promotion configuration is missing.");
 
-        // Cart must still qualify
-        if (!cartQualifiesForFreeProduct(cart, promo, config))
-            throw new BadRequestException(
-                    "Your cart no longer qualifies for this free product promotion. "
-                    + "Please ensure you have the required item and quantity.");
+        if (!isWithinPerUserLimit(promo, cart)) {
+            throw new BadRequestException("You have already used the promotion '" + promo.getName() + "'.");
+        }
+
+        long totalUnlockedQty = 0;
+        if (promo.getPromotionType() == PromotionType.FREE_PRODUCT) {
+            // Cart must still qualify
+            if (!cartQualifiesForFreeProduct(cart, promo, config))
+                throw new BadRequestException(
+                        "Your cart no longer qualifies for this free product promotion. "
+                        + "Please ensure you have the required item and quantity.");
+            totalUnlockedQty = config.getMaxFreeQuantity() != null ? config.getMaxFreeQuantity() : 1;
+        } else if (promo.getPromotionType() == PromotionType.BUY_X_GET_Y) {
+            totalUnlockedQty = calculateBuyXGetYUnlockedRewards(cart, promo, config);
+            if (totalUnlockedQty <= 0)
+                throw new BadRequestException(
+                        "Your cart no longer qualifies for this reward promotion. "
+                        + "Please ensure you have the required item and quantity.");
+        }
 
         // Check max free quantity
         long alreadyAdded = cart.getItems().stream()
                 .filter(item -> item.isFreeItem() && promo.getId().equals(item.getFreePromotionId()))
                 .mapToLong(CartItem::getQuantity).sum();
-        int maxFree = config.getMaxFreeQuantity() != null ? config.getMaxFreeQuantity() : 1;
-        if (alreadyAdded >= maxFree)
+        if (alreadyAdded >= totalUnlockedQty)
             throw new BadRequestException(
                     "You have already added the maximum number of free items for this promotion.");
 
@@ -743,7 +897,28 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         if (!promo.isActive() || !isDateValid(promo, now) || !isPromotionValid(promo)) return false;
         PromotionConfiguration config = promo.getConfiguration();
         if (config == null) return false;
-        if (!cartQualifiesForFreeProduct(cart, promo, config)) return false;
+
+        if (!isWithinPerUserLimit(promo, cart)) {
+            return false;
+        }
+        
+        long totalUnlockedQty = 0;
+        if (promo.getPromotionType() == PromotionType.FREE_PRODUCT) {
+            if (!cartQualifiesForFreeProduct(cart, promo, config)) return false;
+            totalUnlockedQty = config.getMaxFreeQuantity() != null ? config.getMaxFreeQuantity() : 1;
+        } else if (promo.getPromotionType() == PromotionType.BUY_X_GET_Y) {
+            totalUnlockedQty = calculateBuyXGetYUnlockedRewards(cart, promo, config);
+            if (totalUnlockedQty <= 0) return false;
+        } else {
+            return false;
+        }
+        
+        // We do not check alreadyAdded < totalUnlockedQty here, because this item IS one of the already added items, 
+        // and we want it to remain valid if the cart still qualifies for it!
+        // We only care that totalUnlockedQty > 0. (Actually, if there are multiple free items, and they reduce qty,
+        // the cart might have 2 free items but only 1 unlocked. In evaluateCart we should probably prune them,
+        // but historically this only checks qualification, so returning false only if totalUnlockedQty <= 0 is fine).
+        
         // Check variant still matches — was previously checking only allowedFreeVariantSize, which
         // wrongly flagged every freeVariantIds-based free item as stale regardless of validity.
         if (!isVariantEligibleAsFreeGift(freeItem.getVariant(), config)) return false;
@@ -799,72 +974,58 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                 .findFirst().orElse(null);
     }
 
-    private boolean isItemEligible(Promotion promo, CartItem cartItem) {
-        if (cartItem == null) {
-            log.info("[isItemEligible] Failed: cartItem is null");
-            return false;
-        }
-        if (!isProductEligible(promo, cartItem.getProduct())) {
-            log.info("[isItemEligible] Failed: isProductEligible is false for Product ID={}", cartItem.getProduct().getId());
-            return false;
-        }
+    private boolean isCustomerEligible(Promotion promo, boolean isGuest, long successfulOrderCount, Long userId) {
+        boolean isFirstOrderType = promo.getPromotionType() == PromotionType.FIRST_ORDER;
+        PromotionConfiguration config = promo.getConfiguration();
+        boolean firstOrderFlag = config != null && config.isFirstOrderOnly();
         
-        if (promo.getPromotionType() == PromotionType.CATEGORY_DISCOUNT) {
-            if (cartItem.getProduct().getCategory() != null && cartItem.getVariant() != null) {
-                String categoryName = cartItem.getProduct().getCategory().getName().toLowerCase();
-                String size = cartItem.getVariant().getSize() != null ? cartItem.getVariant().getSize().toLowerCase().trim() : "";
-                
-                boolean isAttarSize = size.equals("3ml") || size.equals("6ml") || size.equals("12ml");
-                boolean isPerfumeSize = size.equals("30ml") || size.equals("50ml") || size.equals("100ml");
-                
-                log.info("[isItemEligible] Evaluated variant: name={}, size={}, category={}, isAttarSize={}, isPerfumeSize={}",
-                        cartItem.getProduct().getName(), size, categoryName, isAttarSize, isPerfumeSize);
-                
-                if (categoryName.contains("attar")) {
-                    if (isPerfumeSize) {
-                        log.info("[isItemEligible] Failed: Attar category but perfume size");
-                        return false;
-                    }
-                    if (!isAttarSize && cartItem.getVariant().getProductType() != null) {
-                        if (!cartItem.getVariant().getProductType().name().equals("ATTAR")) {
-                            log.info("[isItemEligible] Failed: Fallback to productType rejected ATTAR");
-                            return false;
-                        }
-                    }
-                }
-                
-                if (categoryName.contains("perfume")) {
-                    if (isAttarSize) {
-                        log.info("[isItemEligible] Failed: Perfume category but attar size");
-                        return false;
-                    }
-                    if (!isPerfumeSize && cartItem.getVariant().getProductType() != null) {
-                        if (!cartItem.getVariant().getProductType().name().equals("PERFUME")) {
-                            log.info("[isItemEligible] Failed: Fallback to productType rejected PERFUME");
-                            return false;
-                        }
-                    }
-                }
+        Integer minPrevious = (config != null) ? config.getMinPreviousOrders() : null;
+        List<Long> allowedUserIds = (config != null) ? config.getAllowedUserIds() : null;
+
+        // Condition ANDing: if a promotion has contradictory configuration, it deterministically fails.
+        if ((isFirstOrderType || firstOrderFlag) && minPrevious != null && minPrevious > 0) {
+            return false;
+        }
+
+        if (isGuest) {
+            // Guests automatically fail FIRST_ORDER, minPreviousOrders, and user targeting
+            if (isFirstOrderType || firstOrderFlag) return false;
+            if (minPrevious != null && minPrevious > 0) return false;
+            if (allowedUserIds != null && !allowedUserIds.isEmpty()) return false;
+            return true;
+        }
+
+        // Authenticated users
+        if ((isFirstOrderType || firstOrderFlag) && successfulOrderCount > 0) {
+            return false;
+        }
+
+        if (minPrevious != null && successfulOrderCount < minPrevious) {
+            return false;
+        }
+
+        if (allowedUserIds != null && !allowedUserIds.isEmpty()) {
+            if (!allowedUserIds.contains(userId)) {
+                return false;
             }
         }
-        
-        log.info("[isItemEligible] Success for Product ID={}", cartItem.getProduct().getId());
+
         return true;
     }
 
-    private boolean isProductEligible(Promotion promo, Product product) {
-        if (product == null) return false;
-        PromotionConfiguration config = promo.getConfiguration();
-        if (promo.getPromotionType() == PromotionType.CATEGORY_DISCOUNT) {
-            if (config == null || config.getApplicableCategoryIds() == null
-                    || config.getApplicableCategoryIds().isEmpty()) return true;
-            if (product.getCategory() == null) return false;
-            return config.getApplicableCategoryIds().contains(product.getCategory().getId());
+
+    private boolean isItemEligible(Promotion promo, CartItem cartItem) {
+        ItemEligibilityCondition condition = eligibilityConditionFactory.getCondition(promo);
+        if (condition != null) {
+            return condition.isItemEligible(promo, cartItem);
         }
-        if (promo.getPromotionType() == PromotionType.PRODUCT_DISCOUNT) {
-            if (config == null || config.getApplicableProductIds() == null
-                    || config.getApplicableProductIds().isEmpty()) return true;
-            return config.getApplicableProductIds().contains(product.getId());
+        return false;
+    }
+
+    private boolean isProductEligible(Promotion promo, Product product) {
+        ItemEligibilityCondition condition = eligibilityConditionFactory.getCondition(promo);
+        if (condition != null) {
+            return condition.isProductEligible(promo, product);
         }
         return false;
     }
@@ -897,5 +1058,79 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
             return promo.getDiscountValue().min(cartTotal);
         }
         return BigDecimal.ZERO;
+    }
+
+    /**
+     * Calculates the total number of reward quantities a cart has unlocked under a BUY_X_GET_Y
+     * promotion, based on Phase 2A loop logic (Buy vs Get vs Overlap consumption).
+     * Honors minQty, maxRewardQuantityPerOrder, and repeatReward.
+     */
+    private long calculateBuyXGetYUnlockedRewards(Cart cart, Promotion promo, PromotionConfiguration config) {
+        long buyOnlyQty = 0;
+        long getOnlyQty = 0;
+        long overlapQty = 0;
+
+        for (CartItem item : cart.getItems()) {
+            if (item.isFreeItem()) continue; // Ignore free items for qualification
+
+            boolean matchesBuy = isItemEligible(promo, item);
+            boolean matchesGet = isVariantEligibleAsFreeGift(item.getVariant(), config);
+
+            if (matchesBuy && matchesGet) {
+                overlapQty += item.getQuantity();
+            } else if (matchesBuy) {
+                buyOnlyQty += item.getQuantity();
+            } else if (matchesGet) {
+                getOnlyQty += item.getQuantity();
+            }
+        }
+
+        int minQty = config.getMinPurchaseQuantity() != null ? config.getMinPurchaseQuantity() : 1;
+        int getQtyLimit = config.getMaxFreeQuantity() != null ? config.getMaxFreeQuantity() : 1;
+
+        long totalAwardableQty = 0;
+        long bOnly = buyOnlyQty;
+        long oQty = overlapQty;
+        long gOnly = getOnlyQty;
+        
+        System.out.println("calculateBuyXGetYUnlockedRewards: bOnly=" + bOnly + ", oQty=" + oQty + ", gOnly=" + gOnly + ", minQty=" + minQty + ", getQtyLimit=" + getQtyLimit);
+
+        while (true) {
+            // 1. Reserve BUY
+            long neededBuy = minQty;
+            long takeFromBuyOnly = Math.min(bOnly, neededBuy);
+            bOnly -= takeFromBuyOnly;
+            neededBuy -= takeFromBuyOnly;
+
+            long takeFromOverlapForBuy = Math.min(oQty, neededBuy);
+            oQty -= takeFromOverlapForBuy;
+            neededBuy -= takeFromOverlapForBuy;
+
+            if (neededBuy > 0) {
+                break; // Stop
+            }
+
+            // 2. Grant GET rewards
+            long neededGet = getQtyLimit;
+            long takeFromGetOnly = Math.min(gOnly, neededGet);
+            gOnly -= takeFromGetOnly;
+            neededGet -= takeFromGetOnly;
+
+            long takeFromOverlapForGet = Math.min(oQty, neededGet);
+            oQty -= takeFromOverlapForGet;
+            neededGet -= takeFromOverlapForGet;
+
+            long awardedInThisBundle = getQtyLimit - neededGet;
+            totalAwardableQty += awardedInThisBundle;
+
+            if (!config.isRepeatReward()) {
+                break;
+            }
+        }
+
+        if (config.getMaxRewardQuantityPerOrder() != null) {
+            totalAwardableQty = Math.min(totalAwardableQty, config.getMaxRewardQuantityPerOrder());
+        }
+        return totalAwardableQty;
     }
 }

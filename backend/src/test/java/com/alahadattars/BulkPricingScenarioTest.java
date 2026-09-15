@@ -101,12 +101,34 @@ public class BulkPricingScenarioTest {
 
         Product p1 = new Product();
         p1.setName("Attar 1");
+        p1.setSlug("attar-1");
+        p1.setBrand("Brand");
+        p1.setGender(com.alahadattars.enums.Gender.UNISEX);
+        p1.setDescription("Desc 1");
+        p1.setBaseNotes("Base Notes");
+        p1.setMiddleNotes("Middle Notes");
+        p1.setTopNotes("Top Notes");
+        p1.setLongevity("Longevity");
+        p1.setProjection("Projection");
+        p1.setFragranceFamily("Woody");
         p1.setCategory(attarCategory);
         p1.setActive(true);
         p1 = productRepository.save(p1);
 
         Product p2 = new Product();
         p2.setName("Perfume 1");
+        p2.setSlug("perfume-1");
+        p2.setBrand("Brand");
+        p2.setGender(com.alahadattars.enums.Gender.UNISEX);
+        p2.setDescription("Desc 2");
+        p2.setBaseNotes("Base Notes");
+        p2.setMiddleNotes("Middle Notes");
+        p2.setTopNotes("Top Notes");
+        p2.setLongevity("Longevity");
+        p2.setProjection("Projection");
+        p2.setFragranceFamily("Floral");
+        p2.setGender(com.alahadattars.enums.Gender.UNISEX);
+        p2.setDescription("Desc 2");
         p2.setCategory(perfumeCategory);
         p2.setActive(true);
         p2 = productRepository.save(p2);

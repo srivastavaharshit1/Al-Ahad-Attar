@@ -210,11 +210,14 @@ export const Promotions: React.FC = () => {
       payload.code = null;
     }
 
-    if (payload.promotionType === 'FREE_PRODUCT') {
-      // FREE_PRODUCT: set discountType to FREE_ITEM (no monetary discount)
+    if (payload.promotionType === 'FREE_PRODUCT' || payload.promotionType === 'BUY_X_GET_Y') {
+      // For FREE_PRODUCT, standard discount doesn't apply. For BUY_X_GET_Y, rewardDiscountType handles it.
       payload.discountType = 'FREE_ITEM';
-      payload.discountValue = 0;
-      payload.code = null; // FREE_PRODUCT is automatic (triggered by cart content)
+      payload.discountValue = null;
+      payload.maxDiscountValue = null;
+      if (payload.promotionType === 'FREE_PRODUCT') {
+        payload.code = null;
+      }
       // Clear non-FREE_PRODUCT config
       payload.configuration.applicableCategoryIds = null;
       payload.configuration.applicableProductIds = null;
@@ -504,6 +507,7 @@ export const Promotions: React.FC = () => {
                     <option value="FREE_SHIPPING">Free Shipping — Remove shipping charges</option>
                     <option value="FIRST_ORDER">First Order Discount — For new customers only</option>
                     <option value="FREE_PRODUCT">🎁 Free Product Campaign — Give a free product with qualifying orders</option>
+                    <option value="BUY_X_GET_Y">🎁 Buy X Get Y — Automatic in-cart BOGO offers</option>
                   </select>
                 </div>
 
@@ -520,7 +524,7 @@ export const Promotions: React.FC = () => {
                   </div>
                 )}
 
-                {formData.promotionType !== 'FREE_SHIPPING' && formData.promotionType !== 'FREE_PRODUCT' && (
+                {formData.promotionType !== 'FREE_SHIPPING' && formData.promotionType !== 'FREE_PRODUCT' && formData.promotionType !== 'BUY_X_GET_Y' && (
                   <div className="space-y-4">
                     <div className="space-y-1.5">
                       <label className="field-label">Discount Type</label>
@@ -606,8 +610,8 @@ export const Promotions: React.FC = () => {
                 )}
               </div>
 
-              {/* FREE_PRODUCT Configuration */}
-              {formData.promotionType === 'FREE_PRODUCT' && (() => {
+              {/* FREE_PRODUCT / BUY_X_GET_Y Configuration */}
+              {(formData.promotionType === 'FREE_PRODUCT' || formData.promotionType === 'BUY_X_GET_Y') && (() => {
                 // availableProducts comes from the product LIST endpoint (ProductSummaryResponse) —
                 // it has no `category` object and no `variants` array, only a flat `categoryName`
                 // string and a flat `availableSizes: string[]`. Only the full single-product detail

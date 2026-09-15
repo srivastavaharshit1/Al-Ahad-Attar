@@ -27,6 +27,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     long countByUserEmail(String email);
 
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(o) FROM Order o WHERE o.user.email = :email AND o.status <> com.alahadattars.enums.OrderStatus.CANCELLED AND o.paymentStatus = com.alahadattars.enums.PaymentStatus.PAID")
+    long countSuccessfulOrdersByUserEmail(@org.springframework.data.repository.query.Param("email") String email);
+
     @org.springframework.data.jpa.repository.Query("SELECT CASE WHEN COUNT(o) > 0 THEN true ELSE false END FROM Order o JOIN o.items i WHERE o.user.id = :userId AND i.variant.product.id = :productId AND o.status = com.alahadattars.enums.OrderStatus.DELIVERED")
     boolean hasUserPurchasedProduct(@org.springframework.data.repository.query.Param("userId") Long userId, @org.springframework.data.repository.query.Param("productId") Long productId);
 

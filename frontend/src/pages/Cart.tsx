@@ -28,7 +28,8 @@ export const Cart: React.FC = () => {
     items, removeItem, updateQuantity, subtotal, offerDiscount, itemCount, 
     appliedPromotions, unlockMessages, cartDiscount, 
     removePromotion, removeCoupon, removeFreeItem, applyCoupon, 
-    isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage 
+    isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage,
+    freeProductOptions, addFreeItem
   } = useCart();
 
   const { ref: itemsRef, inView: itemsInView } = useInView<HTMLDivElement>();
@@ -36,6 +37,7 @@ export const Cart: React.FC = () => {
   const [couponInput, setCouponInput] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [couponError, setCouponError] = useState('');
+  const [addingFreeGift, setAddingFreeGift] = useState<{promotionId: number, variantId: number} | null>(null);
 
   useEffect(() => {
     if (unlockMessages && unlockMessages.length > 0) {
@@ -66,6 +68,16 @@ export const Cart: React.FC = () => {
       setCouponError(err.response?.data?.message || 'Invalid coupon code');
     } finally {
       setIsApplyingCoupon(false);
+    }
+  };
+
+  const handleAddFreeGift = async (promotionId: number, variantId: number) => {
+    if (addingFreeGift) return; // Prevent rapid clicks
+    setAddingFreeGift({ promotionId, variantId });
+    try {
+      await addFreeItem(promotionId, variantId);
+    } finally {
+      setAddingFreeGift(null);
     }
   };
 
@@ -223,6 +235,90 @@ export const Cart: React.FC = () => {
                 </div>
               </div>
             ))}
+
+            {/* Unlocked Rewards (Free Gifts) */}
+            {freeProductOptions && freeProductOptions.length > 0 && (
+              <div className="bg-white border p-5 md:p-6 rounded-md mt-2 shadow-sm" style={{ borderColor: C.goldBorder }}>
+                 <div className="flex items-center gap-3 mb-4">
+                   <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: C.goldBg, border: `1px solid ${C.goldBorder}` }}>
+                     <span className="material-symbols-outlined text-[20px]" style={{ color: C.goldDark }}>redeem</span>
+                   </div>
+                   <div>
+                     <h3 className="text-[14px] font-bold tracking-wide uppercase" style={{ color: C.goldDark }}>Unlocked Rewards</h3>
+                     <p className="text-[11px]" style={{ color: C.navyLight }}>
+                       Congratulations! Select your free gifts from the options below.
+                     </p>
+                   </div>
+                 </div>
+                 
+                 <div className="space-y-6">
+                   {Object.entries(
+                     freeProductOptions.reduce((acc: any, option: any) => {
+                       const promoName = option.promotion || 'Special Offer';
+                       if (!acc[promoName]) acc[promoName] = [];
+                       acc[promoName].push(option);
+                       return acc;
+                     }, {})
+                   ).map(([promoName, options]: [string, any], index: number) => (
+                     <div key={index}>
+                       <div className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: C.navy }}>
+                         {promoName}
+                       </div>
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                         {options.map((option: any) => {
+                           const isAdding = addingFreeGift?.promotionId === option.promotionId && addingFreeGift?.variantId === option.variantId;
+                           const selectedQuantity = items
+                             .filter(i => i.freeItem && i.freePromotionId === option.promotionId && i.variantId === String(option.variantId))
+                             .reduce((sum, i) => sum + i.quantity, 0);
+
+                           return (
+                             <div key={`${option.promotionId}-${option.variantId}`} className="border p-3 rounded flex gap-3 items-center transition-colors hover:bg-gray-50" style={{ borderColor: C.border, backgroundColor: selectedQuantity > 0 ? C.goldBg : 'transparent' }}>
+                               <div className="w-16 h-16 rounded overflow-hidden shrink-0 border" style={{ borderColor: C.border }}>
+                                 {option.image ? (
+                                   <img src={getImageUrl(option.image)} alt={option.productName} className="w-full h-full object-cover" />
+                                 ) : (
+                                   <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                                     <span className="material-symbols-outlined text-[16px] text-gray-400">image</span>
+                                   </div>
+                                 )}
+                               </div>
+                               <div className="flex-grow flex flex-col justify-between h-full">
+                                 <div>
+                                   <div className="text-[12px] font-serif font-semibold leading-tight" style={{ color: C.navy }}>
+                                     {option.productName}
+                                     {selectedQuantity > 0 && (
+                                       <span className="ml-1 text-[9px] font-bold uppercase" style={{ color: C.goldDark }}>
+                                         ({selectedQuantity} IN BAG)
+                                       </span>
+                                     )}
+                                   </div>
+                                   <div className="text-[10px] uppercase font-bold tracking-wider mt-1" style={{ color: C.navyLight }}>{option.variant}</div>
+                                 </div>
+                                 <button 
+                                   onClick={() => handleAddFreeGift(option.promotionId, option.variantId)}
+                                   disabled={!!addingFreeGift}
+                                   className="mt-2 w-full py-1.5 text-[9px] font-bold uppercase tracking-widest text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                                   style={{ backgroundColor: C.goldDark }}
+                                 >
+                                   {isAdding ? (
+                                     <>
+                                       <span className="material-symbols-outlined text-[12px] animate-spin">progress_activity</span>
+                                       ADDING...
+                                     </>
+                                   ) : (
+                                     'CHOOSE GIFT'
+                                   )}
+                                 </button>
+                               </div>
+                             </div>
+                           );
+                         })}
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+              </div>
+            )}
 
             {/* Gift Box Section */}
             {settings?.isGiftWrapEnabled && (

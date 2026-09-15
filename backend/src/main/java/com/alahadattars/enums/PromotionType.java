@@ -7,5 +7,6 @@ public enum PromotionType {
     FREE_SHIPPING,      // Waive shipping charge
     FIRST_ORDER,        // Discount for first-time customers
     BUNDLE,             // Bundle deal
-    FREE_PRODUCT        // Buy qualifying item → choose an eligible free product at ₹0
+    FREE_PRODUCT,       // Buy qualifying item → choose an eligible free product at ₹0
+    BUY_X_GET_Y         // Buy qualifying items → automatically discount subsequent eligible GET items
 }
