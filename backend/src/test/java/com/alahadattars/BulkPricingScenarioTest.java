@@ -137,7 +137,7 @@ public class BulkPricingScenarioTest {
         attar10ml.setProduct(p1);
         attar10ml.setSize("10ml");
         attar10ml.setPrice(new BigDecimal("100"));
-        attar10ml.setProductType(ProductType.ATTAR);
+        attar10ml.setProductType(ProductType.GENERAL);
         attar10ml.setActive(true);
         attar10ml.setStock(10);
         attar10ml.setSku(UUID.randomUUID().toString());
@@ -147,7 +147,7 @@ public class BulkPricingScenarioTest {
         attar20ml.setProduct(p1);
         attar20ml.setSize("20ml");
         attar20ml.setPrice(new BigDecimal("200"));
-        attar20ml.setProductType(ProductType.ATTAR);
+        attar20ml.setProductType(ProductType.GENERAL);
         attar20ml.setActive(true);
         attar20ml.setStock(10);
         attar20ml.setSku(UUID.randomUUID().toString());

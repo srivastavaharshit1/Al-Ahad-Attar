@@ -60,7 +60,7 @@ public class PromotionPerformanceTest {
 
         for (int i = 0; i < 50; i++) {
             ProductVariant variant = productVariantRepository.save(ProductVariant.builder()
-                    .product(product).size(i + " ml").price(new BigDecimal("100")).stock(100).active(true).sku("P-perf-" + i).productType(com.alahadattars.enums.ProductType.ATTAR).image("img.jpg").build());
+                    .product(product).size(i + " ml").price(new BigDecimal("100")).stock(100).active(true).sku("P-perf-" + i).productType(com.alahadattars.enums.ProductType.GENERAL).image("img.jpg").build());
 
             CartItem item = new CartItem();
             item.setId((long) i);

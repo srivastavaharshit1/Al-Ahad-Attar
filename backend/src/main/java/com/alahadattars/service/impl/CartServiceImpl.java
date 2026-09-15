@@ -47,12 +47,16 @@ public class CartServiceImpl implements CartService {
                 ProductVariant variant = productVariantRepository.findById(itemReq.getVariantId()).orElse(null);
                 if (variant != null) {
                     BigDecimal finalPrice = variant.getPrice();
-                    Bottle bottle = null;
+                    com.alahadattars.entity.Bottle bottle = null;
                     if (itemReq.getBottleId() != null) {
                         bottle = bottleService.getBottleEntityById(itemReq.getBottleId());
                         if (bottle != null && bottle.isActive()) {
                             finalPrice = finalPrice.add(bottle.getPrice());
                         }
+                    }
+
+                    if (!itemReq.isFreeItem() && variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR && bottle == null) {
+                        throw new com.alahadattars.exception.BadRequestException("A bottle must be selected for Attar variants.");
                     }
 
                     CartItem item = CartItem.builder()

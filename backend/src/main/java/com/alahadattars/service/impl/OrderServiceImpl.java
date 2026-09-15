@@ -90,6 +90,7 @@ public class OrderServiceImpl implements OrderService {
     private final com.alahadattars.repository.BottleRepository bottleRepository;
     private final com.alahadattars.service.StorageService storageService;
     private final WebhookEventRepository webhookEventRepository;
+    private final com.alahadattars.service.GuestCheckoutLockService guestCheckoutLockService;
 
     private static final DateTimeFormatter EMAIL_DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
 
@@ -113,6 +114,7 @@ public class OrderServiceImpl implements OrderService {
             if (request.getGuestEmail() == null || request.getGuestAddress() == null) {
                 throw new BadRequestException("Guest information is required");
             }
+            guestCheckoutLockService.acquireLock(request.getGuestEmail());
             shippingAddress = Address.builder()
                 .fullName(request.getGuestName())
                 .phone(request.getGuestPhone())
@@ -217,6 +219,10 @@ public class OrderServiceImpl implements OrderService {
                         throw new BadRequestException("Selected bottle is not available");
                     }
                     finalPrice = finalPrice.add(bottle.getPrice());
+                }
+
+                if (variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR && bottle == null) {
+                    throw new BadRequestException("A bottle must be selected for Attar variants.");
                 }
 
                 CartItem ci = new CartItem();
@@ -359,12 +365,15 @@ public class OrderServiceImpl implements OrderService {
                 if (promo == null) continue;
 
                 Integer perUserLimit = promo.getPerUserLimit();
-                if (perUserLimit != null && perUserLimit > 0 && user != null) {
-                    long alreadyUsed = promotionRedemptionRepository
-                            .countByPromotionIdAndUserId(promo.getId(), user.getId());
-                    if (alreadyUsed >= perUserLimit) {
-                        throw new BadRequestException(
-                                "You have already used the promotion '" + promo.getName() + "'.");
+                if (perUserLimit != null && perUserLimit > 0) {
+                    String customerEmail = (user != null) ? user.getEmail() : request.getGuestEmail();
+                    if (customerEmail != null && !customerEmail.isBlank()) {
+                        long alreadyUsed = promotionRedemptionRepository
+                                .countByPromotionIdAndEmail(promo.getId(), customerEmail);
+                        if (alreadyUsed >= perUserLimit) {
+                            throw new BadRequestException(
+                                    "You have already used the promotion '" + promo.getName() + "'.");
+                        }
                     }
                 }
 
@@ -376,6 +385,7 @@ public class OrderServiceImpl implements OrderService {
                 redemptions.add(PromotionRedemption.builder()
                         .promotion(promo)
                         .user(user)
+                        .guestEmail(user == null ? request.getGuestEmail() : null)
                         .build());
             }
         }
@@ -389,12 +399,15 @@ public class OrderServiceImpl implements OrderService {
                         if (promo == null) continue;
 
                         Integer perUserLimit = promo.getPerUserLimit();
-                        if (perUserLimit != null && perUserLimit > 0 && user != null) {
-                            long alreadyUsed = promotionRedemptionRepository
-                                    .countByPromotionIdAndUserId(promo.getId(), user.getId());
-                            if (alreadyUsed >= perUserLimit) {
-                                throw new BadRequestException(
-                                        "You have already used the promotion '" + promo.getName() + "'.");
+                        if (perUserLimit != null && perUserLimit > 0) {
+                            String customerEmail = (user != null) ? user.getEmail() : request.getGuestEmail();
+                            if (customerEmail != null && !customerEmail.isBlank()) {
+                                long alreadyUsed = promotionRedemptionRepository
+                                        .countByPromotionIdAndEmail(promo.getId(), customerEmail);
+                                if (alreadyUsed >= perUserLimit) {
+                                    throw new BadRequestException(
+                                            "You have already used the promotion '" + promo.getName() + "'.");
+                                }
                             }
                         }
 
@@ -406,6 +419,7 @@ public class OrderServiceImpl implements OrderService {
                         redemptions.add(PromotionRedemption.builder()
                                 .promotion(promo)
                                 .user(user)
+                                .guestEmail(user == null ? request.getGuestEmail() : null)
                                 .build());
                     }
                 }
