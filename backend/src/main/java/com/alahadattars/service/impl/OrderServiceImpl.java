@@ -101,6 +101,10 @@ public class OrderServiceImpl implements OrderService {
         Address shippingAddress = null;
 
         if (email != null) {
+            // Serialize concurrent checkouts for this specific authenticated user via an explicit write lock (UPDATE)
+            // This guarantees cross-RDBMS blocking (H2, Postgres, etc.) without relying on SELECT FOR UPDATE dialects.
+            userRepository.acquireUserLock(email);
+            
             user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new ResourceNotFoundException("User not found"));
             shippingAddress = addressRepository.findByIdAndUserAndActiveTrue(request.getShippingAddressId(), user)
@@ -344,9 +348,12 @@ public class OrderServiceImpl implements OrderService {
         // Claim one redemption per applied promotion. The conditional update fails when the global limit is
         // already exhausted, so configured limits actually hold rather than being advisory.
         List<PromotionRedemption> redemptions = new ArrayList<>();
+        java.util.Set<Long> recordedPromotionIds = new java.util.HashSet<>();
+        
         if (cartEval.getAppliedPromotions() != null) {
             for (PromotionResponse applied : cartEval.getAppliedPromotions()) {
                 if (applied == null || applied.getId() == null) continue;
+                recordedPromotionIds.add(applied.getId());
 
                 Promotion promo = promotionRepository.findById(applied.getId()).orElse(null);
                 if (promo == null) continue;
@@ -370,6 +377,38 @@ public class OrderServiceImpl implements OrderService {
                         .promotion(promo)
                         .user(user)
                         .build());
+            }
+        }
+        
+        // Ensure FREE_PRODUCT promotions also record a redemption, as they are excluded from appliedPromotions
+        if (cartEval.getItems() != null) {
+            for (CartItemResponse itemRes : cartEval.getItems()) {
+                if (itemRes.isFreeItem() && itemRes.getFreePromotionId() != null) {
+                    if (recordedPromotionIds.add(itemRes.getFreePromotionId())) {
+                        Promotion promo = promotionRepository.findById(itemRes.getFreePromotionId()).orElse(null);
+                        if (promo == null) continue;
+
+                        Integer perUserLimit = promo.getPerUserLimit();
+                        if (perUserLimit != null && perUserLimit > 0 && user != null) {
+                            long alreadyUsed = promotionRedemptionRepository
+                                    .countByPromotionIdAndUserId(promo.getId(), user.getId());
+                            if (alreadyUsed >= perUserLimit) {
+                                throw new BadRequestException(
+                                        "You have already used the promotion '" + promo.getName() + "'.");
+                            }
+                        }
+
+                        if (promotionRepository.claimRedemption(promo.getId()) == 0) {
+                            throw new BadRequestException(
+                                    "The promotion '" + promo.getName() + "' is no longer available.");
+                        }
+
+                        redemptions.add(PromotionRedemption.builder()
+                                .promotion(promo)
+                                .user(user)
+                                .build());
+                    }
+                }
             }
         }
 

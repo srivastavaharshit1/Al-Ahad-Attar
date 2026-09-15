@@ -21,6 +21,17 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class PromotionConfiguration implements Serializable {
 
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class VolumeTier implements Serializable {
+        private Integer minQuantity;
+        private com.alahadattars.enums.DiscountType discountType;
+        private java.math.BigDecimal discountValue;
+    }
+
     // ─── PRODUCT_DISCOUNT / CATEGORY_DISCOUNT ────────────────────────────────
 
     /** Category IDs to which this promotion applies. */
@@ -29,11 +40,41 @@ public class PromotionConfiguration implements Serializable {
     /** Product IDs to which this promotion applies. */
     private List<Long> applicableProductIds;
 
+    // ─── TIERED DISCOUNTS ────────────────────────────────────────────────────
+    
+    /** 
+     * Optional volume tiers for PRODUCT_DISCOUNT / CATEGORY_DISCOUNT.
+     * Evaluated based on total eligible quantity in cart.
+     */
+    private List<VolumeTier> volumeTiers;
+
+    // ─── EXCLUSIONS ──────────────────────────────────────────────────────────
+    
+    private List<Long> excludedCategoryIds;
+    private List<Long> excludedProductIds;
+    private List<Long> excludedVariantIds;
+
     // ─── FIRST_ORDER ─────────────────────────────────────────────────────────
 
     /** If true, this promotion only applies to customers with zero prior orders. */
     @Builder.Default
     private boolean firstOrderOnly = false;
+
+    // ─── RETURNING CUSTOMER ──────────────────────────────────────────────────
+
+    /**
+     * Optional. Minimum number of previous successful (PAID) orders the user must have.
+     * Null implies no constraint. Mutually exclusive logically with firstOrderOnly.
+     */
+    private Integer minPreviousOrders;
+
+    // ─── SPECIFIC USER TARGETING ─────────────────────────────────────────────
+
+    /**
+     * Optional. If provided, ONLY these specific user IDs can use this promotion.
+     * Null or empty implies no restriction. Guests automatically fail this check.
+     */
+    private List<Long> allowedUserIds;
 
 
 
@@ -133,6 +174,30 @@ public class PromotionConfiguration implements Serializable {
      * Defaults to 1 when null.
      */
     private Integer maxFreeQuantity;
+
+    /**
+     * Maximum total reward quantity across the entire order.
+     * Acts as an absolute cap on the granted rewards.
+     */
+    private Integer maxRewardQuantityPerOrder;
+
+    /**
+    * For BUY_X_GET_Y: controls scaling. If true, Buy 4 Gets 2 (assuming Buy 2 Get 1). 
+    * If false, Buy 4 still Gets 1.
+    */
+    @Builder.Default
+    private boolean repeatReward = false;
+
+    /**
+    * For BUY_X_GET_Y: The discount type to apply to the 'Get' items.
+    * Defaults to FREE (100% off) if null.
+    */
+    private com.alahadattars.enums.DiscountType rewardDiscountType;
+
+    /**
+    * For BUY_X_GET_Y: The discount value for the 'Get' items.
+    */
+    private java.math.BigDecimal rewardDiscountValue;
 
     /**
      * When true, the customer sees a product selection UI.

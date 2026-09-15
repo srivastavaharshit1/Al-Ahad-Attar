@@ -75,11 +75,13 @@ public class StoreSettings {
     private String returnPolicy;
 
     @Column(nullable = false, columnDefinition = "boolean default true")
+    @Builder.Default
     private Boolean isAnnouncementBarActive = true;
     
     private String customAnnouncementText;
 
     @Column(nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
     private Boolean isGiftWrapEnabled = false;
 
     @Column(precision = 10, scale = 2)

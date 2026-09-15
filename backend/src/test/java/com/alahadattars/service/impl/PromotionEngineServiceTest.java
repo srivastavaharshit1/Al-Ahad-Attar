@@ -10,11 +10,15 @@ import com.alahadattars.entity.Product;
 import com.alahadattars.entity.ProductVariant;
 import com.alahadattars.entity.Promotion;
 import com.alahadattars.entity.PromotionConfiguration;
+import com.alahadattars.entity.User;
 import com.alahadattars.enums.PromotionScope;
 import com.alahadattars.enums.PromotionType;
 import com.alahadattars.exception.BadRequestException;
 import com.alahadattars.repository.ProductVariantRepository;
 import com.alahadattars.repository.PromotionRepository;
+import com.alahadattars.service.impl.PromotionEngineServiceImpl;
+import com.alahadattars.service.promotion.EligibilityConditionFactory;
+import com.alahadattars.service.promotion.LegacyCategoryDiscountCondition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,10 +45,16 @@ public class PromotionEngineServiceTest {
     private PromotionRepository promotionRepository;
 
     @Mock
+    private com.alahadattars.repository.OrderRepository orderRepository;
+
+    @Mock
     private ProductVariantRepository productVariantRepository;
 
     @Mock
     private PromotionResponseMapper promotionResponseMapper;
+
+    @Mock
+    private EligibilityConditionFactory eligibilityConditionFactory;
 
     @InjectMocks
     private PromotionEngineServiceImpl promotionEngineService;
@@ -120,6 +130,7 @@ public class PromotionEngineServiceTest {
     void testEvaluateCart_AppliesDiscount() {
         when(promotionRepository.findActiveAutomaticPromotions(any(LocalDateTime.class)))
                 .thenReturn(List.of(promoDiscount));
+        when(eligibilityConditionFactory.getCondition(any())).thenReturn(new LegacyCategoryDiscountCondition());
 
         CartResponse response = promotionEngineService.evaluateCart(cart, null);
 
@@ -551,5 +562,156 @@ public class PromotionEngineServiceTest {
         CartResponse response = promotionEngineService.evaluateCart(cart, null);
 
         assertTrue(response.getAppliedPromotions().isEmpty());
+    }
+
+    @Test
+    void testFirstOrder_EligibleWhenZeroSuccessfulOrders() {
+        // Authenticated user with 0 successful orders
+        User user = new User();
+        user.setId(10L);
+        user.setEmail("first@test.com");
+        cart.setUser(user);
+
+        when(orderRepository.countSuccessfulOrdersByUserEmail("first@test.com")).thenReturn(0L);
+
+        Promotion promo = new Promotion();
+        promo.setPromotionType(PromotionType.FIRST_ORDER);
+        promo.setActive(true);
+        promo.setDiscountType(com.alahadattars.enums.DiscountType.PERCENTAGE);
+        promo.setDiscountValue(new BigDecimal("10"));
+        
+        when(promotionRepository.findActiveAutomaticPromotions(any())).thenReturn(List.of(promo));
+        org.mockito.Mockito.lenient().when(eligibilityConditionFactory.getCondition(any())).thenReturn(null);
+        
+        CartResponse response = promotionEngineService.evaluateCart(cart, null);
+        assertEquals(1, response.getAppliedPromotions().size());
+    }
+
+    @Test
+    void testFirstOrder_IneligibleWhenOneSuccessfulOrder() {
+        User user = new User();
+        user.setId(10L);
+        user.setEmail("second@test.com");
+        cart.setUser(user);
+
+        when(orderRepository.countSuccessfulOrdersByUserEmail("second@test.com")).thenReturn(1L);
+
+        Promotion promo = new Promotion();
+        promo.setPromotionType(PromotionType.FIRST_ORDER);
+        promo.setActive(true);
+        
+        when(promotionRepository.findActiveAutomaticPromotions(any())).thenReturn(List.of(promo));
+        
+        CartResponse response = promotionEngineService.evaluateCart(cart, null);
+        assertEquals(0, response.getAppliedPromotions().size());
+    }
+
+    @Test
+    void testFirstOrder_GuestIsIneligible() {
+        // Guest user
+        cart.setUser(null);
+
+        Promotion promo = new Promotion();
+        promo.setPromotionType(PromotionType.FIRST_ORDER);
+        promo.setActive(true);
+        
+        when(promotionRepository.findActiveAutomaticPromotions(any())).thenReturn(List.of(promo));
+        
+        CartResponse response = promotionEngineService.evaluateCart(cart, null);
+        assertEquals(0, response.getAppliedPromotions().size());
+    }
+
+    @Test
+    void testMinPreviousOrders_Qualifies() {
+        User user = new User();
+        user.setId(10L);
+        user.setEmail("loyal@test.com");
+        cart.setUser(user);
+
+        when(orderRepository.countSuccessfulOrdersByUserEmail("loyal@test.com")).thenReturn(3L);
+
+        Promotion promo = new Promotion();
+        promo.setPromotionType(PromotionType.CART_DISCOUNT);
+        promo.setDiscountType(com.alahadattars.enums.DiscountType.PERCENTAGE);
+        promo.setDiscountValue(new BigDecimal("15"));
+        promo.setActive(true);
+        PromotionConfiguration config = new PromotionConfiguration();
+        config.setMinPreviousOrders(3);
+        promo.setConfiguration(config);
+        
+        when(promotionRepository.findActiveAutomaticPromotions(any())).thenReturn(List.of(promo));
+        org.mockito.Mockito.lenient().when(eligibilityConditionFactory.getCondition(any())).thenReturn(null);
+        
+        CartResponse response = promotionEngineService.evaluateCart(cart, null);
+        assertEquals(1, response.getAppliedPromotions().size());
+    }
+
+    @Test
+    void testMinPreviousOrders_Fails() {
+        User user = new User();
+        user.setId(10L);
+        user.setEmail("new@test.com");
+        cart.setUser(user);
+
+        when(orderRepository.countSuccessfulOrdersByUserEmail("new@test.com")).thenReturn(2L);
+
+        Promotion promo = new Promotion();
+        promo.setPromotionType(PromotionType.CART_DISCOUNT);
+        promo.setActive(true);
+        PromotionConfiguration config = new PromotionConfiguration();
+        config.setMinPreviousOrders(3);
+        promo.setConfiguration(config);
+        
+        when(promotionRepository.findActiveAutomaticPromotions(any())).thenReturn(List.of(promo));
+        
+        CartResponse response = promotionEngineService.evaluateCart(cart, null);
+        assertEquals(0, response.getAppliedPromotions().size());
+    }
+
+    @Test
+    void testAllowedUserIds_Qualifies() {
+        User user = new User();
+        user.setId(42L);
+        user.setEmail("vip@test.com");
+        cart.setUser(user);
+
+        when(orderRepository.countSuccessfulOrdersByUserEmail("vip@test.com")).thenReturn(5L);
+
+        Promotion promo = new Promotion();
+        promo.setPromotionType(PromotionType.CART_DISCOUNT);
+        promo.setDiscountType(com.alahadattars.enums.DiscountType.PERCENTAGE);
+        promo.setDiscountValue(new BigDecimal("20"));
+        promo.setActive(true);
+        PromotionConfiguration config = new PromotionConfiguration();
+        config.setAllowedUserIds(List.of(42L, 99L));
+        promo.setConfiguration(config);
+        
+        when(promotionRepository.findActiveAutomaticPromotions(any())).thenReturn(List.of(promo));
+        org.mockito.Mockito.lenient().when(eligibilityConditionFactory.getCondition(any())).thenReturn(null);
+        
+        CartResponse response = promotionEngineService.evaluateCart(cart, null);
+        assertEquals(1, response.getAppliedPromotions().size());
+    }
+
+    @Test
+    void testAllowedUserIds_Fails() {
+        User user = new User();
+        user.setId(10L);
+        user.setEmail("normal@test.com");
+        cart.setUser(user);
+
+        when(orderRepository.countSuccessfulOrdersByUserEmail("normal@test.com")).thenReturn(5L);
+
+        Promotion promo = new Promotion();
+        promo.setPromotionType(PromotionType.CART_DISCOUNT);
+        promo.setActive(true);
+        PromotionConfiguration config = new PromotionConfiguration();
+        config.setAllowedUserIds(List.of(42L, 99L));
+        promo.setConfiguration(config);
+        
+        when(promotionRepository.findActiveAutomaticPromotions(any())).thenReturn(List.of(promo));
+        
+        CartResponse response = promotionEngineService.evaluateCart(cart, null);
+        assertEquals(0, response.getAppliedPromotions().size());
     }
 }

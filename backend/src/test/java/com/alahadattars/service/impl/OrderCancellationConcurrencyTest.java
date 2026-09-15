@@ -220,7 +220,7 @@ class OrderCancellationConcurrencyTest {
         // claimAdminRefundProcessing's atomic claim, not just a theoretical one.
         when(paymentService.initiateRefund(anyString(), any(BigDecimal.class))).thenAnswer(inv -> {
             Thread.sleep(50);
-            return RefundResult.builder().outcome(RefundResult.RefundOutcome.SUCCESS).refundId("rfnd_concurrency_test").build();
+            return RefundResult.builder().outcome(RefundResult.RefundOutcome.PROCESSED).refundId("rfnd_concurrency_test").build();
         });
 
         int threads = 3;

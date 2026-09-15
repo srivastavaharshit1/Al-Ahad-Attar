@@ -50,7 +50,7 @@ public class BulkPriceAudit extends BaseEntity {
     @Column(length = 50)
     private com.alahadattars.enums.BulkPricingType type;
 
-    @Column(name = "value", precision = 10, scale = 2)
+    @Column(name = "\"value\"", precision = 10, scale = 2)
     private BigDecimal value;
 
     // Kept to satisfy existing NOT NULL database constraint from previous schema version
