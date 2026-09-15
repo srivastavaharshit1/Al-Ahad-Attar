@@ -100,10 +100,10 @@ public class PromotionConcurrencyTest {
         Category category = categoryRepository.save(Category.builder().name("C_" + rand).description("desc").image("img").type(com.alahadattars.enums.CategoryType.ATTARS).build());
         Product product = productRepository.save(Product.builder().name("P_" + rand).slug("p-conc-" + rand).brand("B").category(category).description("D").fragranceFamily("F").topNotes("T").middleNotes("M").baseNotes("B").longevity("L").projection("P").gender(com.alahadattars.enums.Gender.UNISEX).shortDescription("short").build());
         
-        paidVariant = productVariantRepository.save(ProductVariant.builder().product(product).size("12 ml").price(new BigDecimal("1000")).stock(100).active(true).sku("P-12-conc-" + rand).productType(com.alahadattars.enums.ProductType.ATTAR).image("img.jpg").build());
+        paidVariant = productVariantRepository.save(ProductVariant.builder().product(product).size("12 ml").price(new BigDecimal("1000")).stock(100).active(true).sku("P-12-conc-" + rand).productType(com.alahadattars.enums.ProductType.GENERAL).image("img.jpg").build());
         
         // CRITICAL: Inventory is exactly 1
-        freeVariant = productVariantRepository.save(ProductVariant.builder().product(product).size("3 ml").price(new BigDecimal("300")).stock(1).active(true).sku("P-3-conc-" + rand).productType(com.alahadattars.enums.ProductType.ATTAR).image("img.jpg").build());
+        freeVariant = productVariantRepository.save(ProductVariant.builder().product(product).size("3 ml").price(new BigDecimal("300")).stock(1).active(true).sku("P-3-conc-" + rand).productType(com.alahadattars.enums.ProductType.GENERAL).image("img.jpg").build());
 
         freePromotion = new Promotion();
         freePromotion.setName("Concurrency Promo");

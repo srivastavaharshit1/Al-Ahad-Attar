@@ -618,6 +618,12 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                 .orElseThrow(() -> new com.alahadattars.exception.ResourceNotFoundException(
                         "Promotion not found: " + promotionId));
 
+        boolean hasOtherPromoFreeItem = cart.getItems().stream()
+                .anyMatch(item -> item.isFreeItem() && item.getFreePromotionId() != null && !item.getFreePromotionId().equals(promotionId));
+        if (hasOtherPromoFreeItem) {
+            throw new BadRequestException("You can only claim free gifts from one promotion per order.");
+        }
+
         if (promo.getPromotionType() != PromotionType.FREE_PRODUCT && promo.getPromotionType() != PromotionType.BUY_X_GET_Y)
             throw new BadRequestException("Promotion " + promotionId + " does not support free items.");
         if (!promo.isActive())

@@ -44,10 +44,12 @@ public class PromotionRedemption extends BaseEntity {
     private Promotion promotion;
 
     @ToString.Exclude
-    @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
     private User user;
+
+    @Column(name = "guest_email")
+    private String guestEmail;
 
     @Column(name = "order_id")
     private Long orderId;

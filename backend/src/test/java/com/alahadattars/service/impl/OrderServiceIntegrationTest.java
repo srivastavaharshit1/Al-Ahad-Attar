@@ -148,7 +148,7 @@ public class OrderServiceIntegrationTest {
                 .stock(10)
                 .active(true)
                 .sku("OUD-12")
-                .productType(com.alahadattars.enums.ProductType.ATTAR)
+                .productType(com.alahadattars.enums.ProductType.GENERAL)
                 .image("img.jpg")
                 .build();
         productVariantRepository.save(paidVariant);
@@ -160,7 +160,7 @@ public class OrderServiceIntegrationTest {
                 .stock(5)
                 .active(true)
                 .sku("OUD-3")
-                .productType(com.alahadattars.enums.ProductType.ATTAR)
+                .productType(com.alahadattars.enums.ProductType.GENERAL)
                 .image("img.jpg")
                 .build();
         productVariantRepository.save(freeVariant);
