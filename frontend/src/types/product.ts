@@ -7,11 +7,15 @@ export interface ProductImage {
   imageUrl: string;
   displayOrder: number;
   isPrimary: boolean;
+  /** Type tag stored in altText on the backend: "ATTAR", "PERFUME", or "" / undefined for shared images. */
   altText?: string;
+  /** Derived from altText for clarity in frontend logic. */
+  productType?: 'ATTAR' | 'PERFUME' | '';
   width?: number;
   height?: number;
   format?: string;
 }
+
 
 export interface Product {
   id: number;

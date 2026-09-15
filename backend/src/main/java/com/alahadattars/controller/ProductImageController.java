@@ -41,9 +41,12 @@ public class ProductImageController {
     public ResponseEntity<ApiResponse<ProductImageResponse>> uploadImage(
             @PathVariable Long productId,
             @Parameter(description = "The image file (JPEG, PNG, WEBP)", content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE))
-            @RequestParam("file") MultipartFile file) {
-        log.info("Received request to upload image for product ID: {}", productId);
-        ProductImageResponse response = productImageService.uploadImage(productId, file);
+            @RequestParam("file") MultipartFile file,
+            @Parameter(description = "Product type for this image: ATTAR, PERFUME, or omit for shared")
+            @RequestParam(value = "productType", required = false) String productType) {
+        log.info("Received request to upload {} image for product ID: {}",
+                productType != null ? productType : "shared", productId);
+        ProductImageResponse response = productImageService.uploadImage(productId, file, productType);
         return ResponseEntity.ok(ApiResponse.<ProductImageResponse>builder()
                 .success(true)
                 .message("Image uploaded successfully")
@@ -51,11 +54,17 @@ public class ProductImageController {
                 .build());
     }
 
-    @Operation(summary = "Get all images for a product")
+    @Operation(summary = "Get all images for a product (optionally filtered by type)")
     @GetMapping("/api/products/{productId}/images")
-    public ResponseEntity<ApiResponse<List<ProductImageResponse>>> getImagesByProduct(@PathVariable Long productId) {
-        log.info("Received request to fetch images for product ID: {}", productId);
-        List<ProductImageResponse> response = productImageService.getImagesByProduct(productId);
+    public ResponseEntity<ApiResponse<List<ProductImageResponse>>> getImagesByProduct(
+            @PathVariable Long productId,
+            @Parameter(description = "Filter by product type: ATTAR or PERFUME. Omit to get all images.")
+            @RequestParam(value = "productType", required = false) String productType) {
+        log.info("Received request to fetch {} images for product ID: {}",
+                productType != null ? productType : "all", productId);
+        List<ProductImageResponse> response = (productType != null && !productType.isBlank())
+                ? productImageService.getImagesByProductAndType(productId, productType)
+                : productImageService.getImagesByProduct(productId);
         return ResponseEntity.ok(ApiResponse.<List<ProductImageResponse>>builder()
                 .success(true)
                 .message("Images retrieved successfully")

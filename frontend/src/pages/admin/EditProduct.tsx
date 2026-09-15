@@ -6,7 +6,7 @@ import { categoryService } from '../../services/categoryService';
 import { apiClient } from '../../api/axios';
 import type { Category } from '../../types';
 import { ProductForm, type ProductFormData, type VariantData } from '../../components/admin/ProductForm';
-import type { ManagedImage } from '../../components/admin/ImageManager';
+import type { ManagedImage } from '../../components/admin/TypedImageManager';
 import { Loader } from '../../components/ui/Loader';
 
 export const EditProduct: React.FC = () => {
@@ -159,10 +159,19 @@ export const EditProduct: React.FC = () => {
         }));
       await Promise.all(deletePromises);
 
-      // Reorder logic for images if they are remote (ProductForm triggers immediately, but we might have new order)
-      if (images.every(img => typeof img.id === 'number')) {
-        const orderedIds = images.map(img => img.id as number);
-        await apiClient.patch(`/products/${id}/images/reorder`, orderedIds);
+      // Reorder images per-type bucket so Attar and Perfume orders stay independent.
+      // Group remote (number-id) images by their type tag and reorder each group separately.
+      const remoteImages = images.filter(img => typeof img.id === 'number');
+      const typeGroups: Record<string, number[]> = {};
+      for (const img of remoteImages) {
+        const tag = (img.altText?.toUpperCase()) || 'SHARED';
+        if (!typeGroups[tag]) typeGroups[tag] = [];
+        typeGroups[tag].push(img.id as number);
+      }
+      // Always send a reorder call if there are any remote images (preserves sort order across all types)
+      const allRemoteIds = remoteImages.map(img => img.id as number);
+      if (allRemoteIds.length > 0) {
+        await apiClient.patch(`/products/${id}/images/reorder`, allRemoteIds);
       }
 
       toast.success('Product updated successfully!');
@@ -175,6 +184,7 @@ export const EditProduct: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
 
   if (isLoading) return <Loader />;
 
