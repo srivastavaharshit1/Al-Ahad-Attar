@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../utils/constants';
 import { storage } from '../utils/storage';
+import { apiCache } from '../utils/cache';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -27,7 +28,17 @@ apiClient.interceptors.request.use(
 );
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Automatically clear frontend API cache on any mutation to products or images
+    const method = response.config.method?.toUpperCase();
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method!)) {
+      const url = response.config.url || '';
+      if (url.includes('/products') || url.includes('/images')) {
+        apiCache.clear();
+      }
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       // Check if the user had a token (they were logged in)
