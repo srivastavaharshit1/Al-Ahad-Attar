@@ -285,18 +285,28 @@ public class ProductServiceImpl implements ProductService {
             if (categoryId != null) {
                 if (!isCarPerfumes && categoryName != null && "Perfumes".equalsIgnoreCase(categoryName)) {
                     // Normal Perfumes tab: a product belongs if its category is Perfumes OR it has a PERFUME variant
+                    // AND it belongs to a cross-pollinatable category (Attars or Perfumes)
                     jakarta.persistence.criteria.Join<Product, ProductVariant> variantJoin = root.join("variants", jakarta.persistence.criteria.JoinType.LEFT);
                     Predicate catMatch = cb.equal(root.get("category").get("id"), categoryId);
                     Predicate variantMatch = cb.equal(variantJoin.get("productType"), com.alahadattars.enums.ProductType.PERFUME);
+                    Predicate isCrossPollinatable = cb.or(
+                        cb.equal(cb.lower(root.get("category").get("name")), "attars"),
+                        cb.equal(cb.lower(root.get("category").get("name")), "perfumes")
+                    );
                     query.distinct(true);
-                    predicates.add(cb.or(catMatch, variantMatch));
+                    predicates.add(cb.or(catMatch, cb.and(variantMatch, isCrossPollinatable)));
                 } else if (!isCarPerfumes && categoryName != null && "Attars".equalsIgnoreCase(categoryName)) {
                     // Normal Attars tab: a product belongs if its category is Attars OR it has an ATTAR variant
+                    // AND it belongs to a cross-pollinatable category (Attars or Perfumes)
                     jakarta.persistence.criteria.Join<Product, ProductVariant> variantJoin = root.join("variants", jakarta.persistence.criteria.JoinType.LEFT);
                     Predicate catMatch = cb.equal(root.get("category").get("id"), categoryId);
                     Predicate variantMatch = cb.equal(variantJoin.get("productType"), com.alahadattars.enums.ProductType.ATTAR);
+                    Predicate isCrossPollinatable = cb.or(
+                        cb.equal(cb.lower(root.get("category").get("name")), "attars"),
+                        cb.equal(cb.lower(root.get("category").get("name")), "perfumes")
+                    );
                     query.distinct(true);
-                    predicates.add(cb.or(catMatch, variantMatch));
+                    predicates.add(cb.or(catMatch, cb.and(variantMatch, isCrossPollinatable)));
                 } else {
                     // Car Perfumes tab and all other categories: strict category match only —
                     // no variant-type OR so PERFUME/ATTAR variants cannot pull in unrelated products.
