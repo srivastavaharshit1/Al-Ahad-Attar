@@ -39,6 +39,8 @@ public class ProductMapper {
         if (product.getImages() != null) {
             imageResponses = product.getImages().stream()
                     .filter(img -> img.isActive())
+                    .sorted(java.util.Comparator.comparing(com.alahadattars.entity.ProductImage::getDisplayOrder)
+                            .thenComparing(com.alahadattars.entity.ProductImage::getId))
                     .map(img -> com.alahadattars.dto.product.ProductImageResponse.builder()
                             .id(img.getId())
                             .imageUrl(storageService.resolveUrl(img.getImageUrl(), "/api/images/" + img.getId() + "/file"))
@@ -184,20 +186,30 @@ public class ProductMapper {
                     .filter(com.alahadattars.entity.ProductImage::isActive)
                     .collect(Collectors.toList());
             
+            java.util.Comparator<com.alahadattars.entity.ProductImage> imageComparator =
+                java.util.Comparator.comparing(com.alahadattars.entity.ProductImage::getDisplayOrder)
+                    .thenComparing(com.alahadattars.entity.ProductImage::getId);
+
             com.alahadattars.entity.ProductImage thumbImage = null;
             if (finalPreferredType != null) {
                 thumbImage = activeImages.stream()
-                        .filter(img -> finalPreferredType.equalsIgnoreCase(img.getAltText()))
-                        .findFirst()
+                        .filter(img -> finalPreferredType.equalsIgnoreCase(img.getAltText()) && img.isPrimary())
+                        .min(imageComparator)
                         .orElseGet(() -> activeImages.stream()
-                                .filter(img -> img.getAltText() == null || img.getAltText().trim().isEmpty())
-                                .findFirst()
-                                .orElse(null));
+                                .filter(img -> finalPreferredType.equalsIgnoreCase(img.getAltText()))
+                                .min(imageComparator)
+                                .orElseGet(() -> activeImages.stream()
+                                        .filter(img -> (img.getAltText() == null || img.getAltText().trim().isEmpty()) && img.isPrimary())
+                                        .min(imageComparator)
+                                        .orElseGet(() -> activeImages.stream()
+                                                .filter(img -> img.getAltText() == null || img.getAltText().trim().isEmpty())
+                                                .min(imageComparator)
+                                                .orElse(null))));
             } else {
                 thumbImage = activeImages.stream()
                         .filter(com.alahadattars.entity.ProductImage::isPrimary)
-                        .findFirst()
-                        .orElseGet(() -> activeImages.stream().findFirst().orElse(null));
+                        .min(imageComparator)
+                        .orElseGet(() -> activeImages.stream().min(imageComparator).orElse(null));
             }
             
             if (thumbImage != null) {

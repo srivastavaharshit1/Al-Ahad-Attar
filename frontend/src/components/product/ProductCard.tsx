@@ -21,17 +21,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
   // For Product details (ProductResponse)
   const defaultVariant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
   
-  // For Collection view (ProductSummaryResponse)
-  let selectedImage = product.images?.find(img => img.isPrimary)?.imageUrl || product.images?.[0]?.imageUrl;
+  // The backend summary image (thumbnail) is the primary source of truth.
+  let selectedImage = (product as any).thumbnail;
   
-  if (defaultType && product.images) {
-    const matchedTypeImg = product.images.find(img => img.altText?.toUpperCase() === defaultType.toUpperCase());
-    if (matchedTypeImg) {
-      selectedImage = matchedTypeImg.imageUrl;
+  // Local fallback (only triggers if we are passed a detailed Product without a thumbnail)
+  if (!selectedImage && product.images && product.images.length > 0) {
+    if (defaultType) {
+      const typeImages = product.images.filter(img => img.altText?.toUpperCase() === defaultType.toUpperCase());
+      const typePrimary = typeImages.find(img => img.isPrimary);
+      const sharedImages = product.images.filter(img => !img.altText || img.altText.trim() === '');
+      const sharedPrimary = sharedImages.find(img => img.isPrimary);
+
+      selectedImage = typePrimary?.imageUrl || typeImages[0]?.imageUrl || sharedPrimary?.imageUrl || sharedImages[0]?.imageUrl;
+    } else {
+      selectedImage = product.images.find(img => img.isPrimary)?.imageUrl || product.images[0]?.imageUrl;
     }
   }
 
-  const image = selectedImage || (product as any).thumbnail || '';
+  const image = selectedImage || '';
   const price = defaultVariant?.price || (product as any).minimumPrice || 0;
   const variantId = defaultVariant?.id || (product as any).defaultVariantId;
   const size = defaultVariant?.size || (product as any).defaultVariantSize || '';
