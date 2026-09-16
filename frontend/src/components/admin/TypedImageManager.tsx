@@ -17,8 +17,8 @@ export type ManagedImage = {
 interface TypedImageManagerProps {
   /** The product ID (undefined when creating a new product). */
   productId?: number;
-  /** "ATTAR" or "PERFUME" — determines which type bucket images are uploaded to. */
-  productType: 'ATTAR' | 'PERFUME';
+  /** "ATTAR" or "PERFUME" — determines which type bucket images are uploaded to. Optional for SHARED or GENERAL. */
+  productType?: 'ATTAR' | 'PERFUME' | 'SHARED' | 'GENERAL' | string;
   images: ManagedImage[];
   onImagesChange: (images: ManagedImage[]) => void;
 }
@@ -26,6 +26,8 @@ interface TypedImageManagerProps {
 /**
  * A type-specific image manager that uploads images directly to the correct
  * Attar or Perfume bucket via POST /products/{id}/images?productType=ATTAR|PERFUME.
+ *
+ * For SHARED or GENERAL images, the productType query param is omitted.
  *
  * The type tag is implicit — the admin never needs to set it manually.
  */
@@ -84,8 +86,12 @@ export const TypedImageManager: React.FC<TypedImageManagerProps> = ({
           formData.append('file', compressedFile, finalName);
 
           // Key change: pass productType so the backend tags the image correctly
+          const queryParam = (productType === 'ATTAR' || productType === 'PERFUME')
+             ? `?productType=${productType}`
+             : '';
+
           return apiClient.post(
-            `/products/${productId}/images?productType=${productType}`,
+            `/products/${productId}/images${queryParam}`,
             formData,
             { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 }
           );

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Category } from '../../types';
 import { TypedImageManager, type ManagedImage } from './TypedImageManager';
-import { ImageManager } from './ImageManager';
 import { ChevronDown, ChevronUp, Loader2, Plus, Trash2 } from 'lucide-react';
 
 
@@ -603,7 +602,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       )}
 
       {/* ── SHARED IMAGES (for existing products with untyped images, backward compat) ── */}
-      {sharedImages.length > 0 && (
+      {isFragranceCategory && (
         <div className="card p-6 md:p-8">
           <div className="flex justify-between items-center mb-4">
             <div>
@@ -615,11 +614,11 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             </div>
             <span className="badge badge-neutral">{sharedImages.length}</span>
           </div>
-          <ImageManager
+          <TypedImageManager
             productId={productId}
+            productType="SHARED"
             images={sharedImages}
             onImagesChange={setSharedImages}
-            isFragranceCategory={isFragranceCategory}
           />
         </div>
       )}
@@ -631,11 +630,11 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
           {/* Non-fragrance single image manager */}
           <div className="mb-6">
-            <ImageManager
+            <TypedImageManager
               productId={productId}
+              productType="GENERAL"
               images={sharedImages}
               onImagesChange={setSharedImages}
-              isFragranceCategory={false}
             />
           </div>
 
