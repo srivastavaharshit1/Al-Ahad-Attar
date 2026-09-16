@@ -122,6 +122,18 @@ public class ProductMapper {
 
         String categoryName = product.getCategory() != null ? product.getCategory().getName() : null;
         String categoryType = product.getCategory() != null && product.getCategory().getType() != null ? product.getCategory().getType().name() : null;
+        
+        // Determine preferred type based on context or product category
+        String preferredType = requestedContextType;
+        if (preferredType == null && categoryName != null) {
+            if (categoryName.equalsIgnoreCase("Perfumes")) {
+                preferredType = "PERFUME";
+            } else if (categoryName.equalsIgnoreCase("Attars")) {
+                preferredType = "ATTAR";
+            }
+        }
+        final String finalPreferredType = preferredType;
+        
         java.util.List<String> availableSizesList = java.util.Collections.emptyList();
 
         if (product.getVariants() != null && !product.getVariants().isEmpty()) {
@@ -131,18 +143,7 @@ public class ProductMapper {
 
             java.util.List<ProductVariant> preferredVariants = activeVariants;
             
-            // Determine preferred type based on context or product category
-            String preferredType = requestedContextType;
-            if (preferredType == null && categoryName != null) {
-                if (categoryName.equalsIgnoreCase("Perfumes")) {
-                    preferredType = "PERFUME";
-                } else if (categoryName.equalsIgnoreCase("Attars")) {
-                    preferredType = "ATTAR";
-                }
-            }
-
-            if (preferredType != null) {
-                final String finalPreferredType = preferredType;
+            if (finalPreferredType != null) {
                 java.util.List<ProductVariant> filtered = activeVariants.stream()
                         .filter(v -> v.getProductType().name().equalsIgnoreCase(finalPreferredType))
                         .collect(Collectors.toList());
@@ -179,13 +180,26 @@ public class ProductMapper {
         }
 
         if (product.getImages() != null && !product.getImages().isEmpty()) {
-            com.alahadattars.entity.ProductImage thumbImage = product.getImages().stream()
-                    .filter(img -> img.isActive() && img.isPrimary())
-                    .findFirst()
-                    .orElseGet(() -> product.getImages().stream()
-                            .filter(com.alahadattars.entity.ProductImage::isActive)
-                            .findFirst()
-                            .orElse(null));
+            java.util.List<com.alahadattars.entity.ProductImage> activeImages = product.getImages().stream()
+                    .filter(com.alahadattars.entity.ProductImage::isActive)
+                    .collect(Collectors.toList());
+            
+            com.alahadattars.entity.ProductImage thumbImage = null;
+            if (finalPreferredType != null) {
+                thumbImage = activeImages.stream()
+                        .filter(img -> finalPreferredType.equalsIgnoreCase(img.getAltText()))
+                        .findFirst()
+                        .orElseGet(() -> activeImages.stream()
+                                .filter(img -> img.getAltText() == null || img.getAltText().trim().isEmpty())
+                                .findFirst()
+                                .orElse(null));
+            } else {
+                thumbImage = activeImages.stream()
+                        .filter(com.alahadattars.entity.ProductImage::isPrimary)
+                        .findFirst()
+                        .orElseGet(() -> activeImages.stream().findFirst().orElse(null));
+            }
+            
             if (thumbImage != null) {
                 thumb = storageService.resolveUrl(thumbImage.getImageUrl(), "/api/images/" + thumbImage.getId() + "/file");
             }

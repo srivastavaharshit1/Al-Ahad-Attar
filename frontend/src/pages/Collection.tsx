@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { Breadcrumb } from '../components/ui/Breadcrumb';
 import { ProductCard } from '../components/product/ProductCard';
 import { Pagination } from '../components/ui/Pagination';
@@ -11,12 +11,27 @@ import type { Product } from '../types';
 import { useInView } from '../hooks/useInView';
 import { SEO } from '../components/seo/SEO';
 
+// Maps each sidebar filter to the top-level nav collection it belongs to.
+// This is the single source of truth for parent-collection resolution.
+const FILTER_PARENT_ROUTE: Record<string, string> = {
+  attars: '/category/attars',
+  bakhoor: '/category/bakhoor',
+  'incense-sticks': '/category/bakhoor',  // child of Bakhoor
+  perfumes: '/category/perfumes',
+  'car-perfumes': '/category/perfumes',   // child of Perfumes
+};
+
 interface CollectionProps {
   category?: string;
 }
 
 export const Collection: React.FC<CollectionProps> = ({ category }) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // `category` prop comes from the route: "attars" | "bakhoor" | "perfumes" | undefined
+  // It is the top-level collection and drives the Navbar active state via pathname.
   const urlCategory = searchParams.get('category');
   const activeCategory = category || urlCategory || '';
   const currentPage = parseInt(searchParams.get('page') || '0', 10);
@@ -39,6 +54,10 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
 
   const { ref: gridRef, inView: gridInView } = useInView(0);
 
+  // Derived: true when the Car Perfumes sub-tab is active.
+  // Used both in fetchProducts (to suppress type=PERFUME) and in JSX (to suppress defaultType).
+  const isCarPerfumesTab = selectedSubcategory === 'Car Perfumes';
+
   // Categories rarely change — fetch the list once, not on every category switch (was doubling
   // the latency of every switch with a redundant round trip).
   useEffect(() => {
@@ -51,6 +70,8 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
   // network call, so nothing here can race with a slower in-flight request from a category the
   // user has already navigated away from.
   useEffect(() => {
+    if (categories.length === 0) return;
+
     // If activeCategory maps to a specific subcategory directly from the URL
     if (activeCategory === 'incense-sticks') {
       const bakhoorCat = categories.find(c => c.type === 'BAKHOOR');
@@ -67,13 +88,21 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
         (c: Category) => c.name.toLowerCase().replace(/\s+/g, '-') === normalizedActive
       );
       setSelectedCategoryId(match ? match.id : '');
-      if (match && (match.type === 'BAKHOOR' || match.type === 'PERFUMES')) {
-        setSelectedSubcategory('none');
-      } else {
-        setSelectedSubcategory('');
-      }
+      setSelectedSubcategory('');
     }
   }, [activeCategory, categories]);
+
+  // When navigating cross-collection with a sub-filter (e.g., clicking "Incense Sticks" while
+  // on /category/perfumes navigates to /category/bakhoor with state), apply the sub-filter
+  // once the categories list is loaded and the activeCategory effect has run.
+  useEffect(() => {
+    const subfilter = (location.state as any)?.subfilter;
+    if (subfilter && categories.length > 0) {
+      setSelectedSubcategory(subfilter);
+      // Clear the state so a future back-navigation doesn't re-apply the sub-filter
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, categories]);
 
   useEffect(() => {
     fetchProducts();
@@ -99,9 +128,20 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
         size: 24,
         page: currentPage
       };
-      
-      const type = searchParams.get('type');
-      if (type) params.type = type;
+
+      let type = searchParams.get('type');
+      // Car Perfumes sub-tab: do NOT send type=PERFUME.
+      // Car Perfumes membership is determined solely by subcategory='Car Perfumes'
+      // (strict category match). Sending type=PERFUME would trigger the backend's
+      // broad variant-OR path and pull in any product with a PERFUME variant.
+      if (!type && selectedCategoryId && !isCarPerfumesTab) {
+        const cat = categories.find(c => c.id === selectedCategoryId);
+        if (cat) {
+          if (cat.type === 'PERFUMES') type = 'PERFUME';
+          else if (cat.type === 'ATTARS') type = 'ATTAR';
+        }
+      }
+      if (type && !isCarPerfumesTab) params.type = type;
       if (selectedCategoryId) params.categoryId = selectedCategoryId;
       if (selectedSubcategory) params.subcategory = selectedSubcategory;
       if (selectedGender) params.gender = selectedGender;
@@ -131,9 +171,88 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
     });
   };
 
-  const handleCategoryChange = (catId: number | '') => {
-    setSelectedCategoryId(catId);
-    resetPage();
+  // Handle sidebar filter selection.
+  // When a filter changes the parent collection (e.g., clicking "Perfumes" while on Bakhoor),
+  // navigate to the parent collection route. This keeps the Navbar's pathname-based active
+  // detection in sync — no secondary state needed.
+  const handleSidebarFilter = (filterId: string) => {
+    const parentRoute = FILTER_PARENT_ROUTE[filterId];
+
+    if (filterId === 'all') {
+      // "All" means all products in the CURRENT top-level collection, not global all.
+      // Reset subcategory filter; categoryId is already scoped to the current collection.
+      setSelectedSubcategory('');
+      resetPage();
+      return;
+    }
+
+    if (filterId === 'attars') {
+      if (location.pathname !== '/category/attars') {
+        navigate('/category/attars');
+      } else {
+        // Already on attars; just clear sub-filter
+        const attarsCat = categories.find(c => c.type === 'ATTARS');
+        setSelectedCategoryId(attarsCat?.id ?? '');
+        setSelectedSubcategory('');
+        resetPage();
+      }
+      return;
+    }
+
+    if (filterId === 'bakhoor') {
+      if (location.pathname !== '/category/bakhoor') {
+        navigate('/category/bakhoor');
+      } else {
+        const bakhoorCat = categories.find(c => c.type === 'BAKHOOR');
+        setSelectedCategoryId(bakhoorCat?.id ?? '');
+        setSelectedSubcategory('');
+        resetPage();
+      }
+      return;
+    }
+
+    if (filterId === 'incense-sticks') {
+      if (location.pathname !== '/category/bakhoor') {
+        // Navigate to bakhoor route; once mounted the useEffect will resolve the category.
+        // We use state to signal that the subcategory should be Incense Sticks after mount.
+        navigate('/category/bakhoor', { state: { subfilter: 'Incense Sticks' } });
+      } else {
+        const bakhoorCat = categories.find(c => c.type === 'BAKHOOR');
+        setSelectedCategoryId(bakhoorCat?.id ?? '');
+        setSelectedSubcategory('Incense Sticks');
+        resetPage();
+      }
+      return;
+    }
+
+    if (filterId === 'perfumes') {
+      if (location.pathname !== '/category/perfumes') {
+        navigate('/category/perfumes');
+      } else {
+        const perfumeCat = categories.find(c => c.type === 'PERFUMES');
+        setSelectedCategoryId(perfumeCat?.id ?? '');
+        setSelectedSubcategory('');
+        resetPage();
+      }
+      return;
+    }
+
+    if (filterId === 'car-perfumes') {
+      if (location.pathname !== '/category/perfumes') {
+        navigate('/category/perfumes', { state: { subfilter: 'Car Perfumes' } });
+      } else {
+        const perfumeCat = categories.find(c => c.type === 'PERFUMES');
+        setSelectedCategoryId(perfumeCat?.id ?? '');
+        setSelectedSubcategory('Car Perfumes');
+        resetPage();
+      }
+      return;
+    }
+
+    // Fallback (shouldn't be reached)
+    if (parentRoute && location.pathname !== parentRoute) {
+      navigate(parentRoute);
+    }
   };
 
   const clearFilters = () => {
@@ -156,13 +275,38 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Derive which sidebar filter is currently checked based on categoryId + subcategory.
+  // This is the single place that maps current state → active sidebar filter.
+  const activeSidebarFilter = (() => {
+    if (selectedCategoryId === '') return 'all';
+    const cat = categories.find(c => c.id === selectedCategoryId);
+    if (!cat) return 'all';
+    if (cat.type === 'ATTARS') return 'attars';
+    if (cat.type === 'BAKHOOR') {
+      return selectedSubcategory === 'Incense Sticks' ? 'incense-sticks' : 'bakhoor';
+    }
+    if (cat.type === 'PERFUMES') {
+      return selectedSubcategory === 'Car Perfumes' ? 'car-perfumes' : 'perfumes';
+    }
+    return 'all';
+  })();
+
   const hasActiveFilters = selectedCategoryId !== '' || selectedGender !== '' || selectedBrand !== '' || searchQuery !== '';
   const hasUserFilters = selectedGender !== '' || selectedBrand !== '' || searchQuery !== '';
 
-  const pageTitle = activeCategory
-    ? `${activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1)} Collection`
-    : 'Our Collection';
-    
+  // Page title: prefer the more specific sidebar filter label, fall back to top-level collection.
+  const pageTitleMap: Record<string, string> = {
+    attars: 'Attars Collection',
+    bakhoor: 'Bakhoor Collection',
+    'incense-sticks': 'Incense Sticks Collection',
+    perfumes: 'Perfumes Collection',
+    'car-perfumes': 'Car Perfumes Collection',
+    all: activeCategory
+      ? `${activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1)} Collection`
+      : 'Our Collection',
+  };
+  const pageTitle = pageTitleMap[activeSidebarFilter] ?? pageTitleMap.all;
+
   const breadcrumbSchema = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -182,6 +326,8 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
     ]
   };
 
+  const selectedCatName = categories.find(c => c.id === selectedCategoryId)?.name?.toLowerCase();
+
   return (
     <main className="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-10 md:py-16">
       <SEO
@@ -190,7 +336,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
         canonicalUrl={activeCategory ? `/collection?category=${activeCategory}` : "/collection"}
         schema={breadcrumbSchema}
       />
-      
+
       <header className="mb-12 md:mb-16">
         <Breadcrumb
           items={[
@@ -225,13 +371,13 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
       </header>
 
       {/* Custom Subcategory Tabs for Bakhoor and Perfumes */}
-      {selectedCategoryId !== '' && categories.find(c => c.id === selectedCategoryId)?.name.toLowerCase() === 'bakhoor' && (
+      {selectedCategoryId !== '' && selectedCatName === 'bakhoor' && (
         <div className="flex justify-center mb-12 flex-wrap gap-2">
           <div className="inline-flex flex-wrap justify-center bg-surface-container-lowest border border-outline-variant/30 rounded-full p-1 max-w-full">
             <button
-              onClick={() => { setSelectedSubcategory('none'); resetPage(); }}
+              onClick={() => { setSelectedSubcategory(''); resetPage(); }}
               className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-                selectedSubcategory === 'none'
+                selectedSubcategory === ''
                   ? 'bg-accent-soft text-accent-hover'
                   : 'text-on-surface-variant hover:text-accent'
               }`}
@@ -251,13 +397,13 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
           </div>
         </div>
       )}
-      {selectedCategoryId !== '' && categories.find(c => c.id === selectedCategoryId)?.name.toLowerCase() === 'perfumes' && (
+      {selectedCategoryId !== '' && selectedCatName === 'perfumes' && (
         <div className="flex justify-center mb-12 flex-wrap gap-2">
           <div className="inline-flex flex-wrap justify-center bg-surface-container-lowest border border-outline-variant/30 rounded-full p-1 max-w-full">
             <button
-              onClick={() => { setSelectedSubcategory('none'); resetPage(); }}
+              onClick={() => { setSelectedSubcategory(''); resetPage(); }}
               className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-                selectedSubcategory === 'none'
+                selectedSubcategory === ''
                   ? 'bg-accent-soft text-accent-hover'
                   : 'text-on-surface-variant hover:text-accent'
               }`}
@@ -286,7 +432,6 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
           <div>
             <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-6 border-b border-outline-variant/30 pb-2">Category</h3>
             <div className="space-y-3">
-              {/* Hardcoded filter list exactly as requested */}
               {[
                 { id: 'all', name: 'All' },
                 { id: 'attars', name: 'Attars' },
@@ -295,13 +440,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
                 { id: 'perfumes', name: 'Perfumes' },
                 { id: 'car-perfumes', name: 'Car Perfumes' }
               ].map(cat => {
-                let isChecked = false;
-                if (cat.id === 'all') isChecked = selectedCategoryId === '';
-                else if (cat.id === 'attars') isChecked = selectedCategoryId === categories.find(c => c.type === 'ATTARS')?.id;
-                else if (cat.id === 'bakhoor') isChecked = selectedCategoryId === categories.find(c => c.type === 'BAKHOOR')?.id && selectedSubcategory === 'none';
-                else if (cat.id === 'incense-sticks') isChecked = selectedCategoryId === categories.find(c => c.type === 'BAKHOOR')?.id && selectedSubcategory === 'Incense Sticks';
-                else if (cat.id === 'perfumes') isChecked = selectedCategoryId === categories.find(c => c.type === 'PERFUMES')?.id && selectedSubcategory === 'none';
-                else if (cat.id === 'car-perfumes') isChecked = selectedCategoryId === categories.find(c => c.type === 'PERFUMES')?.id && selectedSubcategory === 'Car Perfumes';
+                const isChecked = activeSidebarFilter === cat.id;
 
                 return (
                   <label key={cat.id} className="flex items-center group cursor-pointer">
@@ -309,14 +448,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
                       type="radio"
                       name="category"
                       checked={isChecked}
-                      onChange={() => {
-                        if (cat.id === 'all') { handleCategoryChange(''); setSelectedSubcategory(''); }
-                        else if (cat.id === 'attars') { handleCategoryChange(categories.find(c => c.type === 'ATTARS')?.id || ''); setSelectedSubcategory(''); }
-                        else if (cat.id === 'bakhoor') { handleCategoryChange(categories.find(c => c.type === 'BAKHOOR')?.id || ''); setSelectedSubcategory('none'); }
-                        else if (cat.id === 'incense-sticks') { handleCategoryChange(categories.find(c => c.type === 'BAKHOOR')?.id || ''); setSelectedSubcategory('Incense Sticks'); }
-                        else if (cat.id === 'perfumes') { handleCategoryChange(categories.find(c => c.type === 'PERFUMES')?.id || ''); setSelectedSubcategory('none'); }
-                        else if (cat.id === 'car-perfumes') { handleCategoryChange(categories.find(c => c.type === 'PERFUMES')?.id || ''); setSelectedSubcategory('Car Perfumes'); }
-                      }}
+                      onChange={() => handleSidebarFilter(cat.id)}
                       className="w-4 h-4 border-outline-variant text-accent focus:ring-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 cursor-pointer"
                     />
                     <span className="ml-3 font-body-md text-body-md text-on-surface-variant group-hover:text-accent transition-colors">{cat.name}</span>
@@ -384,8 +516,8 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
                 {hasUserFilters ? "No Products Found" : "Coming Soon"}
               </h3>
               <p className="font-body-md text-on-surface-variant mb-8 max-w-sm leading-relaxed">
-                {hasUserFilters 
-                  ? "No products matched your filters. Try adjusting your search criteria." 
+                {hasUserFilters
+                  ? "No products matched your filters. Try adjusting your search criteria."
                   : "We are currently working on bringing you exclusive products in this collection. Please check back later."}
               </p>
               {hasUserFilters && (
@@ -407,13 +539,25 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
                 ref={gridRef}
                 className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8 reveal ${gridInView ? 'in-view' : ''}`}
               >
-                {products.map(product => (
-                  <ProductCard 
-                    key={product.id} 
-                    product={product} 
-                    defaultType={searchParams.get('type') || (categories.find(c => c.id === selectedCategoryId)?.type === 'PERFUMES' ? 'perfume' : undefined)}
-                  />
-                ))}
+                {products.map(product => {
+                  // For Car Perfumes, do not impose a type context on the card.
+                  // The card should display the product's own label and image (not "PERFUMES").
+                  let cardDefaultType: string | undefined;
+                  if (!isCarPerfumesTab) {
+                    const selectedCat = categories.find(c => c.id === selectedCategoryId);
+                    cardDefaultType = searchParams.get('type') ||
+                      (selectedCat?.type === 'PERFUMES' ? 'perfume'
+                        : selectedCat?.type === 'ATTARS' ? 'attar'
+                        : undefined) || undefined;
+                  }
+                  return (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      defaultType={cardDefaultType}
+                    />
+                  );
+                })}
               </div>
             </>
           )}

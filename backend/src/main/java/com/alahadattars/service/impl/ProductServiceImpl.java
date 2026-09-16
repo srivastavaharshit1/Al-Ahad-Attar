@@ -247,7 +247,7 @@ public class ProductServiceImpl implements ProductService {
                 
                 boolean needsVariantJoin = false;
                 if (searchLower.contains("car perfume")) {
-                    orPredicates.add(cb.equal(cb.lower(root.get("subcategory")), "fresheners"));
+                    orPredicates.add(cb.equal(cb.lower(root.get("subcategory")), "car perfumes"));
                 }
                 if (searchLower.contains("insence") || searchLower.contains("incense")) {
                     orPredicates.add(cb.equal(cb.lower(root.get("category").get("name")), "bakhoor"));
@@ -277,14 +277,29 @@ public class ProductServiceImpl implements ProductService {
 
                 predicates.add(cb.or(orPredicates.toArray(new Predicate[0])));
             }
+            // isCarPerfumes: when requesting the Car Perfumes sub-collection, the strict
+            // subcategory='Car Perfumes' predicate is the sole membership criterion.
+            // The Perfumes/Attars broad OR-with-variant-type logic must NOT apply so that
+            // a product that merely has a PERFUME variant cannot leak into Car Perfumes.
+            boolean isCarPerfumes = subcategory != null && subcategory.equalsIgnoreCase("Car Perfumes");
             if (categoryId != null) {
-                if (categoryName != null && "Perfumes".equalsIgnoreCase(categoryName)) {
+                if (!isCarPerfumes && categoryName != null && "Perfumes".equalsIgnoreCase(categoryName)) {
+                    // Normal Perfumes tab: a product belongs if its category is Perfumes OR it has a PERFUME variant
                     jakarta.persistence.criteria.Join<Product, ProductVariant> variantJoin = root.join("variants", jakarta.persistence.criteria.JoinType.LEFT);
                     Predicate catMatch = cb.equal(root.get("category").get("id"), categoryId);
                     Predicate variantMatch = cb.equal(variantJoin.get("productType"), com.alahadattars.enums.ProductType.PERFUME);
                     query.distinct(true);
                     predicates.add(cb.or(catMatch, variantMatch));
+                } else if (!isCarPerfumes && categoryName != null && "Attars".equalsIgnoreCase(categoryName)) {
+                    // Normal Attars tab: a product belongs if its category is Attars OR it has an ATTAR variant
+                    jakarta.persistence.criteria.Join<Product, ProductVariant> variantJoin = root.join("variants", jakarta.persistence.criteria.JoinType.LEFT);
+                    Predicate catMatch = cb.equal(root.get("category").get("id"), categoryId);
+                    Predicate variantMatch = cb.equal(variantJoin.get("productType"), com.alahadattars.enums.ProductType.ATTAR);
+                    query.distinct(true);
+                    predicates.add(cb.or(catMatch, variantMatch));
                 } else {
+                    // Car Perfumes tab and all other categories: strict category match only —
+                    // no variant-type OR so PERFUME/ATTAR variants cannot pull in unrelated products.
                     predicates.add(cb.equal(root.get("category").get("id"), categoryId));
                 }
             }
@@ -317,7 +332,11 @@ public class ProductServiceImpl implements ProductService {
             if (featuredInCollection != null && featuredInCollection) {
                 predicates.add(cb.isMember("COLLECTIONS", root.get("collections")));
             }
-            if (type != null && !type.trim().isEmpty()) {
+            if (type != null && !type.trim().isEmpty() && !isCarPerfumes) {
+                // Skip the broad variant-type filter for Car Perfumes requests.
+                // Car Perfumes membership is determined entirely by subcategory='Car Perfumes'
+                // and strict category match; adding a PERFUME-variant filter here would
+                // allow any product with a PERFUME variant to incorrectly qualify.
                 jakarta.persistence.criteria.Join<Product, ProductVariant> variantJoinTypeFilter = root.join("variants", jakarta.persistence.criteria.JoinType.INNER);
                 try {
                     com.alahadattars.enums.ProductType pt = com.alahadattars.enums.ProductType.valueOf(type.toUpperCase());
