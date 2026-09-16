@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
 import { formatPrice } from '../utils/formatPrice';
 import { getImageUrl } from '../utils/getImageUrl';
 import { useStoreSettings } from '../context/StoreSettingsContext';
 import { useInView } from '../hooks/useInView';
+import { PromotionsCard } from '../components/ui/PromotionsCard';
 
 // ─── Stitch Design Token Helpers ────────────────────────────────────────────
 const C = {
@@ -26,50 +27,17 @@ export const Cart: React.FC = () => {
   const { settings } = useStoreSettings();
   const { 
     items, removeItem, updateQuantity, subtotal, offerDiscount, itemCount, 
-    appliedPromotions, unlockMessages, cartDiscount, 
-    removePromotion, removeCoupon, removeFreeItem, applyCoupon, 
+    appliedPromotions, cartDiscount,
+    removeFreeItem,
     isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage,
     freeProductOptions, addFreeItem
   } = useCart();
 
   const { ref: itemsRef, inView: itemsInView } = useInView<HTMLDivElement>();
   const { ref: summaryRef, inView: summaryInView } = useInView<HTMLDivElement>();
-  const [couponInput, setCouponInput] = useState('');
-  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
-  const [couponError, setCouponError] = useState('');
   const [addingFreeGift, setAddingFreeGift] = useState<{promotionId: number, variantId: number} | null>(null);
 
-  useEffect(() => {
-    if (unlockMessages && unlockMessages.length > 0) {
-      const invalidMsg = unlockMessages.find(msg => msg.toLowerCase().includes('invalid or expired'));
-      if (invalidMsg) {
-        setCouponError('Invalid coupon code');
-      } else {
-        setCouponError('');
-      }
-    } else {
-      setCouponError('');
-    }
-  }, [unlockMessages]);
 
-  const handleApplyCoupon = async (code?: string | React.FormEvent) => {
-    if (code && typeof code !== 'string' && 'preventDefault' in code) {
-      code.preventDefault();
-    }
-    const codeToApply = typeof code === 'string' ? code : couponInput.trim();
-    if (!codeToApply) return;
-
-    setIsApplyingCoupon(true);
-    setCouponError('');
-    try {
-      await applyCoupon(codeToApply);
-      setCouponInput('');
-    } catch (err: any) {
-      setCouponError(err.response?.data?.message || 'Invalid coupon code');
-    } finally {
-      setIsApplyingCoupon(false);
-    }
-  };
 
   const handleAddFreeGift = async (promotionId: number, variantId: number) => {
     if (addingFreeGift) return; // Prevent rapid clicks
@@ -355,61 +323,8 @@ export const Cart: React.FC = () => {
               </div>
             )}
             
-            {/* Promotions / Coupons */}
-            <div className="bg-white border p-5 rounded-md mt-2" style={{ borderColor: C.border }}>
-               <h3 className="text-[13px] font-bold tracking-wide uppercase mb-4" style={{ color: C.navy }}>Promotions & Offers</h3>
-               
-               {appliedPromotions && appliedPromotions.length > 0 && (
-                 <div className="mb-4 space-y-2">
-                   {appliedPromotions.map((promo: any) => (
-                     <div key={promo.id} className="flex items-center justify-between p-3 rounded border" style={{ backgroundColor: C.goldBg, borderColor: C.goldBorder }}>
-                       <div className="flex items-center gap-2">
-                         <span className="material-symbols-outlined text-[16px]" style={{ color: C.goldDark }}>check_circle</span>
-                         <span className="text-[11px] font-semibold" style={{ color: C.goldDark }}>{promo.code || promo.name} applied</span>
-                       </div>
-                       <button 
-                          onClick={() => promo.code ? removeCoupon() : removePromotion()}
-                          className="text-[10px] font-bold uppercase tracking-wider hover:underline"
-                          style={{ color: C.goldDark }}
-                       >
-                         REMOVE
-                       </button>
-                     </div>
-                   ))}
-                 </div>
-               )}
-               
-               <div className="flex rounded overflow-hidden">
-                  <input
-                    type="text"
-                    value={couponInput}
-                    onChange={(e) => setCouponInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
-                    placeholder="ENTER DISCOUNT CODE"
-                    className="flex-grow border-y border-l px-4 py-3 text-[11px] font-semibold tracking-wider uppercase outline-none"
-                    style={{ backgroundColor: C.inputBg, borderColor: C.border, color: C.navy }}
-                    disabled={isApplyingCoupon}
-                  />
-                  <button
-                    onClick={() => handleApplyCoupon()}
-                    disabled={!couponInput.trim() || isApplyingCoupon}
-                    className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-white transition-colors disabled:opacity-50"
-                    style={{ backgroundColor: C.navy }}
-                  >
-                    {isApplyingCoupon ? '...' : 'APPLY'}
-                  </button>
-               </div>
-               {couponError && <p className="text-[11px] mt-2" style={{ color: C.error }}>{couponError}</p>}
-               {unlockMessages && unlockMessages.length > 0 && (
-                 <div className="mt-3 space-y-2">
-                   {unlockMessages.map((msg, i) => (
-                     <div key={i} className="text-[10px] font-bold uppercase tracking-widest p-3 rounded border" style={{ backgroundColor: C.goldBg, color: C.goldDark, borderColor: C.goldBorder }}>
-                       {msg}
-                     </div>
-                   ))}
-                 </div>
-               )}
-            </div>
+            {/* Promotions / Coupons — premium PromotionsCard */}
+            <PromotionsCard />
             
           </div>
 

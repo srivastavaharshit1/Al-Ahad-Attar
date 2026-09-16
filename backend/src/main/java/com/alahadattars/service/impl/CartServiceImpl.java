@@ -55,7 +55,11 @@ public class CartServiceImpl implements CartService {
                         }
                     }
 
-                    if (!itemReq.isFreeItem() && variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR && bottle == null) {
+                    boolean isBakhoor = variant.getProduct().getCategory() != null &&
+                                        (variant.getProduct().getCategory().getType() == com.alahadattars.enums.CategoryType.BAKHOOR ||
+                                         "Bakhoor".equalsIgnoreCase(variant.getProduct().getCategory().getName()));
+
+                    if (!itemReq.isFreeItem() && variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR && !isBakhoor && bottle == null) {
                         throw new com.alahadattars.exception.BadRequestException("A bottle must be selected for Attar variants.");
                     }
 
@@ -118,7 +122,11 @@ public class CartServiceImpl implements CartService {
             finalPrice = finalPrice.add(bottle.getPrice());
         }
 
-        if (variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR && bottle == null) {
+        boolean isBakhoor = variant.getProduct().getCategory() != null &&
+                            (variant.getProduct().getCategory().getType() == com.alahadattars.enums.CategoryType.BAKHOOR ||
+                             "Bakhoor".equalsIgnoreCase(variant.getProduct().getCategory().getName()));
+
+        if (variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR && !isBakhoor && bottle == null) {
             throw new BadRequestException("A bottle must be selected for Attar variants.");
         }
 

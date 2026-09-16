@@ -173,8 +173,10 @@ export const ProductPage: React.FC = () => {
   const handleAddToCart = () => {
     if (!selectedVariant) return;
     
-    const isAttarCategory = product?.category?.type === 'ATTARS';
-    if (isAttarCategory && selectedVariant.productType === 'ATTAR') {
+    const isBakhoorCategory = product?.category?.type === 'BAKHOOR' || (product as any)?.categoryType === 'BAKHOOR' || product?.category?.name?.toLowerCase() === 'bakhoor';
+    const isAttarVariant = selectedVariant.productType === 'ATTAR' && !isBakhoorCategory;
+
+    if (isAttarVariant) {
       setShowBottleModal(true);
     } else {
       addToCartWithBottle(null);

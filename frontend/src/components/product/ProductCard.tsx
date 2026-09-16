@@ -63,11 +63,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
     e.preventDefault();
     if (!variantId) return;
 
-    const isAttarCategory = product.category?.type === 'ATTARS' || (product as any).categoryType === 'ATTARS';
-    const isAttarVariant = defaultVariant?.productType === 'ATTAR' || (product as any).defaultVariantType === 'ATTAR';
-    const isAttar = isAttarCategory && isAttarVariant;
+    const isBakhoorCategory = product.category?.type === 'BAKHOOR' || (product as any).categoryType === 'BAKHOOR' || product.category?.name?.toLowerCase() === 'bakhoor';
+    const isAttarVariant = (defaultVariant?.productType === 'ATTAR' || (product as any).defaultVariantType === 'ATTAR') && !isBakhoorCategory;
     
-    if (isAttar) {
+    if (isAttarVariant) {
       setShowBottleModal(true);
     } else {
       addToCartWithBottle(null);
@@ -200,7 +199,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
       {/* Elegant Details */}
       <div className="p-6 flex flex-col items-center text-center bg-surface">
           <span className="text-[9px] font-body-md text-on-surface-variant uppercase tracking-[0.25em] mb-2">
-            {defaultType === 'perfume' ? 'Perfumes' : defaultType === 'attar' ? 'Attars' : (product.category?.name || (product as any).categoryName || 'Fragrance')}
+            {(product.category?.type === 'BAKHOOR' || (product as any).categoryType === 'BAKHOOR' || product.category?.name?.toLowerCase() === 'bakhoor')
+              ? 'Bakhoor'
+              : defaultType === 'perfume' ? 'Perfumes' : defaultType === 'attar' ? 'Attars' : (product.category?.name || (product as any).categoryName || 'Fragrance')}
           </span>
 
         <Link
