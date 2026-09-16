@@ -199,9 +199,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
 
       {/* Elegant Details */}
       <div className="p-6 flex flex-col items-center text-center bg-surface">
-        <span className="text-[9px] font-body-md text-on-surface-variant uppercase tracking-[0.25em] mb-2">
-          {product.category?.name || (product as any).categoryName || 'Fragrance'}
-        </span>
+          <span className="text-[9px] font-body-md text-on-surface-variant uppercase tracking-[0.25em] mb-2">
+            {defaultType === 'perfume' ? 'Perfumes' : defaultType === 'attar' ? 'Attars' : (product.category?.name || (product as any).categoryName || 'Fragrance')}
+          </span>
 
         <Link
           to={`/product/${product.id}${defaultType ? `?type=${defaultType}` : ''}`}
