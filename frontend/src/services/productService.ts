@@ -51,16 +51,19 @@ export const productService = {
   // Admin Methods
   createProduct: async (productData: any): Promise<ApiResponse<Product>> => {
     const response = await apiClient.post<ApiResponse<Product>>('/products', productData);
+    apiCache.clear();
     return response.data;
   },
 
   updateProduct: async (id: string | number, productData: any): Promise<ApiResponse<Product>> => {
     const response = await apiClient.put<ApiResponse<Product>>(`/products/${id}`, productData);
+    apiCache.clear();
     return response.data;
   },
 
   deleteProduct: async (id: string | number): Promise<ApiResponse<void>> => {
     const response = await apiClient.delete<ApiResponse<void>>(`/products/${id}`);
+    apiCache.clear();
     return response.data;
   }
 };
