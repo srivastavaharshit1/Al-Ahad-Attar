@@ -39,6 +39,16 @@ function getImagesForType(
   return [];
 }
 
+function getAllProductImages(images: ProductImage[]): ProductImage[] {
+  const unique = new Map<string | number, ProductImage>();
+  for (const img of images) {
+    if (!unique.has(img.id)) {
+      unique.set(img.id, img);
+    }
+  }
+  return Array.from(unique.values());
+}
+
 export const ProductPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -46,14 +56,17 @@ export const ProductPage: React.FC = () => {
   const { addItem } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { activePromotions } = usePromotions();
-  
+
   const [product, setProduct] = useState<ProductType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
   const [mainImage, setMainImage] = useState<string>('');
-  
+
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
   const [activeType, setActiveType] = useState<string>('ATTAR');
   const [showBottleModal, setShowBottleModal] = useState(false);
 
@@ -138,8 +151,41 @@ export const ProductPage: React.FC = () => {
   const hasAttar = product.variants?.some(v => v.productType === 'ATTAR');
   const hasPerfume = product.variants?.some(v => v.productType === 'PERFUME');
 
-  const activeImages = getImagesForType(product.images || [], activeType);
-  const allImages = activeImages.map(img => img.imageUrl);
+  const allProductImageObjects = getAllProductImages(product.images || []);
+  const allImages = allProductImageObjects.map(img => img.imageUrl);
+
+  const handleNextImage = () => {
+    if (allImages.length <= 1) return;
+    const currentIndex = allImages.indexOf(mainImage);
+    const nextIndex = (currentIndex + 1) % allImages.length;
+    setMainImage(allImages[nextIndex]);
+  };
+
+  const handlePrevImage = () => {
+    if (allImages.length <= 1) return;
+    const currentIndex = allImages.indexOf(mainImage);
+    const prevIndex = (currentIndex - 1 + allImages.length) % allImages.length;
+    setMainImage(allImages[prevIndex]);
+  };
+
+  const onTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
+    setTouchEnd(null);
+    setTouchStart('touches' in e ? (e as React.TouchEvent).targetTouches[0].clientX : (e as React.MouseEvent).clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
+    setTouchEnd('touches' in e ? (e as React.TouchEvent).targetTouches[0].clientX : (e as React.MouseEvent).clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe) handleNextImage();
+    if (isRightSwipe) handlePrevImage();
+  };
 
   const showTypeToggle = hasAttar && hasPerfume;
   const filteredVariants = (product.variants?.filter(v => v.productType === activeType) || [])
@@ -150,7 +196,7 @@ export const ProductPage: React.FC = () => {
     // Note: In the new architecture, images are tied to Product, not Variant.
     // Changing variant size no longer changes the image.
   };
-  
+
   const handleTypeChange = (type: string) => {
     setActiveType(type);
     const newVariants = product?.variants?.filter(v => v.productType === type) || [];
@@ -172,7 +218,7 @@ export const ProductPage: React.FC = () => {
 
   const handleAddToCart = () => {
     if (!selectedVariant) return;
-    
+
     const isBakhoorCategory = product?.category?.type === 'BAKHOOR' || (product as any)?.categoryType === 'BAKHOOR' || product?.category?.name?.toLowerCase() === 'bakhoor';
     const isAttarVariant = selectedVariant.productType === 'ATTAR' && !isBakhoorCategory;
 
@@ -185,10 +231,10 @@ export const ProductPage: React.FC = () => {
 
   const addToCartWithBottle = (bottle: any | null) => {
     if (!selectedVariant) return;
-    
+
     const bottlePrice = bottle?.price || 0;
     const basePrice = selectedVariant.price + bottlePrice;
-    
+
     addItem({
       id: '', // Will be generated
       productId: product!.id.toString(),
@@ -199,7 +245,7 @@ export const ProductPage: React.FC = () => {
       size: selectedVariant.size,
       originalPrice: basePrice,
       finalPrice: basePrice,
-      bottle: bottle ? { id: bottle.id, name: bottle.name, price: bottle.price } : undefined 
+      bottle: bottle ? { id: bottle.id, name: bottle.name, price: bottle.price } : undefined
     });
     setShowBottleModal(false);
   };
@@ -317,7 +363,7 @@ export const ProductPage: React.FC = () => {
         imageUrl={allImages.length > 0 ? getImageUrl(allImages[0]) : undefined}
         schema={productSchema}
       />
-      
+
       <BottleSelectionModal
         isOpen={showBottleModal}
         onClose={() => setShowBottleModal(false)}
@@ -330,13 +376,13 @@ export const ProductPage: React.FC = () => {
       <Breadcrumb items={[
         { label: 'Home', href: '/' },
         { label: 'Collection', href: '/collection' },
-        ...(product.category ? [{ 
-          label: product.category.name, 
-          href: `/collection?category=${product.category.name?.toLowerCase() || ''}` 
+        ...(product.category ? [{
+          label: product.category.name,
+          href: `/collection?category=${product.category.name?.toLowerCase() || ''}`
         }] : []),
-        ...(product.subCategory ? [{ 
-          label: product.subCategory.name, 
-          href: `/collection?category=${product.category?.name?.toLowerCase() || ''}&subcategory=${product.subCategory.id}` 
+        ...(product.subCategory ? [{
+          label: product.subCategory.name,
+          href: `/collection?category=${product.category?.name?.toLowerCase() || ''}&subcategory=${product.subCategory.id}`
         }] : []),
         { label: product.name }
       ]} />
@@ -344,22 +390,22 @@ export const ProductPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter lg:gap-16">
         {/* Left Column: Image Gallery */}
         <div className="flex flex-col md:flex-row gap-4 lg:col-span-5 w-full max-w-[540px] mx-auto lg:mx-0">
-          
+
           {/* Thumbnails */}
           {allImages.length > 1 && (
             <div className="order-2 md:order-1 flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto pb-2 md:pb-0 md:pr-2 hide-scrollbar w-full md:w-[76px] flex-shrink-0">
-              {allImages.map((img, idx) => (
+              {allProductImageObjects.map((imgObj, idx) => (
                 <button
-                  key={idx}
-                  className={`flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden border-2 bg-surface transition-all duration-200 hover:-translate-y-[1px] md:hover:-translate-y-0 md:hover:-translate-x-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${mainImage === img ? 'border-accent shadow-sm' : 'border-transparent hover:border-accent/50'}`}
-                  onClick={() => setMainImage(img)}
+                  key={imgObj.id}
+                  className={`flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden border-2 bg-surface transition-all duration-200 hover:-translate-y-[1px] md:hover:-translate-y-0 md:hover:-translate-x-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${mainImage === imgObj.imageUrl ? 'border-accent shadow-sm' : 'border-transparent hover:border-accent/50'}`}
+                  onClick={() => setMainImage(imgObj.imageUrl)}
                   aria-label={`View image ${idx + 1}`}
-                  aria-current={mainImage === img}
+                  aria-current={mainImage === imgObj.imageUrl}
                 >
-                  <img 
-                    src={getImageUrl(img)} 
-                    alt={`Thumbnail ${idx+1}`} 
-                    className="w-full h-full object-cover" 
+                  <img
+                    src={getImageUrl(imgObj.imageUrl)}
+                    alt={`Thumbnail ${idx+1}`}
+                    className="w-full h-full object-cover"
                   />
                 </button>
               ))}
@@ -367,17 +413,50 @@ export const ProductPage: React.FC = () => {
           )}
 
           {/* Main Image */}
-          <div className="order-1 md:order-2 w-full h-auto aspect-[4/5] max-h-[560px] rounded-2xl overflow-hidden bg-surface border border-outline-variant/50 shadow-[0_10px_30px_rgba(18,28,42,0.05)] relative group cursor-zoom-in flex items-center justify-center">
+          <div
+            className="order-1 md:order-2 w-full h-auto aspect-[4/5] max-h-[560px] rounded-2xl overflow-hidden bg-surface border border-outline-variant/50 shadow-[0_10px_30px_rgba(18,28,42,0.05)] relative group cursor-zoom-in flex items-center justify-center"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onMouseDown={onTouchStart}
+            onMouseMove={touchStart !== null ? onTouchMove : undefined}
+            onMouseUp={onTouchEnd}
+            onMouseLeave={() => {
+              if (touchStart !== null) onTouchEnd();
+              setTouchStart(null);
+            }}
+          >
             {mainImage ? (
               <>
-                <img 
-                  src={getImageUrl(mainImage)} 
-                  alt={product.name} 
-                  className="w-full h-full object-contain p-4 md:p-[16px] lg:p-[20px] transition-transform duration-700 group-hover:scale-105" 
+                <img
+                  src={getImageUrl(mainImage)}
+                  alt={product.name}
+                  className="w-full h-full object-contain p-4 md:p-[16px] lg:p-[20px] transition-transform duration-700 group-hover:scale-105 select-none"
+                  draggable={false}
                 />
+
+                {/* Carousel Controls */}
+                {allImages.length > 1 && (
+                  <>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handlePrevImage(); }}
+                      className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-surface/80 backdrop-blur-sm border border-outline-variant shadow-sm flex items-center justify-center text-on-surface hover:text-primary hover:bg-surface transition-all opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      aria-label="Previous image"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleNextImage(); }}
+                      className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-surface/80 backdrop-blur-sm border border-outline-variant shadow-sm flex items-center justify-center text-on-surface hover:text-primary hover:bg-surface transition-all opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      aria-label="Next image"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+                    </button>
+                  </>
+                )}
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center text-on-surface-variant p-6 h-full w-full bg-surface-container">
+              <div className="flex flex-col items-center justify-center text-on-surface-variant p-6 h-full w-full bg-surface-container select-none">
                 <span className="material-symbols-outlined text-5xl mb-2 opacity-50">image_not_supported</span>
                 <p className="font-body-md text-center">No images available for {activeType === 'ATTAR' ? 'Attar' : 'Perfume'}.</p>
               </div>
@@ -389,22 +468,22 @@ export const ProductPage: React.FC = () => {
         <div className="flex flex-col lg:col-span-7">
           <div className="mb-6">
             <h1 className="font-headline-lg text-headline-lg text-primary mb-3 mt-1 lg:mt-0">{product.name}</h1>
-            
+
             <div className="flex items-center space-x-4 mb-5">
               <div className="flex text-inverse-primary fill-icon">
                 <StarRating rating={product.averageRating || 0} size={20} showText={false} />
               </div>
               <span className="font-label-sm text-label-sm text-on-surface-variant">({product.reviewCount || 0} Reviews)</span>
             </div>
-            
+
             <div className="flex items-baseline space-x-4 mb-7">
               <span className="font-display-lg-mobile text-display-lg-mobile text-primary">{selectedVariant ? formatPrice(selectedVariant.price) : 'N/A'}</span>
             </div>
-            
+
             <p className="font-body-lg text-body-lg text-on-surface-variant mb-8 max-w-[85%] leading-relaxed">
               {product.description}
             </p>
-            
+
             <div className="space-y-6">
                 {showTypeToggle && (
                   <div className="mb-6">
@@ -413,8 +492,8 @@ export const ProductPage: React.FC = () => {
                       <button
                         onClick={() => handleTypeChange('ATTAR')}
                         className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-                          activeType === 'ATTAR' 
-                            ? 'bg-accent-soft text-accent-hover' 
+                          activeType === 'ATTAR'
+                            ? 'bg-accent-soft text-accent-hover'
                             : 'text-on-surface-variant hover:text-accent'
                         }`}
                       >
@@ -423,8 +502,8 @@ export const ProductPage: React.FC = () => {
                       <button
                         onClick={() => handleTypeChange('PERFUME')}
                         className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-                          activeType === 'PERFUME' 
-                            ? 'bg-accent-soft text-accent-hover' 
+                          activeType === 'PERFUME'
+                            ? 'bg-accent-soft text-accent-hover'
                             : 'text-on-surface-variant hover:text-accent'
                         }`}
                       >
@@ -468,7 +547,7 @@ export const ProductPage: React.FC = () => {
 
               {/* Premium Promotion Banner */}
               {renderPromoBanner()}
-              
+
               <div className="flex gap-4 pt-7">
                 <button
                   onClick={handleAddToCart}
@@ -518,7 +597,7 @@ export const ProductPage: React.FC = () => {
         </div>
       </div>
       </section>
-      
+
       {/* SECTION 3: Customer Reviews (1100px) */}
       {product && (
         <section ref={reviewsRef} className={`max-w-[1100px] mx-auto w-full px-4 md:px-8 reveal ${reviewsInView ? 'in-view' : ''}`}>

@@ -608,7 +608,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <div>
               <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">Shared Images</h3>
               <p className="text-xs text-on-surface-variant mt-1">
-                These images have no Attar/Perfume tag. They show as fallback when no type-specific image is available.
+                These are shared product images shown for both Attar and Perfume variants.
                 You can upload new images to the Attar or Perfume sections above.
               </p>
             </div>
