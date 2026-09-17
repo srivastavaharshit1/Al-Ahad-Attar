@@ -601,7 +601,7 @@ export const ProductPage: React.FC = () => {
       {/* SECTION 3: Customer Reviews (1100px) */}
       {product && (
         <section ref={reviewsRef} className={`max-w-[1100px] mx-auto w-full px-4 md:px-8 reveal ${reviewsInView ? 'in-view' : ''}`}>
-          <ReviewList productId={product.id} />
+          <ReviewList productId={product.id} productName={product.name} />
         </section>
       )}
 

@@ -8,17 +8,18 @@ import { useAuth } from '../../hooks/useAuth';
 
 interface ReviewCardProps {
   review: Review;
+  productName?: string;
   onHelpfulClick?: (id: number) => void;
   onReportClick?: (id: number) => void;
   onEditClick?: (review: Review) => void;
   onDeleteClick?: (review: Review) => void;
 }
 
-export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onHelpfulClick, onReportClick, onEditClick, onDeleteClick }) => {
+export const ReviewCard: React.FC<ReviewCardProps> = ({ review, productName, onHelpfulClick, onReportClick, onEditClick, onDeleteClick }) => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const { user } = useAuth();
-  
+
   const isOwner = user?.id === review.userId;
 
   const formatDate = (dateStr: string) =>
@@ -26,103 +27,110 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onHelpfulClick, 
 
   return (
     <>
-      <div className="card p-8">
+      <div className="bg-[#FFFDFC] rounded-[12px] border border-[#E8DFCF] p-6 md:p-8 mb-5 transition-shadow hover:shadow-md" style={{ boxShadow: '0 2px 10px rgba(16,36,58,0.03)' }}>
         {/* Header row */}
-        <div className="flex justify-between items-start mb-4 gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">
+          <div className="flex items-center gap-4">
             {/* Avatar */}
             <div
-              className="w-11 h-11 bg-accent-soft rounded-full flex items-center justify-center text-accent-hover font-headline-md text-lg flex-shrink-0"
+              className="w-11 h-11 rounded-full flex items-center justify-center font-medium text-[15px] flex-shrink-0"
+              style={{ backgroundColor: '#F8F5EE', color: '#10243A' }}
               aria-hidden="true"
             >
-              {review.userName.charAt(0).toUpperCase()}
+              {review.userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
             </div>
 
             <div>
-              <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                <h4 className="font-headline-sm text-on-surface">{review.userName}</h4>
+              <div className="flex items-center gap-2 mb-0.5">
+                <h4 className="text-[14px] font-medium" style={{ color: '#10243A' }}>{review.userName}</h4>
                 {review.isVerifiedPurchase && (
                   <span
-                    className="badge badge-gold"
+                    className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: '#F2F8F4', color: '#2F7A4A' }}
                     title="This reviewer purchased the product"
                   >
                     <ShieldCheck size={12} strokeWidth={2.5} />
-                    Verified Purchase
+                    Verified Buyer
                   </span>
                 )}
               </div>
-
-              <div className="flex items-center gap-2 mt-1">
-                <StarRating rating={review.rating} size={13} />
-                <span className="text-xs text-outline-variant" aria-hidden="true">•</span>
-                <time
-                  className="text-xs text-on-surface-variant"
-                  dateTime={review.createdAt}
-                >
-                  {formatDate(review.createdAt)}
-                </time>
-              </div>
-            </div>
-          </div>
-          {isOwner && (
-            <div className="relative">
-              <button
-                onClick={() => setMenuOpen(!menuOpen)}
-                className="p-1.5 text-on-surface-variant hover:text-on-surface rounded-lg hover:bg-surface-container-high transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                aria-label="Review options"
-                aria-haspopup="true"
-                aria-expanded={menuOpen}
-              >
-                <MoreVertical size={16} />
-              </button>
-
-              {menuOpen && (
-                <div className="absolute right-0 mt-1 w-32 bg-surface rounded-xl shadow-lg border border-outline-variant/50 py-1 z-10 animate-fade-up">
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onEditClick?.(review);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
-                  >
-                    <Edit2 size={14} />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onDeleteClick?.(review);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-error hover:bg-error/10 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-inset"
-                  >
-                    <Trash2 size={14} />
-                    Delete
-                  </button>
-                </div>
+              {productName && (
+                <p className="text-[12px] font-medium" style={{ color: '#6E6A62' }}>
+                  Purchased {productName}
+                </p>
               )}
             </div>
-          )}
+          </div>
+
+          <div className="flex flex-col items-end gap-1.5 mt-1 sm:mt-0 relative">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center" style={{ color: '#B4860A' }}>
+                <StarRating rating={review.rating} size={14} />
+              </div>
+              <time className="text-[12px] ml-2" style={{ color: '#6E6A62' }} dateTime={review.createdAt}>
+                {formatDate(review.createdAt)}
+              </time>
+              {isOwner && (
+                <button
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className="ml-2 p-1 text-[#6E6A62] hover:text-[#10243A] rounded transition-colors"
+                  aria-label="Review options"
+                  aria-haspopup="true"
+                  aria-expanded={menuOpen}
+                >
+                  <MoreVertical size={16} />
+                </button>
+              )}
+            </div>
+
+            {menuOpen && isOwner && (
+              <div className="absolute right-0 top-8 mt-1 w-32 bg-[#FFFFFF] rounded-xl border border-[#E8DFCF] py-1 z-10 shadow-md">
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onEditClick?.(review);
+                  }}
+                  className="w-full text-left px-4 py-2 text-[13px] hover:bg-[#F8F5EE] flex items-center gap-2"
+                  style={{ color: '#10243A' }}
+                >
+                  <Edit2 size={13} />
+                  Edit
+                </button>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onDeleteClick?.(review);
+                  }}
+                  className="w-full text-left px-4 py-2 text-[13px] hover:bg-[#FDF7F8] flex items-center gap-2"
+                  style={{ color: '#c0392b' }}
+                >
+                  <Trash2 size={13} />
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Content */}
-        <div className="mb-5 space-y-2.5">
+        <div className="mb-5 sm:pl-[60px]">
           {review.title && (
-            <h5 className="font-headline-sm text-on-surface leading-snug">{review.title}</h5>
+            <h5 className="text-[14px] font-semibold mb-1.5" style={{ color: '#10243A' }}>{review.title}</h5>
           )}
-          <p className="text-on-surface-variant text-[15px] font-body-md leading-relaxed whitespace-pre-wrap">
+          <p className="text-[13.5px] leading-[1.6] whitespace-pre-wrap" style={{ color: '#4A5568' }}>
             {review.description}
           </p>
         </div>
 
         {/* Images */}
         {review.imageUrls && review.imageUrls.length > 0 && (
-          <div className="flex gap-2 mb-4 overflow-x-auto pb-1 -mx-1 px-1">
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-1 sm:pl-[60px]">
             {review.imageUrls.map((url, idx) => (
               <button
                 key={idx}
                 onClick={() => setLightboxIndex(idx)}
                 aria-label={`View image ${idx + 1}`}
-                className="relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-outline-variant group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-[#E8DFCF] group focus-visible:outline-none"
               >
                 <img
                   src={getImageUrl(url)}
@@ -130,7 +138,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onHelpfulClick, 
                   loading="lazy"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-ink/0 group-hover:bg-ink/40 transition-colors flex items-center justify-center">
+                <div className="absolute inset-0 bg-[#10243A]/0 group-hover:bg-[#10243A]/20 transition-colors flex items-center justify-center">
                   <ZoomIn size={18} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </button>
@@ -140,60 +148,42 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onHelpfulClick, 
 
         {/* Admin Reply */}
         {review.adminReply && (
-          <div className="bg-accent-soft/40 p-4 rounded-xl border-l-4 border-accent mb-4">
-            <p className="text-xs font-label-md text-accent-hover mb-1 uppercase tracking-[0.12em]">
-              Response from Al Ahad Attars
+          <div className="mt-4 p-4 rounded-xl border border-[#E8DFCF] sm:ml-[60px]" style={{ backgroundColor: '#F8F5EE' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldCheck size={14} className="text-[#B4860A]" />
+              <span className="font-semibold text-[13px]" style={{ color: '#10243A' }}>Response from Al Ahad Attars</span>
+            </div>
+            <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: '#6E6A62' }}>
+              {review.adminReply}
             </p>
-            <p className="text-sm text-on-surface-variant leading-relaxed">{review.adminReply}</p>
           </div>
         )}
 
-        {/* Actions row */}
-        <div className="flex items-center justify-between border-t border-outline-variant/60 pt-4 mt-2 gap-4">
+        {/* Footer Actions */}
+        <div className="flex items-center justify-between pt-4 mt-2 border-t border-[#E8DFCF]/50 sm:pl-[60px]">
           <button
             onClick={() => onHelpfulClick?.(review.id)}
-            aria-pressed={review.currentUserVotedHelpful}
-            aria-label={
-              review.currentUserVotedHelpful
-                ? `Remove helpful vote. ${review.helpfulVotesCount} people found this helpful`
-                : `Mark as helpful. ${review.helpfulVotesCount} people found this helpful`
-            }
-            className={`flex items-center gap-2 text-sm font-medium transition-colors rounded-lg px-3 py-1.5 -ml-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              review.currentUserVotedHelpful
-                ? 'text-accent-hover bg-accent-soft/60 hover:bg-accent-soft'
-                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
-            }`}
+            className="flex items-center gap-1.5 text-[12px] font-medium transition-colors hover:text-[#10243A]"
+            style={{ color: review.currentUserVotedHelpful ? '#10243A' : '#6E6A62' }}
           >
-            <ThumbsUp
-              size={15}
-              className={`transition-transform ${review.currentUserVotedHelpful ? 'fill-current scale-110' : ''}`}
-            />
-            <span>
-              Helpful
-              {review.helpfulVotesCount > 0 && (
-                <span className="ml-1 text-xs text-on-surface-variant/80">({review.helpfulVotesCount})</span>
-              )}
-            </span>
-            {review.currentUserVotedHelpful && (
-              <span className="text-xs text-accent-hover/80">— click to undo</span>
-            )}
+            <ThumbsUp size={13} className={review.currentUserVotedHelpful ? 'fill-current' : ''} />
+            {review.helpfulVotesCount} {review.helpfulVotesCount === 1 ? 'person' : 'people'} found this helpful
           </button>
 
-          <button
-            onClick={() => onReportClick?.(review.id)}
-            aria-label="Report this review"
-            className="flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-error transition-colors rounded-lg px-2 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error"
-          >
-            <Flag size={13} />
-            Report
-          </button>
+          <div className="flex items-center gap-3">
+            {!isOwner && (
+              <button onClick={() => onReportClick?.(review.id)} className="text-[12px] hover:text-[#10243A] flex items-center gap-1 transition-colors" style={{ color: '#6E6A62' }}>
+                <Flag size={13} /> Report
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Lightbox */}
-      {lightboxIndex !== null && (
+      {/* Image Lightbox */}
+      {lightboxIndex !== null && review.imageUrls && (
         <ImageLightbox
-          images={review.imageUrls}
+          images={review.imageUrls.map(url => getImageUrl(url))}
           initialIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
         />

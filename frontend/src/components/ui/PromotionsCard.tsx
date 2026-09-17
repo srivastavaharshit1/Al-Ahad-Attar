@@ -7,26 +7,27 @@ import type { PromotionResponse } from '../../types/promotion';
 
 // ── Design Tokens (warm luxury attar palette) ───────────────────────────────
 const C = {
-  bg: '#faf6f0',
-  card: '#ffffff',
-  border: '#e8ddc8',
-  navy: '#1c2533',
-  navyLight: '#4a5568',
-  gold: '#8b6914',
-  goldBg: '#fdf8ee',
-  goldBorder: '#c9a227',
+  bg: '#FAF8F2',
+  card: '#FFFFFF',
+  border: '#E9E0CF',
+  navy: '#10243A',
+  navyLight: '#4A5568',
+  gold: '#A87908',
+  goldBg: '#FDF8EE',
+  goldBorder: '#C9A227',
   goldDark: '#755811',
-  success: '#2f7a4a',
-  successBg: '#f0faf4',
-  successBorder: '#a8d5b5',
-  amber: '#c87e28',
-  amberBg: '#fef7ed',
-  amberBorder: '#f0c070',
-  burgundy: '#721c38',
-  burgundyBg: '#fdf2f5',
-  burgundyBorder: '#e8b4c0',
-  inputBg: '#fbfaf8',
-  muted: '#9ca3af',
+  success: '#2F7A4A',
+  successBg: '#F2F8F4',
+  successBorder: '#A8D5B5',
+  amber: '#C87E28',
+  amberBg: '#FEF7ED',
+  amberBorder: '#F0C070',
+  burgundy: '#7A2630',
+  burgundyBg: '#FDF7F8',
+  burgundyBorder: '#E8B4C0',
+  inputBg: '#FDFBF7',
+  muted: '#8C98A4',
+  cream: '#F5F2EA',
 };
 
 // ── Helper: discount label ───────────────────────────────────────────────────
@@ -195,8 +196,8 @@ export const PromotionsCard: React.FC<PromotionsCardProps> = ({ className = '' }
   // ── Derive UI state ───────────────────────────────────────────────────────
   //
   // STATE_SUCCESS  : a promotion or coupon is applied (appliedPromotions not empty)
-  // STATE_PROGRESS : no promotion applied yet, but backend says "spend ₹X more" 
-  // STATE_GUIDANCE : coupon is entered & valid, but cart conditions not met 
+  // STATE_PROGRESS : no promotion applied yet, but backend says "spend ₹X more"
+  // STATE_GUIDANCE : coupon is entered & valid, but cart conditions not met
   // STATE_DEFAULT  : nothing applied, nothing pending
 
   const hasApplied = appliedPromotions && appliedPromotions.length > 0;
@@ -281,22 +282,7 @@ export const PromotionsCard: React.FC<PromotionsCardProps> = ({ className = '' }
     }
   };
 
-  const cardHeader = (badge?: React.ReactNode) => (
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-[16px]" style={{ color: C.goldDark }}>
-          redeem
-        </span>
-        <span
-          className="text-[9px] font-bold uppercase tracking-[0.25em]"
-          style={{ color: C.goldDark }}
-        >
-          Promotions &amp; Offers
-        </span>
-      </div>
-      {badge}
-    </div>
-  );
+
 
   // ─────────────────────────────────────────────────────────────────────────
   // STATE 2 — COUPON APPLIED / SUCCESS
@@ -304,86 +290,9 @@ export const PromotionsCard: React.FC<PromotionsCardProps> = ({ className = '' }
   if (hasApplied) {
     const appliedPromo = appliedPromotions[0];
     return (
-      <div
-        className={`rounded-2xl border overflow-hidden ${className}`}
-        style={{ borderColor: C.border, backgroundColor: C.card }}
-      >
-        <div className="px-5 pt-5 pb-4">
-          {cardHeader(
-            <span
-              className="text-[9px] font-bold uppercase tracking-[0.2em] px-2 py-0.5 rounded-full"
-              style={{ color: C.success, backgroundColor: C.successBg, border: `1px solid ${C.successBorder}` }}
-            >
-              Active Discount
-            </span>
-          )}
-
-          {/* Applied code row */}
-          <div
-            className="flex items-center justify-between px-4 py-3 rounded-xl mb-4"
-            style={{ backgroundColor: C.successBg, border: `1px solid ${C.successBorder}` }}
-          >
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-[18px]" style={{ color: C.success }}>
-                check_circle
-              </span>
-              <span
-                className="font-mono text-[13px] font-bold uppercase tracking-wider"
-                style={{ color: C.navy }}
-              >
-                {appliedPromo.code || appliedPromo.name}
-              </span>
-            </div>
-            <button
-              onClick={handleRemove}
-              className="text-[10px] font-bold uppercase tracking-wider transition-opacity hover:opacity-70"
-              style={{ color: C.navyLight }}
-              aria-label="Remove coupon"
-            >
-              Remove
-            </button>
-          </div>
-
-          {/* Savings summary */}
-          <div
-            className="flex items-center justify-between px-4 py-3 rounded-xl"
-            style={{ backgroundColor: C.goldBg, border: `1px solid ${C.goldBorder}` }}
-          >
-            <div>
-              <p className="text-[11px] font-semibold mb-0.5" style={{ color: C.goldDark }}>
-                {appliedPromo.generatedDescription || getDiscountLabel(appliedPromo)}
-              </p>
-              {savedAmount > 0 && (
-                <p className="text-[12px] font-bold" style={{ color: C.navy }}>
-                  You saved{' '}
-                  <span style={{ color: C.goldDark }}>{formatPrice(savedAmount)}</span>
-                </p>
-              )}
-            </div>
-            {savedAmount > 0 && (
-              <span
-                className="text-[18px] font-serif font-bold"
-                style={{ color: C.goldDark }}
-              >
-                −{formatPrice(savedAmount)}
-              </span>
-            )}
-          </div>
-
-          {/* Additional benefits from other applied promotions */}
-          {appliedPromotions.slice(1).map((p: any) => (
-            <div
-              key={p.id}
-              className="mt-3 flex items-center gap-2 px-4 py-2 rounded-xl border text-[11px]"
-              style={{ borderColor: C.border, color: C.navyLight }}
-            >
-              <span className="material-symbols-outlined text-[14px]" style={{ color: C.goldDark }}>
-                redeem
-              </span>
-              {p.name} also applied
-            </div>
-          ))}
-        </div>
+      <div className={className}>
+        <State02Success appliedPromo={appliedPromo} handleRemove={handleRemove} savedAmount={savedAmount} activePromotions={activePromotions} />
+        {showDrawer && <OffersDrawer promotions={activePromotions} onApply={handleApply} onClose={() => setShowDrawer(false)} />}
       </div>
     );
   }
@@ -393,112 +302,9 @@ export const PromotionsCard: React.FC<PromotionsCardProps> = ({ className = '' }
   // ─────────────────────────────────────────────────────────────────────────
   if (spendMoreMsg && !invalidMsg) {
     return (
-      <div
-        className={`rounded-2xl border overflow-hidden ${className}`}
-        style={{ borderColor: C.border, backgroundColor: C.card }}
-      >
-        <div className="px-5 pt-5 pb-4">
-          {cardHeader(
-            <span className="text-[9px] font-bold uppercase tracking-[0.2em]" style={{ color: C.amber }}>
-              Almost There
-            </span>
-          )}
-
-          {/* Coupon input row */}
-          <div
-            className="flex items-center rounded-full overflow-hidden mb-4"
-            style={{ border: `1.5px solid ${C.border}`, backgroundColor: C.inputBg }}
-          >
-            <span className="pl-4 material-symbols-outlined text-[16px]" style={{ color: C.muted }}>
-              confirmation_number
-            </span>
-            <input
-              ref={inputRef}
-              type="text"
-              value={couponInput}
-              onChange={e => { setCouponInput(e.target.value.toUpperCase()); setLocalError(''); }}
-              onKeyDown={e => e.key === 'Enter' && handleApply()}
-              placeholder="ENTER DISCOUNT CODE"
-              className="flex-grow px-3 py-3 text-[11px] font-semibold tracking-wider uppercase outline-none bg-transparent"
-              style={{ color: C.navy }}
-              disabled={isApplying}
-              aria-label="Discount code input"
-            />
-            <button
-              onClick={() => handleApply()}
-              disabled={!couponInput.trim() || isApplying}
-              className="px-5 py-3 text-[10px] font-bold uppercase tracking-widest transition-all hover:brightness-110 disabled:opacity-40"
-              style={{ color: C.goldDark, backgroundColor: C.goldBg }}
-              aria-label="Apply coupon"
-            >
-              {isApplying ? '...' : 'Apply'}
-            </button>
-          </div>
-
-          {/* Progress message */}
-          <div
-            className="flex items-start gap-3 px-4 py-3 rounded-xl mb-3"
-            style={{ backgroundColor: C.amberBg, border: `1px solid ${C.amberBorder}` }}
-          >
-            <span className="material-symbols-outlined text-[18px] mt-0.5 shrink-0" style={{ color: C.amber }}>
-              timer
-            </span>
-            <div>
-              <p className="text-[12px] leading-snug" style={{ color: C.navy }}>
-                {spendMoreMsg}
-              </p>
-              {remainingForOffer != null && (
-                <p className="text-[11px] mt-1" style={{ color: C.navyLight }}>
-                  Cart: {formatPrice(totalAfterOffer)}
-                </p>
-              )}
-            </div>
-            {remainingForOffer != null && (
-              <span
-                className="ml-auto text-[10px] font-bold uppercase tracking-wider shrink-0"
-                style={{ color: C.amber }}
-              >
-                {progressPct}% Unlocked
-              </span>
-            )}
-          </div>
-
-          {/* Progress bar */}
-          {progressMin > 0 && (
-            <div
-              className="w-full h-1.5 rounded-full overflow-hidden mb-3"
-              style={{ backgroundColor: C.border }}
-            >
-              <div
-                className="h-full rounded-full transition-all duration-700"
-                style={{
-                  width: `${progressPct}%`,
-                  background: `linear-gradient(to right, ${C.gold}, ${C.goldDark})`,
-                }}
-              />
-            </div>
-          )}
-
-          {/* View offers */}
-          <button
-            onClick={() => setShowDrawer(v => !v)}
-            className="flex items-center gap-1 text-[11px] font-semibold transition-opacity hover:opacity-70 mt-1"
-            style={{ color: C.goldDark }}
-          >
-            View festive tier benefits
-            <span className="material-symbols-outlined text-[14px]">
-              {showDrawer ? 'expand_less' : 'chevron_right'}
-            </span>
-          </button>
-
-          {showDrawer && (
-            <OffersDrawer
-              promotions={activePromotions}
-              onApply={handleApply}
-              onClose={() => setShowDrawer(false)}
-            />
-          )}
-        </div>
+      <div className={className}>
+        <State03Progress spendMoreMsg={spendMoreMsg} couponInput={couponInput} setCouponInput={setCouponInput} handleApply={handleApply} isApplying={isApplying} progressPct={progressPct} totalAfterOffer={totalAfterOffer} progressMin={progressMin} showDrawer={showDrawer} setShowDrawer={setShowDrawer} activePromotions={activePromotions} />
+        {showDrawer && <OffersDrawer promotions={activePromotions} onApply={handleApply} onClose={() => setShowDrawer(false)} />}
       </div>
     );
   }
@@ -507,136 +313,11 @@ export const PromotionsCard: React.FC<PromotionsCardProps> = ({ className = '' }
   // STATE 4 — CONDITIONS NOT MET / GUIDANCE
   // ─────────────────────────────────────────────────────────────────────────
   if (conditionMsg && !invalidMsg) {
-    // Try to find the promo associated with the entered coupon code
-    const matchedPromo = couponCode
-      ? activePromotions.find(p => p.code?.toUpperCase() === couponCode.toUpperCase())
-      : null;
-
+    const matchedPromo = couponCode ? activePromotions.find(p => p.code?.toUpperCase() === couponCode.toUpperCase()) : null;
     return (
-      <div
-        className={`rounded-2xl border overflow-hidden ${className}`}
-        style={{ borderColor: C.border, backgroundColor: C.card }}
-      >
-        <div className="px-5 pt-5 pb-4">
-          {cardHeader(
-            <span
-              className="text-[9px] font-bold uppercase tracking-[0.2em]"
-              style={{ color: C.burgundy }}
-            >
-              Requires Attention
-            </span>
-          )}
-
-          {/* Coupon input row */}
-          <div
-            className="flex items-center rounded-full overflow-hidden mb-4"
-            style={{ border: `1.5px solid ${C.goldBorder}`, backgroundColor: C.inputBg }}
-          >
-            <span className="pl-4 material-symbols-outlined text-[16px]" style={{ color: C.goldDark }}>
-              confirmation_number
-            </span>
-            <span
-              className="flex-grow px-3 py-3 text-[12px] font-bold tracking-wider uppercase"
-              style={{ color: C.navy }}
-            >
-              {couponCode || couponInput}
-            </span>
-            <button
-              onClick={() => handleApply()}
-              disabled={isApplying}
-              className="px-5 py-3 text-[10px] font-bold uppercase tracking-widest transition-all hover:brightness-110 text-white"
-              style={{ backgroundColor: C.goldDark }}
-              aria-label="Retry coupon"
-            >
-              Apply
-            </button>
-          </div>
-
-          {/* Condition guidance panel */}
-          <div
-            className="px-4 py-4 rounded-xl mb-3"
-            style={{ backgroundColor: C.burgundyBg, border: `1px solid ${C.burgundyBorder}` }}
-          >
-            <div className="flex items-start gap-3 mb-3">
-              <span className="material-symbols-outlined text-[18px] mt-0.5 shrink-0" style={{ color: C.burgundy }}>
-                info
-              </span>
-              <p className="text-[12px] leading-snug" style={{ color: C.navy }}>
-                <span className="font-bold">
-                  {couponCode ? `Coupon '${couponCode}' is valid,` : 'Coupon is valid,'}
-                </span>{' '}
-                but cart conditions are not yet met.
-              </p>
-            </div>
-            <ul className="space-y-1.5 pl-8">
-              {matchedPromo?.minCartValue && matchedPromo.minCartValue > 0 && (
-                <li className="text-[11px]" style={{ color: C.navyLight }}>
-                  • Minimum cart value:{' '}
-                  <span className="font-semibold" style={{ color: C.navy }}>
-                    {formatPrice(matchedPromo.minCartValue)}
-                  </span>{' '}
-                  <span style={{ color: C.navyLight }}>
-                    (Current: {formatPrice(totalAfterOffer)})
-                  </span>
-                </li>
-              )}
-              {conditionMsg && (
-                <li className="text-[11px]" style={{ color: C.navyLight }}>
-                  • {conditionMsg}
-                </li>
-              )}
-              {matchedPromo?.configuration?.applicableCategoryIds?.length! > 0 && (
-                <li className="text-[11px]" style={{ color: C.navyLight }}>
-                  • Applicable on qualifying product categories
-                </li>
-              )}
-            </ul>
-          </div>
-
-          {/* View eligible items CTA */}
-          <div className="flex items-center justify-between">
-            <p className="text-[11px]" style={{ color: C.navyLight }}>
-              Want to see qualifying products?
-            </p>
-            <Link
-              to="/collection"
-              className="text-[11px] font-bold flex items-center gap-1 transition-opacity hover:opacity-70"
-              style={{ color: C.goldDark }}
-            >
-              View Eligible Items
-              <span className="material-symbols-outlined text-[13px]">chevron_right</span>
-            </Link>
-          </div>
-
-          {/* Try another code */}
-          <div className="mt-3 pt-3 border-t flex items-center justify-between" style={{ borderColor: C.border }}>
-            <button
-              onClick={() => { setCouponInput(couponCode || ''); removeCoupon(); }}
-              className="text-[11px] font-semibold transition-opacity hover:opacity-70"
-              style={{ color: C.navyLight }}
-            >
-              Try another code
-            </button>
-            <button
-              onClick={() => setShowDrawer(v => !v)}
-              className="text-[11px] font-semibold flex items-center gap-1 transition-opacity hover:opacity-70"
-              style={{ color: C.goldDark }}
-            >
-              View offers
-              <span className="material-symbols-outlined text-[13px]">
-                {showDrawer ? 'expand_less' : 'chevron_right'}
-              </span>
-            </button>
-          </div>
-
-          {showDrawer && (
-            <OffersDrawer
-              promotions={activePromotions}
-              onApply={handleApply}
-              onClose={() => setShowDrawer(false)}
-            />
-          )}
-        </div>
+      <div className={className}>
+        <State04Guidance couponCode={couponCode} couponInput={couponInput} handleApply={handleApply} isApplying={isApplying} localError={localError} conditionMsg={conditionMsg} totalAfterOffer={totalAfterOffer} removeCoupon={removeCoupon} matchedPromo={matchedPromo} />
+        {showDrawer && <OffersDrawer promotions={activePromotions} onApply={handleApply} onClose={() => setShowDrawer(false)} />}
       </div>
     );
   }
@@ -645,108 +326,174 @@ export const PromotionsCard: React.FC<PromotionsCardProps> = ({ className = '' }
   // STATE 1 — DEFAULT / EMPTY
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div
-      className={`rounded-2xl border overflow-hidden ${className}`}
-      style={{ borderColor: C.border, backgroundColor: C.card }}
-    >
-      <div className="px-5 pt-5 pb-4">
-        {cardHeader()}
+    <div className={className}>
+      <State01Default couponInput={couponInput} setCouponInput={setCouponInput} handleApply={handleApply} isApplying={isApplying} localError={localError} activePromotions={activePromotions} showDrawer={showDrawer} setShowDrawer={setShowDrawer} applySuccess={applySuccess} />
+      {showDrawer && <OffersDrawer promotions={activePromotions} onApply={handleApply} onClose={() => setShowDrawer(false)} />}
+    </div>
+  );
+};
 
-        {/* Pill-shaped input */}
-        <div
-          className="flex items-center rounded-full overflow-hidden transition-shadow focus-within:shadow-sm"
-          style={{
-            border: `1.5px solid ${localError ? '#c0392b' : C.border}`,
-            backgroundColor: C.inputBg,
-          }}
-        >
-          <span className="pl-4 material-symbols-outlined text-[16px]" style={{ color: C.muted }}>
-            confirmation_number
-          </span>
-          <input
-            ref={inputRef}
-            id="promo-code-input"
-            type="text"
-            value={couponInput}
-            onChange={e => { setCouponInput(e.target.value.toUpperCase()); setLocalError(''); }}
-            onKeyDown={e => e.key === 'Enter' && handleApply()}
-            placeholder="Enter discount code"
-            className="flex-grow px-3 py-3 text-[11px] font-semibold tracking-wider uppercase outline-none bg-transparent"
-            style={{ color: C.navy }}
-            disabled={isApplying}
-            aria-label="Discount code input"
-            aria-describedby={localError ? 'promo-error' : undefined}
-          />
-          <button
-            onClick={() => handleApply()}
-            disabled={!couponInput.trim() || isApplying}
-            className="mr-1 px-4 py-2 text-[10px] font-bold uppercase tracking-widest rounded-full transition-all hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{
-              color: applySuccess ? C.success : C.goldDark,
-              backgroundColor: applySuccess ? C.successBg : C.goldBg,
-            }}
-            aria-label="Apply coupon code"
-          >
-            {isApplying ? (
-              <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
-            ) : applySuccess ? (
-              '✓'
-            ) : (
-              'Apply'
-            )}
+// ── Exported States for Offers UI Demo ───────────────────────────────────────
+export const State01Default = ({ couponInput, setCouponInput, handleApply, isApplying, localError, activePromotions, showDrawer, setShowDrawer, applySuccess }: any) => {
+  return (
+    <div className="rounded-[18px] border overflow-hidden w-full flex flex-col justify-between" style={{ borderColor: C.border, backgroundColor: C.card, boxShadow: '0 4px 20px rgba(16, 36, 58, 0.03)' }}>
+      <div className="px-6 pt-6 pb-5">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[16px]" style={{ color: C.goldDark }}>local_fire_department</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: C.navy, letterSpacing: '0.15em' }}>Promotions &amp; Offers</span>
+          </div>
+          <span className="text-[11px]" style={{ color: C.navyLight }}>Festive Sale Live</span>
+        </div>
+        <div className={`flex items-center rounded-full overflow-hidden transition-all duration-300 mb-4 ${localError ? 'ring-2 ring-[#c0392b]' : 'ring-1 ring-transparent focus-within:ring-2 focus-within:ring-[#C9A227]'}`} style={{ backgroundColor: '#ffffff', boxShadow: '0 2px 15px rgba(0, 0, 0, 0.03)' }}>
+          <span className="pl-5 material-symbols-outlined text-[18px]" style={{ color: C.muted }}>local_offer</span>
+          <input type="text" value={couponInput} onChange={e => setCouponInput(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && handleApply()} placeholder="ENTER DISCOUNT CODE" className="flex-grow px-4 py-3.5 text-[12px] font-semibold tracking-wider uppercase outline-none bg-transparent border-none focus:ring-0 focus:border-transparent focus:outline-none" style={{ color: C.navy }} disabled={isApplying} />
+          <button onClick={() => handleApply()} disabled={!couponInput.trim() || isApplying} className="mr-2 px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest rounded-full transition-all hover:brightness-110 disabled:opacity-40" style={{ color: C.navy, backgroundColor: C.border }}>
+            {isApplying ? '...' : applySuccess ? '✓' : 'Apply'}
           </button>
         </div>
-
-        {/* Error message */}
-        {localError && (
-          <p id="promo-error" className="text-[11px] mt-2 pl-1" style={{ color: '#c0392b' }}>
-            {localError}
-          </p>
-        )}
-
-        {/* Helper row */}
-        <div className="flex items-center justify-between mt-3">
-          <p className="text-[11px]" style={{ color: C.navyLight }}>
-            Have an attar connoisseur code? Enter above.
-          </p>
-          {activePromotions.length > 0 && (
-            <button
-              onClick={() => setShowDrawer(v => !v)}
-              className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-0.5 transition-opacity hover:opacity-70"
-              style={{ color: C.goldDark }}
-              aria-label="View available offers"
-            >
-              Offers ({activePromotions.length})
-              <span className="material-symbols-outlined text-[13px]">
-                {showDrawer ? 'expand_less' : 'chevron_right'}
-              </span>
-            </button>
+        {localError && <p className="text-[11px] mt-1 mb-3 pl-1" style={{ color: '#c0392b' }}>{localError}</p>}
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl mb-4" style={{ backgroundColor: C.cream }}>
+          <span className="material-symbols-outlined text-[14px]" style={{ color: C.goldDark }}>info</span>
+          <p className="text-[11px]" style={{ color: C.navy }}>Have a discount code? Enter above to unlock special savings.</p>
+          {activePromotions && activePromotions.length > 0 && (
+            <div className="ml-auto flex items-center gap-1 cursor-pointer shrink-0" onClick={() => setShowDrawer(!showDrawer)}>
+              <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: C.goldDark }}>Offers ({activePromotions.length})</span>
+              <span className="material-symbols-outlined text-[14px]" style={{ color: C.goldDark }}>{showDrawer ? 'expand_less' : 'chevron_right'}</span>
+            </div>
           )}
         </div>
+        <div className="flex items-center justify-between mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
+          <button onClick={() => setShowDrawer(!showDrawer)} className="text-[11px] font-bold flex items-center gap-1 uppercase tracking-wider" style={{ color: C.burgundy }}>
+            View available offers <span className="material-symbols-outlined text-[14px]">{showDrawer ? 'expand_less' : 'chevron_right'}</span>
+          </button>
+          <span className="text-[11px] italic font-serif" style={{ color: C.navyLight }}>Save on the Finest Fragrances</span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-        {/* View available offers text-link */}
-        <div className="mt-4 pt-3 border-t flex items-center justify-between" style={{ borderColor: C.border }}>
-          <Link
-            to="/offers"
-            className="flex items-center gap-1 text-[11px] font-semibold transition-opacity hover:opacity-70"
-            style={{ color: C.goldDark }}
-          >
-            View available offers
-            <span className="material-symbols-outlined text-[14px]">chevron_right</span>
-          </Link>
-          <span className="text-[10px]" style={{ color: C.muted }}>
-            Up to {activePromotions.length > 0 ? `${activePromotions.length} offer${activePromotions.length !== 1 ? 's' : ''}` : 'offers'} available
+export const State02Success = ({ appliedPromo, handleRemove, savedAmount }: any) => {
+  return (
+    <div className="rounded-[18px] border overflow-hidden w-full flex flex-col justify-between" style={{ borderColor: C.border, backgroundColor: C.card, boxShadow: '0 4px 20px rgba(16, 36, 58, 0.03)' }}>
+      <div className="px-6 pt-6 pb-5">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[16px]" style={{ color: C.goldDark }}>local_fire_department</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: C.navy, letterSpacing: '0.15em' }}>Promotions &amp; Offers</span>
+          </div>
+          <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full" style={{ color: C.success, backgroundColor: C.successBg, border: `1px solid ${C.successBorder}` }}>Active Discount</span>
+        </div>
+        <div className="flex items-center justify-between px-5 py-3.5 rounded-full mb-4" style={{ border: `1px solid ${C.border}`, backgroundColor: C.inputBg }}>
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-[18px]" style={{ color: C.success }}>check_circle</span>
+            <span className="font-mono text-[13px] font-bold uppercase tracking-wider" style={{ color: C.navy }}>{appliedPromo?.code || appliedPromo?.name || 'OFFER'}</span>
+          </div>
+          <button onClick={handleRemove} className="text-[10px] font-bold uppercase tracking-widest transition-opacity hover:opacity-70" style={{ color: C.burgundy }}>Remove</button>
+        </div>
+        <div className="px-5 py-4 rounded-xl mb-4" style={{ backgroundColor: C.goldBg, border: `1px solid ${C.goldBorder}` }}>
+          <div className="flex items-center gap-3 mb-1.5">
+            <span className="material-symbols-outlined text-[18px]" style={{ color: C.goldDark }}>check_circle</span>
+            <span className="font-mono text-[12px] font-bold uppercase tracking-wider" style={{ color: C.navy }}>{appliedPromo?.code || appliedPromo?.name || 'OFFER'}</span>
+            <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded" style={{ backgroundColor: C.burgundy, color: '#fff' }}>Applied</span>
+          </div>
+          <p className="text-[12px] pl-8" style={{ color: C.navy }}>
+            {appliedPromo?.generatedDescription || 'Festive bonus applied'} - You saved <span className="font-bold" style={{ color: C.burgundy }}>{formatPrice(savedAmount || 0)}</span> on your order!
+          </p>
+        </div>
+        <div className="flex items-center justify-between mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[16px]" style={{ color: C.goldDark }}>card_giftcard</span>
+            <span className="text-[11px]" style={{ color: C.navy }}>Enjoy your special savings!</span>
+          </div>
+          <span className="text-[11px] font-serif italic flex items-center gap-1" style={{ color: C.success }}>
+            <span className="material-symbols-outlined text-[14px]">verified</span> Verified
           </span>
         </div>
+      </div>
+    </div>
+  );
+};
 
-        {/* Inline drawer */}
-        {showDrawer && (
-          <OffersDrawer
-            promotions={activePromotions}
-            onApply={handleApply}
-            onClose={() => setShowDrawer(false)}
-          />
-        )}
+export const State03Progress = ({ spendMoreMsg, couponInput, setCouponInput, handleApply, isApplying, progressPct, totalAfterOffer, progressMin, showDrawer, setShowDrawer }: any) => {
+  return (
+    <div className="rounded-[18px] border overflow-hidden w-full flex flex-col justify-between" style={{ borderColor: C.border, backgroundColor: C.card, boxShadow: '0 4px 20px rgba(16, 36, 58, 0.03)' }}>
+      <div className="px-6 pt-6 pb-5">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[16px]" style={{ color: C.goldDark }}>local_fire_department</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: C.navy, letterSpacing: '0.15em' }}>Promotions &amp; Offers</span>
+          </div>
+          <span className="text-[11px]" style={{ color: C.navyLight }}>Special Offer</span>
+        </div>
+        <div className="flex items-center rounded-full overflow-hidden transition-all duration-300 mb-4 ring-1 ring-transparent focus-within:ring-2 focus-within:ring-[#C9A227]" style={{ backgroundColor: '#ffffff', boxShadow: '0 2px 15px rgba(0, 0, 0, 0.03)' }}>
+          <span className="pl-5 material-symbols-outlined text-[18px]" style={{ color: C.muted }}>local_offer</span>
+          <input type="text" value={couponInput} onChange={e => setCouponInput(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && handleApply()} placeholder="ENTER DISCOUNT CODE" className="flex-grow px-4 py-3.5 text-[12px] font-semibold tracking-wider uppercase outline-none bg-transparent border-none focus:ring-0 focus:border-transparent focus:outline-none" style={{ color: C.navy }} disabled={isApplying} />
+          <button onClick={() => handleApply()} disabled={!couponInput.trim() || isApplying} className="mr-2 px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest rounded-full transition-all hover:brightness-110 disabled:opacity-40" style={{ color: '#fff', backgroundColor: C.goldDark }}>
+            {isApplying ? '...' : 'Apply'}
+          </button>
+        </div>
+        <div className="mb-4 pt-2">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[14px]" style={{ color: C.goldDark }}>card_giftcard</span>
+              <span className="text-[12px] font-semibold" style={{ color: C.navy }}>{spendMoreMsg}</span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: C.goldDark }}>{progressPct}% Unlocked</span>
+          </div>
+          <div className="w-full h-2 rounded-full overflow-hidden mb-3" style={{ backgroundColor: C.cream }}>
+            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progressPct}%`, background: `linear-gradient(to right, ${C.gold}, ${C.goldDark})` }} />
+          </div>
+          <div className="flex items-center justify-between text-[11px] px-1" style={{ color: C.navyLight }}>
+            <span>Current: {formatPrice(totalAfterOffer)}</span>
+            <span>Target: {formatPrice(progressMin)}</span>
+          </div>
+        </div>
+        <div className="flex items-center justify-between mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
+          <button onClick={() => setShowDrawer(!showDrawer)} className="text-[11px] font-bold flex items-center gap-1 uppercase tracking-wider" style={{ color: C.burgundy }}>
+            View all festive offers <span className="material-symbols-outlined text-[14px]">{showDrawer ? 'expand_less' : 'chevron_right'}</span>
+          </button>
+          <span className="text-[11px] italic font-serif" style={{ color: C.navyLight }}>The More You Shop, The More You Save</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const State04Guidance = ({ couponCode, couponInput, handleApply, isApplying, localError, conditionMsg, totalAfterOffer, removeCoupon, matchedPromo }: any) => {
+  return (
+    <div className="rounded-[18px] border overflow-hidden w-full flex flex-col justify-between" style={{ borderColor: C.border, backgroundColor: C.card, boxShadow: '0 4px 20px rgba(16, 36, 58, 0.03)' }}>
+      <div className="px-6 pt-6 pb-5">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[16px]" style={{ color: C.goldDark }}>local_fire_department</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: C.navy, letterSpacing: '0.15em' }}>Promotions &amp; Offers</span>
+          </div>
+          <span className="text-[11px]" style={{ color: C.burgundy }}>Requires Attention</span>
+        </div>
+        <div className="flex items-center justify-between px-5 py-3.5 rounded-full mb-4" style={{ border: `1px solid ${C.burgundyBorder}`, backgroundColor: C.inputBg }}>
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-[18px]" style={{ color: C.burgundy }}>info</span>
+            <span className="font-mono text-[13px] font-bold uppercase tracking-wider" style={{ color: C.navy }}>{couponCode || couponInput || 'INVALID CODE'}</span>
+          </div>
+          <button onClick={() => handleApply()} disabled={isApplying} className="px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest rounded-full transition-opacity hover:opacity-70" style={{ color: '#fff', backgroundColor: C.goldDark }}>Apply</button>
+        </div>
+        <div className="px-5 py-4 rounded-xl mb-4 flex gap-3 items-start" style={{ backgroundColor: C.cream, border: `1px solid ${C.border}` }}>
+          <span className="material-symbols-outlined text-[18px] mt-0.5" style={{ color: C.burgundy }}>warning</span>
+          <div>
+            <p className="text-[12px] font-bold mb-1 uppercase" style={{ color: C.navy }}>COUPON '{couponCode || couponInput}' IS INVALID.</p>
+            <p className="text-[11px] mb-2" style={{ color: C.navyLight }}>Please check the code and try again, or view our available offers.</p>
+            <ul className="space-y-1">
+              {(localError || conditionMsg) && <li className="text-[11px]" style={{ color: C.navy }}>• {localError || conditionMsg}</li>}
+              {matchedPromo?.minCartValue > 0 && <li className="text-[11px]" style={{ color: C.navy }}>• Min. cart value {formatPrice(matchedPromo.minCartValue)} (Current: {formatPrice(totalAfterOffer)})</li>}
+            </ul>
+          </div>
+        </div>
+        <div className="flex items-center justify-between mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
+          <button onClick={() => { removeCoupon(); }} className="text-[11px] font-bold uppercase tracking-wider" style={{ color: C.burgundy }}>Try another code</button>
+          <span className="text-[11px] italic font-serif flex items-center gap-1" style={{ color: C.navyLight }}>Need help? <Link to="/contact" className="underline">Contact Support</Link></span>
+        </div>
       </div>
     </div>
   );
