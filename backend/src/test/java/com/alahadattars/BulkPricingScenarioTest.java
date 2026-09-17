@@ -16,6 +16,9 @@ import com.alahadattars.repository.ProductRepository;
 import com.alahadattars.repository.ProductVariantRepository;
 import com.alahadattars.repository.RoleRepository;
 import com.alahadattars.repository.UserRepository;
+import com.alahadattars.repository.BulkPriceAuditRepository;
+import com.alahadattars.entity.BulkPriceAudit;
+import com.alahadattars.enums.BulkPricingStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,6 +56,8 @@ public class BulkPricingScenarioTest {
     private ProductRepository productRepository;
     @Autowired
     private ProductVariantRepository variantRepository;
+    @Autowired
+    private BulkPriceAuditRepository auditRepository;
 
     private Category attarCategory;
     private Category perfumeCategory;
@@ -282,5 +287,43 @@ public class BulkPricingScenarioTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req2)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "admin_test2@alahadattars.com", roles = {"ADMIN"})
+    public void testFailedBulkPricingRollback() throws Exception {
+        String idempotencyKey = UUID.randomUUID().toString();
+
+        // Value so large it will pass pre-validation but fail during the native SQL update due to DECIMAL(10,2) overflow
+        // This ensures the exception happens inside the try{} block where the FAILED audit is saved
+        BulkPricingRequest request = BulkPricingRequest.builder()
+                .scope(BulkPricingScope.UNIVERSAL)
+                .operation(BulkPricingOperation.SET)
+                .type(BulkPricingType.FIXED)
+                .value(new BigDecimal("9999999999999.99"))
+                .idempotencyKey(idempotencyKey)
+                .build();
+
+        mockMvc.perform(post("/api/admin/products/pricing/apply")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().is5xxServerError()); // Wrapped exception translates to 500
+
+        // 1. Verify prices were completely rolled back
+        assertEquals(0, new BigDecimal("100.00").compareTo(variantRepository.findById(attar10ml.getId()).get().getPrice()));
+        assertEquals(0, new BigDecimal("200.00").compareTo(variantRepository.findById(attar20ml.getId()).get().getPrice()));
+        assertEquals(0, new BigDecimal("500.00").compareTo(variantRepository.findById(perfume50ml.getId()).get().getPrice()));
+
+        // 2. Verify FAILED audit survived the rollback
+        java.util.List<BulkPriceAudit> audits = auditRepository.findAll();
+        long failedAudits = audits.stream()
+            .filter(a -> a.getIdempotencyKey().equals(idempotencyKey) && a.getStatus() == BulkPricingStatus.FAILED)
+            .count();
+        long successAudits = audits.stream()
+            .filter(a -> a.getIdempotencyKey().equals(idempotencyKey) && a.getStatus() == BulkPricingStatus.SUCCESS)
+            .count();
+
+        assertEquals(1, failedAudits, "There should be exactly one FAILED audit record");
+        assertEquals(0, successAudits, "There should be zero SUCCESS audit records");
     }
 }

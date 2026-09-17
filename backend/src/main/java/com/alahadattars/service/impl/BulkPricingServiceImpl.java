@@ -15,6 +15,7 @@ import com.alahadattars.exception.BadRequestException;
 import com.alahadattars.repository.BulkPriceAuditRepository;
 import com.alahadattars.repository.CategoryRepository;
 import com.alahadattars.repository.ProductVariantRepository;
+import com.alahadattars.service.BulkPriceAuditService;
 import com.alahadattars.service.BulkPricingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -37,6 +37,7 @@ public class BulkPricingServiceImpl implements BulkPricingService {
     private final ProductVariantRepository productVariantRepository;
     private final CategoryRepository categoryRepository;
     private final BulkPriceAuditRepository auditRepository;
+    private final BulkPriceAuditService bulkPriceAuditService;
 
     @Override
     public BulkPricingPreviewResponse preview(BulkPricingRequest request) {
@@ -124,7 +125,7 @@ public class BulkPricingServiceImpl implements BulkPricingService {
                 }
             }
 
-            createAuditRecord(admin, request, categoryName, variants.size(), BulkPricingStatus.SUCCESS);
+            bulkPriceAuditService.saveAuditRecord(admin, request, categoryName, variants.size(), BulkPricingStatus.SUCCESS);
 
             return BulkPricingApplyResponse.builder()
                     .success(true)
@@ -133,11 +134,16 @@ public class BulkPricingServiceImpl implements BulkPricingService {
                     .build();
 
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            log.error("Bulk pricing update failed due to duplicate idempotency key", e);
-            throw new BadRequestException("This bulk pricing operation has already been processed.");
+            if (e.getMessage() != null && (e.getMessage().toLowerCase().contains("duplicate") || e.getMessage().toLowerCase().contains("unique") || e.getMessage().toLowerCase().contains("idempotency"))) {
+                log.error("Bulk pricing update failed due to duplicate idempotency key", e);
+                throw new BadRequestException("This bulk pricing operation has already been processed.");
+            }
+            log.error("Bulk pricing update failed with data integrity violation", e);
+            bulkPriceAuditService.saveAuditRecord(admin, request, categoryName, variants.size(), BulkPricingStatus.FAILED);
+            throw new RuntimeException("Failed to apply bulk pricing: " + e.getMessage(), e);
         } catch (Exception e) {
             log.error("Bulk pricing update failed", e);
-            createAuditRecord(admin, request, categoryName, variants.size(), BulkPricingStatus.FAILED);
+            bulkPriceAuditService.saveAuditRecord(admin, request, categoryName, variants.size(), BulkPricingStatus.FAILED);
             throw new RuntimeException("Failed to apply bulk pricing: " + e.getMessage(), e);
         }
     }
@@ -238,22 +244,4 @@ public class BulkPricingServiceImpl implements BulkPricingService {
         return newPrice;
     }
 
-    private void createAuditRecord(User admin, BulkPricingRequest request, String categoryName, int affected, BulkPricingStatus status) {
-        BulkPriceAudit audit = BulkPriceAudit.builder()
-                .adminId(admin.getId())
-                .adminEmail(admin.getEmail())
-                .scope(request.getScope())
-                .categoryId(request.getCategoryId())
-                .categoryName(categoryName)
-                .operation(request.getOperation())
-                .type(request.getType())
-                .value(request.getValue())
-                .percentage(BigDecimal.ZERO) // Satisfy old DB constraint
-                .productsAffected(affected)
-                .timestamp(LocalDateTime.now())
-                .status(status)
-                .idempotencyKey(request.getIdempotencyKey())
-                .build();
-        auditRepository.save(audit);
-    }
 }
