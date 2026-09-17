@@ -104,6 +104,10 @@ public class BuyProductIdMigrationService {
         PromotionConfiguration config = promotion.getConfiguration();
         Long buyProductId = config.getBuyProductId();
 
+        if (promotion.getPromotionType() != com.alahadattars.enums.PromotionType.FREE_PRODUCT) {
+            return new MigrationResult(promotion, MigrationClassification.MANUAL_REVIEW, "Legacy buyProductId is not evaluated for this promotion type; semantic intent cannot be safely inferred.", null);
+        }
+
         // 1. Check for missing product or zero variants
         List<ProductVariant> variants = productVariantRepository.findAll().stream()
                 .filter(v -> v.getProduct() != null && v.getProduct().getId().equals(buyProductId))

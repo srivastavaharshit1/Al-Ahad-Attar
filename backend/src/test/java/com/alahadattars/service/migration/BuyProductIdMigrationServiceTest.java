@@ -339,4 +339,47 @@ public class BuyProductIdMigrationServiceTest {
         assertEquals(1, report.alreadyMigrated());
         assertEquals(BuyProductIdMigrationService.MigrationClassification.ALREADY_MIGRATED, report.results().get(0).classification());
     }
+
+    // TEST I: CART_DISCOUNT + buyProductId -> MANUAL_REVIEW
+    @Test
+    void testI_CartDiscount() {
+        Promotion promo = createLegacyPromo();
+        promo.setPromotionType(PromotionType.CART_DISCOUNT);
+        promo.getConfiguration().setBuyProductId(100L);
+
+        lenient().when(promotionRepository.findAll()).thenReturn(List.of(promo));
+
+        BuyProductIdMigrationService.MigrationReport report = migrationService.execute();
+        assertEquals(1, report.manualReview());
+        assertEquals(BuyProductIdMigrationService.MigrationClassification.MANUAL_REVIEW, report.results().get(0).classification());
+    }
+
+    // TEST J: PRODUCT_DISCOUNT (Any other) + buyProductId -> MANUAL_REVIEW
+    @Test
+    void testJ_OtherPromotionTypes() {
+        Promotion promo = createLegacyPromo();
+        promo.setPromotionType(PromotionType.PRODUCT_DISCOUNT);
+        promo.getConfiguration().setBuyProductId(100L);
+
+        lenient().when(promotionRepository.findAll()).thenReturn(List.of(promo));
+
+        BuyProductIdMigrationService.MigrationReport report = migrationService.execute();
+        assertEquals(1, report.manualReview());
+        assertEquals(BuyProductIdMigrationService.MigrationClassification.MANUAL_REVIEW, report.results().get(0).classification());
+    }
+
+    // TEST K: CART_DISCOUNT + buyProductId + buyVariantIds -> MANUAL_REVIEW
+    @Test
+    void testK_CartDiscountWithVariantIds() {
+        Promotion promo = createLegacyPromo();
+        promo.setPromotionType(PromotionType.CART_DISCOUNT);
+        promo.getConfiguration().setBuyProductId(100L);
+        promo.getConfiguration().setBuyVariantIds(List.of(999L));
+
+        lenient().when(promotionRepository.findAll()).thenReturn(List.of(promo));
+
+        BuyProductIdMigrationService.MigrationReport report = migrationService.execute();
+        assertEquals(1, report.manualReview());
+        assertEquals(BuyProductIdMigrationService.MigrationClassification.MANUAL_REVIEW, report.results().get(0).classification());
+    }
 }
