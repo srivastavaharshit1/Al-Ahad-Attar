@@ -79,3 +79,10 @@ test-env/
 # Uploads (binary assets — keep on disk, don't commit)
 backend/uploads/
 
+
+# Data dumps and logs
+*.csv
+
+# Local powershell test scripts
+test-*.ps1
+test_*.ps1
