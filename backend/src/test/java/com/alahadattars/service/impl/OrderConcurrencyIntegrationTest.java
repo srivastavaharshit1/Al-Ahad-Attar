@@ -119,7 +119,7 @@ class OrderConcurrencyIntegrationTest {
 
         variant = productVariantRepository.save(ProductVariant.builder().product(product).size("10 ml")
                 .price(new BigDecimal("100")).stock(50).active(true).sku("SKU-" + UUID.randomUUID())
-                .productType(ProductType.GENERAL).image("img.jpg").build());
+                .productType(ProductType.GENERAL).build());
     }
 
     private PaymentIntent createPaymentIntent(String orderId, int amountRupees) {

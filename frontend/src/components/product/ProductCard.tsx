@@ -57,9 +57,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
     if (promo.promotionType === 'PRODUCT_DISCOUNT' && promo.configuration?.applicableProductIds?.includes(product.id)) return true;
     if (promo.promotionType === 'CATEGORY_DISCOUNT' && product.category?.id && promo.configuration?.applicableCategoryIds?.includes(product.category.id)) return true;
     if (promo.promotionType === 'FREE_PRODUCT') {
-      if (promo.configuration?.buyProductId && promo.configuration.buyProductId === product.id) return true;
-      if (product.category?.id && promo.configuration?.buyCategoryId === product.category.id) return true;
-      if (!promo.configuration?.buyProductId && !promo.configuration?.buyCategoryId) return true;
+      const scope = promo.configuration?.buyScope;
+      if (scope === 'SPECIFIC_PRODUCT' && promo.configuration?.buyVariantIds?.length) {
+        return variantId && promo.configuration.buyVariantIds.includes(variantId);
+      }
+      if (scope === 'CATEGORY' && product.category?.id && promo.configuration?.buyCategoryId === product.category.id) return true;
+      if (scope === 'ANY_PRODUCT' || (!scope && !promo.configuration?.buyVariantIds?.length && !promo.configuration?.buyCategoryId)) return true;
     }
     return false;
   });

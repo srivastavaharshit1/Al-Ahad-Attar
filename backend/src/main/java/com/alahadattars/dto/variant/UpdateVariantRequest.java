@@ -40,6 +40,5 @@ public class UpdateVariantRequest {
     @Schema(description = "Active status of the variant", example = "true")
     private Boolean active;
 
-    @Schema(description = "Image URL for the variant", example = "/images/oud-6ml.jpg")
-    private String image;
+
 }

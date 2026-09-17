@@ -85,7 +85,7 @@ public class ProductVariantServiceImpl implements ProductVariantService {
         
         variant.setPrice(request.getPrice());
         variant.setSku(request.getSku());
-        variant.setImage(request.getImage() != null ? request.getImage() : variant.getImage());
+
         if (request.getStock() != null) variant.setStock(request.getStock());
         if (request.getActive() != null) variant.setActive(request.getActive());
 

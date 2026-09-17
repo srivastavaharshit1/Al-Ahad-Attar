@@ -5,9 +5,14 @@ import com.alahadattars.dto.variant.VariantResponse;
 import com.alahadattars.dto.variant.VariantSummaryResponse;
 import com.alahadattars.entity.ProductVariant;
 import org.springframework.stereotype.Component;
+import lombok.RequiredArgsConstructor;
+import java.util.stream.Collectors;
 
 @Component
+@RequiredArgsConstructor
 public class ProductVariantMapper {
+
+    private final ProductImageMapper productImageMapper;
 
     public VariantResponse toResponse(ProductVariant variant) {
         if (variant == null) {
@@ -21,10 +26,13 @@ public class ProductVariantMapper {
                 .price(variant.getPrice())
                 .stock(variant.getStock())
                 .sku(variant.getSku())
-                .image(variant.getImage())
                 .active(variant.isActive())
                 .productId(variant.getProduct() != null ? variant.getProduct().getId() : null)
                 .productName(variant.getProduct() != null ? variant.getProduct().getName() : null)
+                .productImages(variant.getProduct() != null && variant.getProduct().getImages() != null ?
+                        variant.getProduct().getImages().stream()
+                                .map(productImageMapper::toResponse)
+                                .collect(Collectors.toList()) : null)
                 .build();
     }
     
@@ -52,7 +60,6 @@ public class ProductVariantMapper {
                 .price(request.getPrice())
                 .stock(request.getStock())
                 .sku(request.getSku())
-                .image(request.getImage() != null ? request.getImage() : "")
                 .active(request.isActive())
                 .build();
     }

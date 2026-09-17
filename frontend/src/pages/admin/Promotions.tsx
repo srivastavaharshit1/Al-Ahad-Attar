@@ -233,12 +233,13 @@ export const Promotions: React.FC = () => {
       payload.configuration.buyScope = formData.configuration.buyScope;
       payload.configuration.buyCategoryId = formData.configuration.buyScope === 'CATEGORY' && formData.configuration.buyCategoryId
         ? parseInt(formData.configuration.buyCategoryId as any) : null;
-      payload.configuration.buyProductId = formData.configuration.buyScope === 'SPECIFIC_PRODUCT' && selectedBuyProductId
-        ? selectedBuyProductId : null;
+      payload.configuration.buyProductId = null;
       payload.configuration.buyVariantSizes = formData.configuration.buyVariantSizes?.length ? formData.configuration.buyVariantSizes : null;
-      // Deprecated exact-ID/single-size fields — no longer written by this form, which now always
-      // configures scope + a size list instead.
-      payload.configuration.buyVariantIds = null;
+      payload.configuration.buyVariantIds = formData.configuration.buyScope === 'SPECIFIC_PRODUCT' && selectedBuyProductId
+        ? buyProductVariants
+            .filter(v => !formData.configuration.buyVariantSizes?.length || formData.configuration.buyVariantSizes.includes(v.size))
+            .map(v => v.id)
+        : null;
       payload.configuration.buyVariantSize = null;
 
       payload.configuration.freeScope = formData.configuration.freeScope;

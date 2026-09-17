@@ -149,7 +149,7 @@ public class OrderServiceIntegrationTest {
                 .active(true)
                 .sku("OUD-12")
                 .productType(com.alahadattars.enums.ProductType.GENERAL)
-                .image("img.jpg")
+
                 .build();
         productVariantRepository.save(paidVariant);
 
@@ -161,7 +161,7 @@ public class OrderServiceIntegrationTest {
                 .active(true)
                 .sku("OUD-3")
                 .productType(com.alahadattars.enums.ProductType.GENERAL)
-                .image("img.jpg")
+
                 .build();
         productVariantRepository.save(freeVariant);
 
@@ -232,7 +232,7 @@ public class OrderServiceIntegrationTest {
         // Find the saved order
         Order order = orderRepository.findByOrderNumber(response.getOrderNumber()).orElseThrow();
         assertEquals(0, new BigDecimal("1000").compareTo(order.getTotalAmount())); // Paid 1000 for variant, free item should be 0
-        
+
         // Verify inventory deducted
         ProductVariant updatedPaid = productVariantRepository.findById(paidVariant.getId()).orElseThrow();
         assertEquals(9, updatedPaid.getStock());

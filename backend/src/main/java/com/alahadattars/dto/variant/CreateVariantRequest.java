@@ -39,8 +39,6 @@ public class CreateVariantRequest {
     @Schema(description = "Unique SKU for the variant", example = "ATTAR-OUD-3ML")
     private String sku;
 
-    @Schema(description = "Image URL for the variant", example = "/images/oud-3ml.jpg")
-    private String image;
 
     @Builder.Default
     @Schema(description = "Active status of the variant", example = "true")

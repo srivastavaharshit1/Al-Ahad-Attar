@@ -580,19 +580,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         return options;
     }
 
-    /**
-     * ProductVariant.image is an optional per-variant override (a specific size having its own
-     * distinct photo) — it's normally blank, since products are photographed once and share that
-     * image across all their variants. Cart items and free-gift options were built from this field
-     * alone with no fallback, so any product without a variant-level image override (i.e. almost
-     * all of them) showed no photo at all in the cart, even though the product itself has real
-     * images. Falls back to the product's primary (or first) image, matching the same
-     * primary-image resolution ProductMapper uses for product listings.
-     */
     private String resolveCartItemImage(ProductVariant variant, Product product) {
-        if (variant.getImage() != null && !variant.getImage().isBlank()) {
-            return variant.getImage();
-        }
         if (product.getImages() == null || product.getImages().isEmpty()) {
             return null;
         }

@@ -74,12 +74,7 @@ public class ProductVariant extends BaseEntity {
     @Column(length = 100, nullable = false, unique = true)
     private String sku;
 
-    /**
-     * @deprecated Single image on variant is deprecated. Images are now managed at the Product level.
-     */
-    @Deprecated
-    @Column(nullable = true)
-    private String image;
+
 
     @Column(nullable = false)
     @Builder.Default

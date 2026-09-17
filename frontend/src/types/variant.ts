@@ -1,3 +1,5 @@
+import type { ProductImage } from './product';
+
 export interface Variant {
   id: number;
   productType: string;
@@ -9,4 +11,5 @@ export interface Variant {
   active: boolean;
   productId?: number;
   productName?: string;
+  productImages?: ProductImage[];
 }

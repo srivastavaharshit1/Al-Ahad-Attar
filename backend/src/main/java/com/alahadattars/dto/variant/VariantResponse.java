@@ -1,5 +1,6 @@
 package com.alahadattars.dto.variant;
 
+import com.alahadattars.dto.product.ProductImageResponse;
 import com.alahadattars.enums.ProductType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -7,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @Builder
@@ -19,8 +21,8 @@ public class VariantResponse {
     private BigDecimal price;
     private Integer stock;
     private String sku;
-    private String image;
     private boolean active;
     private Long productId;
     private String productName;
+    private List<ProductImageResponse> productImages;
 }

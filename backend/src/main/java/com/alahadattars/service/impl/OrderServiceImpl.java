@@ -867,9 +867,6 @@ public class OrderServiceImpl implements OrderService {
 
     private String resolveOrderItemImage(com.alahadattars.entity.ProductVariant variant) {
         if (variant == null) return null;
-        if (variant.getImage() != null && !variant.getImage().isBlank()) {
-            return variant.getImage();
-        }
         com.alahadattars.entity.Product product = variant.getProduct();
         if (product == null || product.getImages() == null || product.getImages().isEmpty()) {
             return null;

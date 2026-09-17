@@ -44,6 +44,19 @@ export const Wishlist: React.FC = () => {
     }
   }, [productIds]);
 
+  const getVariantThumbnail = (variant: any) => {
+    const images = variant.productImages;
+    if (!images || images.length === 0) return null;
+
+    // a. primary image
+    const primary = images.find((img: any) => img.isPrimary);
+    if (primary) return primary.imageUrl;
+
+    // b. lowest displayOrder
+    const sorted = [...images].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+    return sorted[0].imageUrl;
+  };
+
   const handleRemove = async (variantId: number) => {
     try {
       await removeFromWishlist(variantId.toString());
@@ -59,7 +72,7 @@ export const Wishlist: React.FC = () => {
       productId: item.variant.productId?.toString() || '0',
       name: item.variant.productName || 'Product',
       quantity: 1,
-      image: item.variant.image,
+      image: getVariantThumbnail(item.variant) || '',
       variantId: item.variant.id,
       size: item.variant.size,
       originalPrice: item.variant.price,
@@ -92,8 +105,8 @@ export const Wishlist: React.FC = () => {
           {wishlist.map((item, idx) => (
             <div key={item.id} className={`card flex flex-col overflow-hidden stagger-${(idx % 3) + 1}`}>
               <div className="product-media aspect-square bg-surface-variant">
-                {item.variant.image ? (
-                  <img src={getImageUrl(item.variant.image)} alt={item.variant.productName || 'Product'} className="w-full h-full object-cover" />
+                {getVariantThumbnail(item.variant) ? (
+                  <img src={getImageUrl(getVariantThumbnail(item.variant))} alt={item.variant.productName || 'Product'} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-outline">
                     <span className="material-symbols-outlined text-4xl">image</span>
