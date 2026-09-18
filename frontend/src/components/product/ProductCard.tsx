@@ -9,6 +9,7 @@ import { usePromotions } from '../../context/PromotionContext';
 import { getPromoBadge } from '../../utils/promotionHelpers';
 import { StarRating } from '../common/StarRating';
 import { BottleSelectionModal } from './BottleSelectionModal';
+import { resolveProductImage } from '../../utils/productUtils';
 
 interface ProductCardProps {
   product: Product;
@@ -26,16 +27,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
   
   // Local fallback (only triggers if we are passed a detailed Product without a thumbnail)
   if (!selectedImage && product.images && product.images.length > 0) {
-    if (defaultType) {
-      const typeImages = product.images.filter(img => img.altText?.toUpperCase() === defaultType.toUpperCase());
-      const typePrimary = typeImages.find(img => img.isPrimary);
-      const sharedImages = product.images.filter(img => !img.altText || img.altText.trim() === '');
-      const sharedPrimary = sharedImages.find(img => img.isPrimary);
-
-      selectedImage = typePrimary?.imageUrl || typeImages[0]?.imageUrl || sharedPrimary?.imageUrl || sharedImages[0]?.imageUrl;
-    } else {
-      selectedImage = product.images.find(img => img.isPrimary)?.imageUrl || product.images[0]?.imageUrl;
-    }
+    selectedImage = resolveProductImage(product.images, defaultType);
   }
 
   const image = selectedImage || '';

@@ -8,6 +8,7 @@ import { apiClient } from '../../api/axios';
 import { getImageUrl } from '../../utils/getImageUrl';
 import { Loader } from '../../components/ui/Loader';
 import { useInView } from '../../hooks/useInView';
+import { resolveProductImage } from '../../utils/productUtils';
 
 
 export const Wishlist: React.FC = () => {
@@ -45,16 +46,7 @@ export const Wishlist: React.FC = () => {
   }, [productIds]);
 
   const getVariantThumbnail = (variant: any) => {
-    const images = variant.productImages;
-    if (!images || images.length === 0) return null;
-
-    // a. primary image
-    const primary = images.find((img: any) => img.isPrimary);
-    if (primary) return primary.imageUrl;
-
-    // b. lowest displayOrder
-    const sorted = [...images].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
-    return sorted[0].imageUrl;
+    return resolveProductImage(variant.productImages, variant.productType) || null;
   };
 
   const handleRemove = async (variantId: number) => {

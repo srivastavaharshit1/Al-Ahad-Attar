@@ -16,28 +16,7 @@ import { StarRating } from '../components/common/StarRating';
 import { useInView } from '../hooks/useInView';
 import { SEO } from '../components/seo/SEO';
 import { BottleSelectionModal } from '../components/product/BottleSelectionModal';
-function getImagesForType(
-  images: ProductImage[],
-  type: 'ATTAR' | 'PERFUME' | string
-): ProductImage[] {
-  const typed = images.filter(
-    img => img.altText?.toUpperCase() === type
-  );
-
-  if (typed.length > 0) {
-    return typed;
-  }
-
-  const shared = images.filter(
-    img => !img.altText || img.altText.trim() === ''
-  );
-
-  if (shared.length > 0) {
-    return shared;
-  }
-
-  return [];
-}
+import { resolveProductImage } from '../utils/productUtils';
 
 function getAllProductImages(images: ProductImage[]): ProductImage[] {
   const unique = new Map<string | number, ProductImage>();
@@ -100,13 +79,8 @@ export const ProductPage: React.FC = () => {
             setSelectedVariant(initialVariants.length > 0 ? initialVariants[0] : res.data.variants[0]);
 
             // Set initial image to primary of the correct type bucket
-            const initialTypeImages = getImagesForType(imgs, initialType);
-            const primary = initialTypeImages.find(img => img.isPrimary) ?? initialTypeImages[0];
-            if (primary) {
-              setMainImage(primary.imageUrl);
-            } else {
-              setMainImage('');
-            }
+            const resolvedImage = resolveProductImage(imgs, initialType);
+            setMainImage(resolvedImage || '');
           } else if (imgs.length > 0) {
             // No variants — just show first image
             const primary = imgs.find((img: any) => img.isPrimary) || imgs[0];
@@ -205,14 +179,8 @@ export const ProductPage: React.FC = () => {
     }
 
     if (product?.images) {
-      const typeImages = getImagesForType(product.images, type);
-      // Set main image to the primary of this type bucket, or first image
-      const primary = typeImages.find(img => img.isPrimary) ?? typeImages[0];
-      if (primary) {
-        setMainImage(primary.imageUrl);
-      } else {
-        setMainImage('');
-      }
+      const resolvedImage = resolveProductImage(product.images, type);
+      setMainImage(resolvedImage || '');
     }
   };
 
