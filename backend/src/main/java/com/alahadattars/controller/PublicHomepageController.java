@@ -36,7 +36,7 @@ public class PublicHomepageController {
     private final com.alahadattars.repository.HomepageSectionRepository homepageSectionRepository;
 
     @GetMapping
-    @Cacheable("homepage")
+    @Cacheable(value = "homepage", sync = true)
     public ResponseEntity<ApiResponse<HomepageDataResponse>> getHomepageData() {
         return ResponseEntity.ok(ApiResponse.<HomepageDataResponse>builder()
                 .success(true)
