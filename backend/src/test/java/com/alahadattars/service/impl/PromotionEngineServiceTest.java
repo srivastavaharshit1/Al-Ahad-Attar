@@ -56,6 +56,9 @@ public class PromotionEngineServiceTest {
     @Mock
     private EligibilityConditionFactory eligibilityConditionFactory;
 
+    @Mock
+    private com.alahadattars.service.ProductImageResolver productImageResolver;
+
     @InjectMocks
     private PromotionEngineServiceImpl promotionEngineService;
 

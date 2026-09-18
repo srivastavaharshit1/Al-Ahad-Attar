@@ -6,6 +6,7 @@ import com.alahadattars.dto.product.ProductSummaryResponse;
 import com.alahadattars.dto.variant.VariantResponse;
 import com.alahadattars.entity.Product;
 import com.alahadattars.entity.ProductVariant;
+import com.alahadattars.service.ProductImageResolver;
 import com.alahadattars.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,7 @@ public class ProductMapper {
     private final CategoryMapper categoryMapper;
     private final ProductVariantMapper productVariantMapper;
     private final StorageService storageService;
+    private final ProductImageResolver productImageResolver;
 
     public ProductResponse toResponse(Product product) {
         if (product == null) {
@@ -136,7 +138,7 @@ public class ProductMapper {
                 .map(ProductVariant::getSize)
                 .collect(Collectors.toList());
 
-        String thumb = resolveThumbnail(product, preferredType);
+        String thumb = productImageResolver.resolveImage(product.getImages(), preferredType);
 
         return ProductSummaryResponse.builder()
                 .id(product.getId())
@@ -208,55 +210,6 @@ public class ProductMapper {
                 .filter(v -> minPrice != null && v.getPrice().compareTo(minPrice) == 0)
                 .findFirst()
                 .orElse(firstFallback);
-    }
-
-    private String resolveThumbnail(Product product, String preferredType) {
-        if (product.getImages() == null || product.getImages().isEmpty()) {
-            return null;
-        }
-        List<com.alahadattars.entity.ProductImage> activeImages = product.getImages().stream()
-                .filter(com.alahadattars.entity.ProductImage::isActive)
-                .collect(Collectors.toList());
-
-        java.util.Comparator<com.alahadattars.entity.ProductImage> imageComparator =
-            java.util.Comparator.comparing(com.alahadattars.entity.ProductImage::getDisplayOrder)
-                .thenComparing(com.alahadattars.entity.ProductImage::getId);
-
-        com.alahadattars.entity.ProductImage thumbImage = (preferredType != null)
-                ? resolveContextualImage(activeImages, preferredType, imageComparator)
-                : resolveDefaultImage(activeImages, imageComparator);
-
-        if (thumbImage != null) {
-            return storageService.resolveUrl(thumbImage.getImageUrl(), "/api/images/" + thumbImage.getId() + "/file");
-        }
-        return null;
-    }
-
-    private com.alahadattars.entity.ProductImage resolveContextualImage(List<com.alahadattars.entity.ProductImage> activeImages, String preferredType, java.util.Comparator<com.alahadattars.entity.ProductImage> comparator) {
-        return activeImages.stream()
-                .filter(img -> preferredType.equalsIgnoreCase(img.getAltText()) && img.isPrimary())
-                .min(comparator)
-                .orElseGet(() -> activeImages.stream()
-                        .filter(img -> preferredType.equalsIgnoreCase(img.getAltText()))
-                        .min(comparator)
-                        .orElseGet(() -> resolveSharedImage(activeImages, comparator)));
-    }
-
-    private com.alahadattars.entity.ProductImage resolveSharedImage(List<com.alahadattars.entity.ProductImage> activeImages, java.util.Comparator<com.alahadattars.entity.ProductImage> comparator) {
-        return activeImages.stream()
-                .filter(img -> (img.getAltText() == null || img.getAltText().trim().isEmpty()) && img.isPrimary())
-                .min(comparator)
-                .orElseGet(() -> activeImages.stream()
-                        .filter(img -> img.getAltText() == null || img.getAltText().trim().isEmpty())
-                        .min(comparator)
-                        .orElse(null));
-    }
-
-    private com.alahadattars.entity.ProductImage resolveDefaultImage(List<com.alahadattars.entity.ProductImage> activeImages, java.util.Comparator<com.alahadattars.entity.ProductImage> comparator) {
-        return activeImages.stream()
-                .filter(com.alahadattars.entity.ProductImage::isPrimary)
-                .min(comparator)
-                .orElseGet(() -> activeImages.stream().min(comparator).orElse(null));
     }
 
 }

@@ -31,6 +31,7 @@ import com.alahadattars.entity.PromotionRedemption;
 import com.alahadattars.dto.promotion.PromotionResponse;
 import com.alahadattars.service.OrderService;
 import com.alahadattars.service.PromotionEngineService;
+import com.alahadattars.service.ProductImageResolver;
 import com.alahadattars.service.StoreSettingsService;
 import com.alahadattars.service.EmailService;
 import com.alahadattars.service.notification.NotificationService;
@@ -89,6 +90,7 @@ public class OrderServiceImpl implements OrderService {
     private final RefundTransactionSupport refundTransactionSupport;
     private final com.alahadattars.repository.BottleRepository bottleRepository;
     private final com.alahadattars.service.StorageService storageService;
+    private final ProductImageResolver productImageResolver;
     private final WebhookEventRepository webhookEventRepository;
     private final com.alahadattars.service.GuestCheckoutLockService guestCheckoutLockService;
 
@@ -866,20 +868,9 @@ public class OrderServiceImpl implements OrderService {
 
 
     private String resolveOrderItemImage(com.alahadattars.entity.ProductVariant variant) {
-        if (variant == null) return null;
-        com.alahadattars.entity.Product product = variant.getProduct();
-        if (product == null || product.getImages() == null || product.getImages().isEmpty()) {
-            return null;
-        }
-        com.alahadattars.entity.ProductImage primary = product.getImages().stream()
-                .filter(img -> img.isActive() && img.isPrimary())
-                .findFirst()
-                .orElseGet(() -> product.getImages().stream()
-                        .filter(com.alahadattars.entity.ProductImage::isActive)
-                        .findFirst()
-                        .orElse(product.getImages().isEmpty() ? null : product.getImages().get(0)));
-        if (primary == null) return null;
-        return storageService.resolveUrl(primary.getImageUrl(), "/api/images/" + primary.getId() + "/file");
+        if (variant == null || variant.getProduct() == null) return null;
+        String preferredType = variant.getProductType() != null ? variant.getProductType().name() : null;
+        return productImageResolver.resolveImage(variant.getProduct().getImages(), preferredType);
     }
 
     private OrderItemResponse mapItemToResponse(OrderItem item) {

@@ -7,6 +7,7 @@ import com.alahadattars.entity.ProductImage;
 import com.alahadattars.entity.ProductVariant;
 import com.alahadattars.enums.CategoryType;
 import com.alahadattars.enums.ProductType;
+import com.alahadattars.service.ProductImageResolver;
 import com.alahadattars.service.StorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,6 +23,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -38,25 +40,27 @@ class ProductMapperTest {
     @Mock
     private StorageService storageService;
 
+    @Mock
+    private ProductImageResolver productImageResolver;
+
     @InjectMocks
     private ProductMapper productMapper;
 
     @BeforeEach
     void setUp() {
-        // Mock storageService behavior generically for all tests since ProductMapper simply appends to the requested fallback path.
-        // We will just return the original URL if present, or a dummy URL if we want to trace it.
-        // Actually, the current mapper does: storageService.resolveUrl(img.getImageUrl(), "/api/images/" + img.getId() + "/file")
-        // So we can just mock it to return a formatted string to assert on it.
     }
 
-    private void mockStorageService() {
-        when(storageService.resolveUrl(anyString(), anyString())).thenAnswer(invocation -> {
-            String url = invocation.getArgument(0);
-            String fallback = invocation.getArgument(1);
-            if (url != null && !url.trim().isEmpty()) {
-                return url;
+    private void mockProductImageResolver() {
+        when(productImageResolver.resolveImage(any(), any())).thenAnswer(invocation -> {
+            List<ProductImage> images = invocation.getArgument(0);
+            String preferredType = invocation.getArgument(1);
+            if (images == null || images.isEmpty()) return null;
+            if (preferredType != null) {
+                for (ProductImage img : images) {
+                    if (preferredType.equalsIgnoreCase(img.getAltText())) return "url-" + img.getId();
+                }
             }
-            return fallback;
+            return "url-" + images.get(0).getId();
         });
     }
 
@@ -102,7 +106,7 @@ class ProductMapperTest {
     @Test
     @DisplayName("A. Attar-only product")
     void testAttarOnlyProduct() {
-        mockStorageService();
+        mockProductImageResolver();
         Product product = createProduct("Attars");
         product.getVariants().add(createVariant(10L, ProductType.ATTAR, "10ml", new BigDecimal("50.00"), 10));
         product.getVariants().add(createVariant(11L, ProductType.ATTAR, "50ml", new BigDecimal("200.00"), 5));
@@ -124,7 +128,7 @@ class ProductMapperTest {
     @Test
     @DisplayName("B. Perfume-only product")
     void testPerfumeOnlyProduct() {
-        mockStorageService();
+        mockProductImageResolver();
         Product product = createProduct("Perfumes");
         product.getVariants().add(createVariant(20L, ProductType.PERFUME, "50ml", new BigDecimal("100.00"), 10));
 
@@ -145,7 +149,7 @@ class ProductMapperTest {
     @Test
     @DisplayName("C. Product containing both Attar and Perfume variants - Explicit Context")
     void testMixedProductWithContext() {
-        mockStorageService();
+        mockProductImageResolver();
         Product product = createProduct("Unisex"); // No implicit category type preference
         product.getVariants().add(createVariant(30L, ProductType.ATTAR, "10ml", new BigDecimal("30.00"), 10));
         product.getVariants().add(createVariant(31L, ProductType.PERFUME, "50ml", new BigDecimal("100.00"), 5));
@@ -171,78 +175,9 @@ class ProductMapperTest {
     }
 
     @Test
-    @DisplayName("D. Product with shared images (fallback)")
-    void testSharedImageFallback() {
-        mockStorageService();
-        Product product = createProduct("Attars"); // Context resolves to ATTAR
-
-        // Only shared images (no altText)
-        product.getImages().add(createImage(400L, null, false, 2));
-        product.getImages().add(createImage(401L, "", true, 1)); // Shared primary
-
-        ProductSummaryResponse response = productMapper.toSummaryResponse(product);
-        assertEquals("url-401", response.getThumbnail()); // Resolves to shared primary (fallback 3)
-    }
-
-    @Test
-    @DisplayName("E. Product with type-specific primary images vs non-primary")
-    void testTypeSpecificPrimaryPreference() {
-        mockStorageService();
-        Product product = createProduct("Perfumes");
-
-        // Type-specific non-primary vs Type-specific primary
-        product.getImages().add(createImage(500L, "PERFUME", false, 0));
-        product.getImages().add(createImage(501L, "PERFUME", true, 1)); // Higher displayOrder but isPrimary
-
-        ProductSummaryResponse response = productMapper.toSummaryResponse(product);
-        assertEquals("url-501", response.getThumbnail()); // Resolves to type-specific primary (fallback 1)
-    }
-
-    @Test
-    @DisplayName("F. Product without a primary image")
-    void testWithoutPrimaryImage() {
-        mockStorageService();
-        Product product = createProduct("Perfumes");
-
-        // No primary flags at all
-        product.getImages().add(createImage(600L, "PERFUME", false, 5));
-        product.getImages().add(createImage(601L, "PERFUME", false, 2)); // Should pick this due to lower displayOrder
-
-        ProductSummaryResponse response = productMapper.toSummaryResponse(product);
-        assertEquals("url-601", response.getThumbnail()); // Resolves to type-specific non-primary (fallback 2)
-    }
-
-    @Test
-    @DisplayName("G. Product with multiple images and displayOrder")
-    void testDisplayOrderSorting() {
-        mockStorageService();
-        Product product = createProduct(null); // No context
-
-        product.getImages().add(createImage(700L, null, true, 10));
-        product.getImages().add(createImage(701L, null, true, 2)); // Lowest displayOrder among primaries
-        product.getImages().add(createImage(702L, null, true, 5));
-
-        ProductSummaryResponse response = productMapper.toSummaryResponse(product);
-        assertEquals("url-701", response.getThumbnail());
-    }
-
-    @Test
-    @DisplayName("H. Product with missing/null image metadata")
-    void testMissingImageMetadata() {
-        mockStorageService();
-        Product product = createProduct("Attars");
-
-        // All non-primary shared
-        product.getImages().add(createImage(800L, null, false, 10));
-        product.getImages().add(createImage(801L, "   ", false, 5)); // Whitespace is treated as empty
-
-        ProductSummaryResponse response = productMapper.toSummaryResponse(product);
-        assertEquals("url-801", response.getThumbnail()); // Resolves to shared non-primary (fallback 4)
-    }
-
-    @Test
     @DisplayName("I. Product with no images")
     void testNoImages() {
+        mockProductImageResolver();
         Product product = createProduct("Perfumes");
         // Empty images list
 

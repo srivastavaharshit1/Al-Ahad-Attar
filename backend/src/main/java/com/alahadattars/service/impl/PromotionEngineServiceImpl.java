@@ -18,6 +18,7 @@ import com.alahadattars.repository.ProductVariantRepository;
 import com.alahadattars.repository.PromotionRedemptionRepository;
 import com.alahadattars.repository.PromotionRepository;
 import com.alahadattars.service.PromotionEngineService;
+import com.alahadattars.service.ProductImageResolver;
 import com.alahadattars.service.StorageService;
 import com.alahadattars.service.promotion.EligibilityConditionFactory;
 import com.alahadattars.service.promotion.ItemEligibilityCondition;
@@ -47,6 +48,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
     private final ProductVariantRepository productVariantRepository;
     private final PromotionRedemptionRepository promotionRedemptionRepository;
     private final StorageService storageService;
+    private final ProductImageResolver productImageResolver;
     private final PromotionResponseMapper promotionResponseMapper;
     private final EligibilityConditionFactory eligibilityConditionFactory;
 
@@ -581,18 +583,9 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
     }
 
     private String resolveCartItemImage(ProductVariant variant, Product product) {
-        if (product.getImages() == null || product.getImages().isEmpty()) {
-            return null;
-        }
-        com.alahadattars.entity.ProductImage primary = product.getImages().stream()
-                .filter(img -> img.isActive() && img.isPrimary())
-                .findFirst()
-                .orElseGet(() -> product.getImages().stream()
-                        .filter(com.alahadattars.entity.ProductImage::isActive)
-                        .findFirst()
-                        .orElse(product.getImages().isEmpty() ? null : product.getImages().get(0)));
-        if (primary == null) return null;
-        return storageService.resolveUrl(primary.getImageUrl(), "/api/images/" + primary.getId() + "/file");
+        if (variant == null || product == null) return null;
+        String preferredType = variant.getProductType() != null ? variant.getProductType().name() : null;
+        return productImageResolver.resolveImage(product.getImages(), preferredType);
     }
 
     // ─── validateFreeItemEligibility ─────────────────────────────────────────
