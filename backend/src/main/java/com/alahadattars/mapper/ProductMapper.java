@@ -115,107 +115,28 @@ public class ProductMapper {
             return null;
         }
 
-        BigDecimal minPrice = null;
-        String thumb = null;
-        Integer totalStock = 0;
-        Long defaultVariantId = null;
-        String defaultVariantSize = null;
-        String defaultVariantType = null;
-
         String categoryName = product.getCategory() != null ? product.getCategory().getName() : null;
         String categoryType = product.getCategory() != null && product.getCategory().getType() != null ? product.getCategory().getType().name() : null;
-        
-        // Determine preferred type based on context or product category
-        String preferredType = requestedContextType;
-        if (preferredType == null && categoryName != null) {
-            if (categoryName.equalsIgnoreCase("Perfumes")) {
-                preferredType = "PERFUME";
-            } else if (categoryName.equalsIgnoreCase("Attars")) {
-                preferredType = "ATTAR";
-            }
-        }
-        final String finalPreferredType = preferredType;
-        
-        java.util.List<String> availableSizesList = java.util.Collections.emptyList();
 
-        if (product.getVariants() != null && !product.getVariants().isEmpty()) {
-            java.util.List<ProductVariant> activeVariants = product.getVariants().stream()
-                    .filter(ProductVariant::isActive)
-                    .collect(Collectors.toList());
+        String preferredType = resolvePreferredType(requestedContextType, categoryName);
+        List<ProductVariant> preferredVariants = getPreferredVariants(product, preferredType);
 
-            java.util.List<ProductVariant> preferredVariants = activeVariants;
-            
-            if (finalPreferredType != null) {
-                java.util.List<ProductVariant> filtered = activeVariants.stream()
-                        .filter(v -> v.getProductType().name().equalsIgnoreCase(finalPreferredType))
-                        .collect(Collectors.toList());
-                if (!filtered.isEmpty()) {
-                    preferredVariants = filtered;
-                }
-            }
+        BigDecimal minPrice = resolveMinimumPrice(preferredVariants);
+        ProductVariant defaultVariant = resolveDefaultVariant(preferredVariants, minPrice);
 
-            minPrice = preferredVariants.stream()
-                    .map(ProductVariant::getPrice)
-                    .min(BigDecimal::compareTo)
-                    .orElse(null);
-            
-            final BigDecimal finalMinPrice = minPrice;
-            ProductVariant firstFallback = preferredVariants.stream().findFirst().orElse(null);
-            ProductVariant defaultVariant = preferredVariants.stream()
-                    .filter(v -> finalMinPrice != null && v.getPrice().compareTo(finalMinPrice) == 0)
-                    .findFirst()
-                    .orElse(firstFallback);
-                    
-            if (defaultVariant != null) {
-                defaultVariantId = defaultVariant.getId();
-                defaultVariantSize = defaultVariant.getSize();
-                defaultVariantType = defaultVariant.getProductType() != null ? defaultVariant.getProductType().name() : null;
-            }
-            
-            totalStock = preferredVariants.stream()
-                    .mapToInt(v -> v.getStock() != null ? v.getStock() : 0)
-                    .sum();
-                    
-            availableSizesList = preferredVariants.stream()
-                    .map(ProductVariant::getSize)
-                    .collect(Collectors.toList());
-        }
+        Long defaultVariantId = defaultVariant != null ? defaultVariant.getId() : null;
+        String defaultVariantSize = defaultVariant != null ? defaultVariant.getSize() : null;
+        String defaultVariantType = defaultVariant != null && defaultVariant.getProductType() != null ? defaultVariant.getProductType().name() : null;
 
-        if (product.getImages() != null && !product.getImages().isEmpty()) {
-            java.util.List<com.alahadattars.entity.ProductImage> activeImages = product.getImages().stream()
-                    .filter(com.alahadattars.entity.ProductImage::isActive)
-                    .collect(Collectors.toList());
-            
-            java.util.Comparator<com.alahadattars.entity.ProductImage> imageComparator =
-                java.util.Comparator.comparing(com.alahadattars.entity.ProductImage::getDisplayOrder)
-                    .thenComparing(com.alahadattars.entity.ProductImage::getId);
+        Integer totalStock = preferredVariants.stream()
+                .mapToInt(v -> v.getStock() != null ? v.getStock() : 0)
+                .sum();
 
-            com.alahadattars.entity.ProductImage thumbImage = null;
-            if (finalPreferredType != null) {
-                thumbImage = activeImages.stream()
-                        .filter(img -> finalPreferredType.equalsIgnoreCase(img.getAltText()) && img.isPrimary())
-                        .min(imageComparator)
-                        .orElseGet(() -> activeImages.stream()
-                                .filter(img -> finalPreferredType.equalsIgnoreCase(img.getAltText()))
-                                .min(imageComparator)
-                                .orElseGet(() -> activeImages.stream()
-                                        .filter(img -> (img.getAltText() == null || img.getAltText().trim().isEmpty()) && img.isPrimary())
-                                        .min(imageComparator)
-                                        .orElseGet(() -> activeImages.stream()
-                                                .filter(img -> img.getAltText() == null || img.getAltText().trim().isEmpty())
-                                                .min(imageComparator)
-                                                .orElse(null))));
-            } else {
-                thumbImage = activeImages.stream()
-                        .filter(com.alahadattars.entity.ProductImage::isPrimary)
-                        .min(imageComparator)
-                        .orElseGet(() -> activeImages.stream().min(imageComparator).orElse(null));
-            }
-            
-            if (thumbImage != null) {
-                thumb = storageService.resolveUrl(thumbImage.getImageUrl(), "/api/images/" + thumbImage.getId() + "/file");
-            }
-        }
+        List<String> availableSizesList = preferredVariants.stream()
+                .map(ProductVariant::getSize)
+                .collect(Collectors.toList());
+
+        String thumb = resolveThumbnail(product, preferredType);
 
         return ProductSummaryResponse.builder()
                 .id(product.getId())
@@ -239,6 +160,103 @@ public class ProductMapper {
                 .reviewCount(product.getReviewCount())
                 .active(product.isActive())
                 .build();
+    }
+
+    private String resolvePreferredType(String requestedContextType, String categoryName) {
+        if (requestedContextType != null) {
+            return requestedContextType;
+        }
+        if (categoryName != null) {
+            if (categoryName.equalsIgnoreCase("Perfumes")) {
+                return "PERFUME";
+            } else if (categoryName.equalsIgnoreCase("Attars")) {
+                return "ATTAR";
+            }
+        }
+        return null;
+    }
+
+    private List<ProductVariant> getPreferredVariants(Product product, String preferredType) {
+        if (product.getVariants() == null || product.getVariants().isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        List<ProductVariant> activeVariants = product.getVariants().stream()
+                .filter(ProductVariant::isActive)
+                .collect(Collectors.toList());
+
+        if (preferredType != null) {
+            List<ProductVariant> filtered = activeVariants.stream()
+                    .filter(v -> v.getProductType().name().equalsIgnoreCase(preferredType))
+                    .collect(Collectors.toList());
+            if (!filtered.isEmpty()) {
+                return filtered;
+            }
+        }
+        return activeVariants;
+    }
+
+    private BigDecimal resolveMinimumPrice(List<ProductVariant> variants) {
+        return variants.stream()
+                .map(ProductVariant::getPrice)
+                .min(BigDecimal::compareTo)
+                .orElse(null);
+    }
+
+    private ProductVariant resolveDefaultVariant(List<ProductVariant> variants, BigDecimal minPrice) {
+        ProductVariant firstFallback = variants.stream().findFirst().orElse(null);
+        return variants.stream()
+                .filter(v -> minPrice != null && v.getPrice().compareTo(minPrice) == 0)
+                .findFirst()
+                .orElse(firstFallback);
+    }
+
+    private String resolveThumbnail(Product product, String preferredType) {
+        if (product.getImages() == null || product.getImages().isEmpty()) {
+            return null;
+        }
+        List<com.alahadattars.entity.ProductImage> activeImages = product.getImages().stream()
+                .filter(com.alahadattars.entity.ProductImage::isActive)
+                .collect(Collectors.toList());
+
+        java.util.Comparator<com.alahadattars.entity.ProductImage> imageComparator =
+            java.util.Comparator.comparing(com.alahadattars.entity.ProductImage::getDisplayOrder)
+                .thenComparing(com.alahadattars.entity.ProductImage::getId);
+
+        com.alahadattars.entity.ProductImage thumbImage = (preferredType != null)
+                ? resolveContextualImage(activeImages, preferredType, imageComparator)
+                : resolveDefaultImage(activeImages, imageComparator);
+
+        if (thumbImage != null) {
+            return storageService.resolveUrl(thumbImage.getImageUrl(), "/api/images/" + thumbImage.getId() + "/file");
+        }
+        return null;
+    }
+
+    private com.alahadattars.entity.ProductImage resolveContextualImage(List<com.alahadattars.entity.ProductImage> activeImages, String preferredType, java.util.Comparator<com.alahadattars.entity.ProductImage> comparator) {
+        return activeImages.stream()
+                .filter(img -> preferredType.equalsIgnoreCase(img.getAltText()) && img.isPrimary())
+                .min(comparator)
+                .orElseGet(() -> activeImages.stream()
+                        .filter(img -> preferredType.equalsIgnoreCase(img.getAltText()))
+                        .min(comparator)
+                        .orElseGet(() -> resolveSharedImage(activeImages, comparator)));
+    }
+
+    private com.alahadattars.entity.ProductImage resolveSharedImage(List<com.alahadattars.entity.ProductImage> activeImages, java.util.Comparator<com.alahadattars.entity.ProductImage> comparator) {
+        return activeImages.stream()
+                .filter(img -> (img.getAltText() == null || img.getAltText().trim().isEmpty()) && img.isPrimary())
+                .min(comparator)
+                .orElseGet(() -> activeImages.stream()
+                        .filter(img -> img.getAltText() == null || img.getAltText().trim().isEmpty())
+                        .min(comparator)
+                        .orElse(null));
+    }
+
+    private com.alahadattars.entity.ProductImage resolveDefaultImage(List<com.alahadattars.entity.ProductImage> activeImages, java.util.Comparator<com.alahadattars.entity.ProductImage> comparator) {
+        return activeImages.stream()
+                .filter(com.alahadattars.entity.ProductImage::isPrimary)
+                .min(comparator)
+                .orElseGet(() -> activeImages.stream().min(comparator).orElse(null));
     }
 
 }
