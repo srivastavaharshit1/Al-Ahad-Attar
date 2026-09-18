@@ -20,7 +20,6 @@ export const Promotions: React.FC = () => {
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [selectedBuyProductId, setSelectedBuyProductId] = useState<number | null>(null);
   const [selectedFreeProductId, setSelectedFreeProductId] = useState<number | null>(null);
   const [buyProductVariants, setBuyProductVariants] = useState<any[]>([]);
   const [freeProductVariants, setFreeProductVariants] = useState<any[]>([]);
@@ -53,7 +52,6 @@ export const Promotions: React.FC = () => {
       buyScope: 'ANY_PRODUCT' as PromoScope,
       buyVariantIds: [] as number[],
       buyCategoryId: null as number | null,
-      buyProductId: null as number | null,
       buyVariantSizes: [] as string[],
       minPurchaseQuantity: 1,
       freeScope: 'ANY_PRODUCT' as PromoScope,
@@ -89,14 +87,15 @@ export const Promotions: React.FC = () => {
   };
 
   useEffect(() => {
-    if (selectedBuyProductId) {
-      productService.getProduct(selectedBuyProductId.toString())
+    const productId = formData.configuration.buyScope === 'SPECIFIC_PRODUCT' ? formData.configuration.applicableProductIds?.[0] : null;
+    if (productId) {
+      productService.getProduct(productId.toString())
         .then(res => setBuyProductVariants(res.data?.variants || []))
         .catch(() => setBuyProductVariants([]));
     } else {
       setBuyProductVariants([]);
     }
-  }, [selectedBuyProductId]);
+  }, [formData.configuration.buyScope, formData.configuration.applicableProductIds]);
 
   useEffect(() => {
     if (selectedFreeProductId) {
@@ -124,7 +123,6 @@ export const Promotions: React.FC = () => {
   const openCreateModal = () => {
     setEditingPromoId(null);
     setFormData(defaultFormData);
-    setSelectedBuyProductId(null);
     setSelectedFreeProductId(null);
     setIsModalOpen(true);
   };
@@ -166,10 +164,9 @@ export const Promotions: React.FC = () => {
         entitledQuantity: promo.configuration?.entitledQuantity ?? 1,
         entitledProductIds: promo.configuration?.entitledProductIds || [],
         // FREE_PRODUCT fields
-        buyScope: promo.configuration?.buyScope || inferScope(promo.configuration?.buyProductId, promo.configuration?.buyCategoryId),
+        buyScope: promo.configuration?.buyScope || inferScope(null, promo.configuration?.buyCategoryId),
         buyVariantIds: promo.configuration?.buyVariantIds || [],
         buyCategoryId: promo.configuration?.buyCategoryId || null,
-        buyProductId: promo.configuration?.buyProductId || null,
         buyVariantSizes: promo.configuration?.buyVariantSizes || (promo.configuration?.buyVariantSize ? [promo.configuration.buyVariantSize] : []),
         minPurchaseQuantity: promo.configuration?.minPurchaseQuantity ?? 1,
         freeScope: promo.configuration?.freeScope || inferScope(
@@ -186,7 +183,6 @@ export const Promotions: React.FC = () => {
         autoAddFreeProduct: promo.configuration?.autoAddFreeProduct ?? false,
       }
     });
-    setSelectedBuyProductId(promo.configuration?.buyProductId || null);
     setSelectedFreeProductId((promo.configuration?.freeProductIds || [])[0] ?? null);
     setIsModalOpen(true);
   };
@@ -233,9 +229,8 @@ export const Promotions: React.FC = () => {
       payload.configuration.buyScope = formData.configuration.buyScope;
       payload.configuration.buyCategoryId = formData.configuration.buyScope === 'CATEGORY' && formData.configuration.buyCategoryId
         ? parseInt(formData.configuration.buyCategoryId as any) : null;
-      payload.configuration.buyProductId = null;
       payload.configuration.buyVariantSizes = formData.configuration.buyVariantSizes?.length ? formData.configuration.buyVariantSizes : null;
-      payload.configuration.buyVariantIds = formData.configuration.buyScope === 'SPECIFIC_PRODUCT' && selectedBuyProductId
+      payload.configuration.buyVariantIds = formData.configuration.buyScope === 'SPECIFIC_PRODUCT' && formData.configuration.applicableProductIds?.[0]
         ? buyProductVariants
             .filter(v => !formData.configuration.buyVariantSizes?.length || formData.configuration.buyVariantSizes.includes(v.size))
             .map(v => v.id)
@@ -253,8 +248,6 @@ export const Promotions: React.FC = () => {
     } else {
       payload.configuration.buyScope = null;
       payload.configuration.buyVariantIds = null;
-      payload.configuration.buyCategoryId = null;
-      payload.configuration.buyProductId = null;
       payload.configuration.buyVariantSizes = null;
       payload.configuration.minPurchaseQuantity = null;
       payload.configuration.freeScope = null;
@@ -664,7 +657,6 @@ export const Promotions: React.FC = () => {
                           onChange={e => {
                             const scope = e.target.value as PromoScope;
                             setFormData({...formData, configuration: {...formData.configuration, buyScope: scope, buyVariantSizes: []}});
-                            if (scope !== 'SPECIFIC_PRODUCT') setSelectedBuyProductId(null);
                           }}
                           className="field-input"
                         >
@@ -690,10 +682,10 @@ export const Promotions: React.FC = () => {
                         <div className="space-y-2">
                           <label className="field-label">Product *</label>
                           <select
-                            value={selectedBuyProductId ?? ''}
+                            value={formData.configuration.applicableProductIds?.[0] ?? ''}
                             onChange={e => {
-                              setSelectedBuyProductId(e.target.value ? parseInt(e.target.value) : null);
-                              setFormData({...formData, configuration: {...formData.configuration, buyVariantSizes: []}});
+                              const val = e.target.value ? parseInt(e.target.value) : null;
+                              setFormData({...formData, configuration: {...formData.configuration, applicableProductIds: val ? [val] : [], buyVariantSizes: []}});
                             }}
                             className="field-input"
                           >
@@ -717,7 +709,7 @@ export const Promotions: React.FC = () => {
                             </label>
                           )) : (
                             <span className="text-sm text-on-surface-variant">
-                              {formData.configuration.buyScope === 'SPECIFIC_PRODUCT' && !selectedBuyProductId
+                              {formData.configuration.buyScope === 'SPECIFIC_PRODUCT' && (!formData.configuration.applicableProductIds || formData.configuration.applicableProductIds.length === 0)
                                 ? 'Select a product first to see its variants.'
                                 : formData.configuration.buyScope === 'CATEGORY' && !formData.configuration.buyCategoryId
                                 ? 'Select a category first to see available sizes.'

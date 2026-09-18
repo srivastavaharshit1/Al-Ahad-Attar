@@ -76,12 +76,8 @@ public class PromotionConfigValidator {
                 }
             }
             case SPECIFIC_PRODUCT -> {
-                Long productId = requireProduct(config.getBuyProductId(), config.getBuyCategoryId(), "Buy");
-                if (productId != null && !hasSizeMatch(
-                        productVariantRepository.findEligibleVariantsByProducts(List.of(productId)),
-                        config.getBuyVariantSizes(), config.getBuyVariantSize())) {
-                    throw new BadRequestException(
-                            "The selected buy product has no active variant matching the configured qualifying size(s).");
+                if (config.getBuyVariantIds() == null || config.getBuyVariantIds().isEmpty()) {
+                    throw new BadRequestException("SPECIFIC_PRODUCT buy scope requires at least one buy variant ID.");
                 }
             }
             case ANY_PRODUCT -> {

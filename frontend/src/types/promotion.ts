@@ -8,7 +8,6 @@ export interface PromotionConfiguration {
   buyVariantSize?: string;
   buyVariantSizes?: string[];
   buyCategoryId?: number;
-  buyProductId?: number;
   buyVariantIds?: number[];
   minPurchaseQuantity?: number;
   freeScope?: PromotionScope | null;

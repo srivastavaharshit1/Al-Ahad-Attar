@@ -742,10 +742,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                 if (!item.getProduct().getCategory().getId().equals(config.getBuyCategoryId())) return false;
             }
 
-            // Product filter
-            if (config.getBuyProductId() != null) {
-                if (!item.getProduct().getId().equals(config.getBuyProductId())) return false;
-            }
+
 
             // Variant ID filter
             if (config.getBuyVariantIds() != null && !config.getBuyVariantIds().isEmpty()) {
@@ -770,8 +767,9 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
 
         switch (config.getBuyScope()) {
             case SPECIFIC_PRODUCT -> {
-                if (config.getBuyProductId() == null
-                        || !item.getProduct().getId().equals(config.getBuyProductId())) return false;
+                // Specific product targeting now strictly requires buyVariantIds.
+                // If execution reaches here, buyVariantIds was null/empty or didn't match.
+                return false;
             }
             case CATEGORY -> {
                 if (config.getBuyCategoryId() == null || item.getProduct().getCategory() == null

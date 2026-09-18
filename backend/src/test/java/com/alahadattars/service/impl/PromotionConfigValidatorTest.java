@@ -136,29 +136,29 @@ class PromotionConfigValidatorTest {
     }
 
     @Test
-    void rejectsSpecificProductScopeWithNonExistentProduct() {
+    void rejectsSpecificProductScopeWithNonExistentFreeProduct() {
         when(productRepository.findById(999L)).thenReturn(Optional.empty());
         PromotionConfiguration config = new PromotionConfiguration();
-        config.setBuyScope(PromotionScope.SPECIFIC_PRODUCT);
-        config.setBuyProductId(999L);
+        config.setFreeScope(PromotionScope.SPECIFIC_PRODUCT);
+        config.setFreeProductIds(List.of(999L));
         PromotionRequest request = baseRequest().configuration(config).build();
 
         assertThrows(BadRequestException.class, () -> validator.validate(request));
     }
 
     @Test
-    void rejectsProductNotBelongingToSelectedCategory() {
+    void rejectsFreeProductNotBelongingToSelectedCategory() {
         Category actualCategory = new Category();
-        actualCategory.setId(20L); // different from the configured buyCategoryId (10)
+        actualCategory.setId(20L); // different from the configured freeCategoryIds
         Product product = new Product();
         product.setId(5L);
         product.setCategory(actualCategory);
         when(productRepository.findById(5L)).thenReturn(Optional.of(product));
 
         PromotionConfiguration config = new PromotionConfiguration();
-        config.setBuyScope(PromotionScope.SPECIFIC_PRODUCT);
-        config.setBuyProductId(5L);
-        config.setBuyCategoryId(10L);
+        config.setFreeScope(PromotionScope.SPECIFIC_PRODUCT);
+        config.setFreeProductIds(List.of(5L));
+        config.setFreeCategoryIds(List.of(10L));
         PromotionRequest request = baseRequest().configuration(config).build();
 
         assertThrows(BadRequestException.class, () -> validator.validate(request));

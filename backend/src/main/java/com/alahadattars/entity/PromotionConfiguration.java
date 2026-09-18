@@ -86,7 +86,7 @@ public class PromotionConfiguration implements Serializable {
 
     /**
      * Explicit scope for the buy/qualification rule. Null means "legacy inference" — match the
-     * old implicit behavior based on which of buyCategoryId/buyProductId/buyVariantIds/
+     * old implicit behavior based on which of buyCategoryId/buyVariantIds/
      * buyVariantSize happen to be set (existing promotions created before this field existed).
      * Non-null selects the new explicit-scope matching in PromotionEngineServiceImpl.
      */
@@ -116,12 +116,6 @@ public class PromotionConfiguration implements Serializable {
      * If null, any variant in buyCategoryId qualifies.
      */
     private List<Long> buyVariantIds;
-
-    /**
-     * @deprecated Use buyVariantIds instead.
-     */
-    @Deprecated
-    private Long buyProductId;
 
     /**
      * Minimum quantity of the qualifying variant the customer must have in the cart.

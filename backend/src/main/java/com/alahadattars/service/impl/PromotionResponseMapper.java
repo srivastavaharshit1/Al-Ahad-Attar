@@ -46,13 +46,12 @@ public class PromotionResponseMapper {
 
         try {
             String buyCategoryName = categoryName(config.getBuyCategoryId());
-            String buyProductName = productName(config.getBuyProductId());
             Long freeCategoryId = firstOrNull(config.getFreeCategoryIds());
             String freeCategoryName = categoryName(freeCategoryId != null ? freeCategoryId : config.getBuyCategoryId());
             String freeProductName = productName(firstOrNull(config.getFreeProductIds()));
 
             return PromotionDescriptionGenerator.generate(
-                    promo.getPromotionType(), config, buyCategoryName, buyProductName, freeCategoryName, freeProductName);
+                    promo.getPromotionType(), config, buyCategoryName, null, freeCategoryName, freeProductName);
         } catch (Exception e) {
             // Never let a stale category/product reference (deleted after the promotion was
             // created) break the response — just fall back to no generated description.

@@ -237,7 +237,7 @@ public class PromotionEngineServiceTest {
     @Test
     void specificProduct_matchingSizeAndQuantity_qualifies() {
         promoFree.getConfiguration().setBuyScope(PromotionScope.SPECIFIC_PRODUCT);
-        promoFree.getConfiguration().setBuyProductId(100L);
+        promoFree.getConfiguration().setBuyVariantIds(List.of(1000L));
         promoFree.getConfiguration().setBuyVariantSizes(List.of("12 ml"));
         promoFree.getConfiguration().setMinPurchaseQuantity(2);
         promoFree.getConfiguration().setFreeScope(PromotionScope.CATEGORY);
@@ -324,7 +324,7 @@ public class PromotionEngineServiceTest {
     @Test
     void specificProductScope_otherProductsDoNotContribute() {
         promoFree.getConfiguration().setBuyScope(PromotionScope.SPECIFIC_PRODUCT);
-        promoFree.getConfiguration().setBuyProductId(999L); // not the cart's product (100)
+        promoFree.getConfiguration().setBuyVariantIds(List.of(9999L)); // not the cart's variant (1000)
         promoFree.getConfiguration().setBuyVariantSizes(List.of("12 ml"));
         promoFree.getConfiguration().setMinPurchaseQuantity(1);
         when(promotionRepository.findAllActivePromotions(any(LocalDateTime.class))).thenReturn(List.of(promoFree));
