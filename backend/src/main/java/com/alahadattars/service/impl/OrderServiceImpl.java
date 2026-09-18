@@ -107,7 +107,7 @@ public class OrderServiceImpl implements OrderService {
             // Serialize concurrent checkouts for this specific authenticated user via an explicit write lock (UPDATE)
             // This guarantees cross-RDBMS blocking (H2, Postgres, etc.) without relying on SELECT FOR UPDATE dialects.
             userRepository.acquireUserLock(email);
-            
+
             user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new ResourceNotFoundException("User not found"));
             shippingAddress = addressRepository.findByIdAndUserAndActiveTrue(request.getShippingAddressId(), user)
@@ -137,7 +137,7 @@ public class OrderServiceImpl implements OrderService {
                 .razorpayPaymentId(request.getRazorpayPaymentId())
                 .razorpaySignature(request.getRazorpaySignature())
                 .build();
-                
+
         if (!paymentService.verifyPayment(verificationRequest)) {
             throw new BadRequestException("Payment verification failed");
         }
@@ -154,7 +154,7 @@ public class OrderServiceImpl implements OrderService {
             log.warn("Payment intent {} does not belong to user {}", request.getRazorpayOrderId(), email);
             throw new BadRequestException("Payment does not belong to this account.");
         }
-        
+
         if (email == null && intent.getUser() != null) {
             log.warn("Payment intent {} does not belong to guest", request.getRazorpayOrderId());
             throw new BadRequestException("Payment does not belong to this account.");
@@ -206,16 +206,29 @@ public class OrderServiceImpl implements OrderService {
         }
         long tempId = 1;
 
+        // --- Phase 4B N+1 Batching ---
+        java.util.Set<Long> variantIds = new java.util.HashSet<>();
+        java.util.Set<Long> bottleIds = new java.util.HashSet<>();
+        for (OrderItemRequest req : request.getItems()) {
+            if (req.getVariantId() != null) variantIds.add(req.getVariantId());
+            if (req.getBottleId() != null) bottleIds.add(req.getBottleId());
+        }
+
+        java.util.Map<Long, ProductVariant> variantMap = variantRepository.findAllById(variantIds).stream()
+                .collect(Collectors.toMap(ProductVariant::getId, v -> v));
+        java.util.Map<Long, com.alahadattars.entity.Bottle> bottleMap = bottleRepository.findAllById(bottleIds).stream()
+                .collect(Collectors.toMap(com.alahadattars.entity.Bottle::getId, b -> b));
+
         // First pass: Add all paid items to the cart
         for (OrderItemRequest itemReq : request.getItems()) {
             if (!itemReq.isFreeItem()) {
-                ProductVariant variant = variantRepository.findById(itemReq.getVariantId())
+                ProductVariant variant = java.util.Optional.ofNullable(variantMap.get(itemReq.getVariantId()))
                         .orElseThrow(() -> new ResourceNotFoundException("Variant not found: " + itemReq.getVariantId()));
 
                 BigDecimal finalPrice = variant.getPrice();
                 com.alahadattars.entity.Bottle bottle = null;
                 if (itemReq.getBottleId() != null) {
-                    bottle = bottleRepository.findById(itemReq.getBottleId())
+                    bottle = java.util.Optional.ofNullable(bottleMap.get(itemReq.getBottleId()))
                             .orElseThrow(() -> new ResourceNotFoundException("Bottle not found: " + itemReq.getBottleId()));
                     if (!bottle.isActive()) {
                         throw new BadRequestException("Selected bottle is not available");
@@ -244,7 +257,7 @@ public class OrderServiceImpl implements OrderService {
         // Second pass: Validate and add free items
         for (OrderItemRequest itemReq : request.getItems()) {
             if (itemReq.isFreeItem()) {
-                ProductVariant variant = variantRepository.findById(itemReq.getVariantId())
+                ProductVariant variant = java.util.Optional.ofNullable(variantMap.get(itemReq.getVariantId()))
                         .orElseThrow(() -> new ResourceNotFoundException("Variant not found: " + itemReq.getVariantId()));
 
                 // Validates against the cart (which now contains all paid items)
@@ -267,7 +280,7 @@ public class OrderServiceImpl implements OrderService {
 
         // CRITICAL: Validate stock availability BEFORE creating order
         for (CartItemResponse itemRes : cartEval.getItems()) {
-            ProductVariant variant = variantRepository.findById(itemRes.getVariantId())
+            ProductVariant variant = java.util.Optional.ofNullable(variantMap.get(itemRes.getVariantId()))
                     .orElseThrow(() -> new ResourceNotFoundException("Variant not found: " + itemRes.getVariantId()));
             if (variant.getStock() < itemRes.getQuantity()) {
                 throw new BadRequestException("Insufficient stock for " + variant.getProduct().getName() + " (" + variant.getSize() + "). Available: " + variant.getStock() + ", Requested: " + itemRes.getQuantity());
@@ -275,7 +288,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         for (CartItemResponse itemRes : cartEval.getItems()) {
-            ProductVariant variant = variantRepository.findById(itemRes.getVariantId()).orElseThrow();
+            ProductVariant variant = java.util.Optional.ofNullable(variantMap.get(itemRes.getVariantId())).orElseThrow();
 
             // Deduct inventory atomically (including free items — they consume stock). The
             // friendly pre-check above catches the common case; this atomic UPDATE is what
@@ -316,17 +329,17 @@ public class OrderServiceImpl implements OrderService {
         com.alahadattars.entity.StoreSettings settings = storeSettingsService.getSettingsEntity();
         BigDecimal threshold = settings.getFreeShippingThreshold() != null ? settings.getFreeShippingThreshold() : new BigDecimal("500");
         BigDecimal charge = settings.getShippingCharge() != null ? settings.getShippingCharge() : new BigDecimal("50");
-        
+
         BigDecimal subtotalAfterItemDiscounts = cartEval.getSubtotal().subtract(cartEval.getItemDiscounts());
         BigDecimal shippingCost = subtotalAfterItemDiscounts.compareTo(threshold) >= 0 ? BigDecimal.ZERO : charge;
-        
+
         if (cartEval.getAppliedPromotions().stream().anyMatch(p -> (p.getName() != null && p.getName().contains("Free Shipping")) || (p.getDescription() != null && p.getDescription().contains("Free Shipping")))) {
             shippingCost = BigDecimal.ZERO;
         }
-        
+
         BigDecimal giftServicePrice = BigDecimal.ZERO;
         Boolean isGiftWrapped = request.getIsGiftWrapped() != null ? request.getIsGiftWrapped() : false;
-        
+
         if (isGiftWrapped && settings.getIsGiftWrapEnabled()) {
             giftServicePrice = settings.getGiftWrapPrice() != null ? settings.getGiftWrapPrice() : BigDecimal.ZERO;
         }
@@ -357,7 +370,7 @@ public class OrderServiceImpl implements OrderService {
         // already exhausted, so configured limits actually hold rather than being advisory.
         List<PromotionRedemption> redemptions = new ArrayList<>();
         java.util.Set<Long> recordedPromotionIds = new java.util.HashSet<>();
-        
+
         if (cartEval.getAppliedPromotions() != null) {
             for (PromotionResponse applied : cartEval.getAppliedPromotions()) {
                 if (applied == null || applied.getId() == null) continue;
@@ -391,7 +404,7 @@ public class OrderServiceImpl implements OrderService {
                         .build());
             }
         }
-        
+
         // Ensure FREE_PRODUCT promotions also record a redemption, as they are excluded from appliedPromotions
         if (cartEval.getItems() != null) {
             for (CartItemResponse itemRes : cartEval.getItems()) {
@@ -653,12 +666,12 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponse updateShippingDetails(Long orderId, com.alahadattars.dto.order.ShippingUpdateRequest request) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
-        
+
         if (request.getCourierName() != null) order.setCourierName(request.getCourierName());
         if (request.getTrackingNumber() != null) order.setTrackingNumber(request.getTrackingNumber());
         if (request.getExpectedDeliveryDate() != null) order.setExpectedDeliveryDate(request.getExpectedDeliveryDate());
         if (request.getShipmentNotes() != null) order.setShipmentNotes(request.getShipmentNotes());
-        
+
         return mapToResponse(orderRepository.save(order));
     }
 

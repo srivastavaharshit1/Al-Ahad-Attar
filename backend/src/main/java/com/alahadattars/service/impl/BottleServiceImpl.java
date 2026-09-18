@@ -52,6 +52,12 @@ public class BottleServiceImpl implements BottleService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<Bottle> getBottleEntitiesByIds(java.util.Set<Long> ids) {
+        return bottleRepository.findAllById(ids);
+    }
+
+    @Override
     @Transactional
     public BottleResponse createBottle(BottleRequest request) {
         Bottle bottle = Bottle.builder()

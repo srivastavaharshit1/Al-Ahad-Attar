@@ -11,6 +11,7 @@ public interface BottleService {
     List<BottleResponse> getActiveBottles();
     BottleResponse getBottleById(Long id);
     Bottle getBottleEntityById(Long id);
+    List<Bottle> getBottleEntitiesByIds(java.util.Set<Long> ids);
     BottleResponse createBottle(BottleRequest request);
     BottleResponse updateBottle(Long id, BottleRequest request);
     void deleteBottle(Long id);

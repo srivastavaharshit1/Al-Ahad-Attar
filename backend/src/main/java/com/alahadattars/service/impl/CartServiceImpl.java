@@ -43,14 +43,31 @@ public class CartServiceImpl implements CartService {
         cart.setManuallySelectedPromotionId(request.getManuallySelectedPromotionId());
 
         if (request.getItems() != null) {
+            // --- Phase 4B N+1 Batching ---
+            java.util.Set<Long> variantIds = new java.util.HashSet<>();
+            java.util.Set<Long> bottleIds = new java.util.HashSet<>();
+            for (com.alahadattars.dto.cart.GuestCartRequest.GuestCartItemRequest req : request.getItems()) {
+                if (req.getVariantId() != null) variantIds.add(req.getVariantId());
+                if (req.getBottleId() != null) bottleIds.add(req.getBottleId());
+            }
+
+            java.util.Map<Long, ProductVariant> variantMap = variantIds.isEmpty() ? java.util.Collections.emptyMap() :
+                    productVariantRepository.findAllById(variantIds).stream()
+                    .collect(java.util.stream.Collectors.toMap(ProductVariant::getId, v -> v));
+
+            java.util.Map<Long, com.alahadattars.entity.Bottle> bottleMap = bottleIds.isEmpty() ? java.util.Collections.emptyMap() :
+                    bottleService.getBottleEntitiesByIds(bottleIds).stream()
+                    .collect(java.util.stream.Collectors.toMap(com.alahadattars.entity.Bottle::getId, b -> b));
+
             for (com.alahadattars.dto.cart.GuestCartRequest.GuestCartItemRequest itemReq : request.getItems()) {
-                ProductVariant variant = productVariantRepository.findById(itemReq.getVariantId()).orElse(null);
+                ProductVariant variant = variantMap.get(itemReq.getVariantId());
                 if (variant != null) {
                     BigDecimal finalPrice = variant.getPrice();
                     com.alahadattars.entity.Bottle bottle = null;
                     if (itemReq.getBottleId() != null) {
-                        bottle = bottleService.getBottleEntityById(itemReq.getBottleId());
-                        if (bottle != null && bottle.isActive()) {
+                        bottle = java.util.Optional.ofNullable(bottleMap.get(itemReq.getBottleId()))
+                                .orElseThrow(() -> new com.alahadattars.exception.ResourceNotFoundException("Bottle not found with id: " + itemReq.getBottleId()));
+                        if (bottle.isActive()) {
                             finalPrice = finalPrice.add(bottle.getPrice());
                         }
                     }
@@ -115,7 +132,7 @@ public class CartServiceImpl implements CartService {
         Long bottleId = request.getBottleId();
         Bottle bottle = null;
         BigDecimal finalPrice = variant.getPrice();
-        
+
         if (bottleId != null) {
             bottle = bottleService.getBottleEntityById(bottleId);
             if (!bottle.isActive()) throw new BadRequestException("Selected bottle is not available");
@@ -135,7 +152,7 @@ public class CartServiceImpl implements CartService {
         CartItem existing = cart.getItems().stream()
                 .filter(item -> !item.isFreeItem())
                 .filter(item -> item.getVariant().getId().equals(variant.getId()))
-                .filter(item -> (item.getBottle() == null && compareBottleId == null) || 
+                .filter(item -> (item.getBottle() == null && compareBottleId == null) ||
                                 (item.getBottle() != null && item.getBottle().getId().equals(compareBottleId)))
                 .findFirst()
                 .orElse(null);
