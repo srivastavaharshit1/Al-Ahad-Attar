@@ -142,7 +142,7 @@ export const Products: React.FC = () => {
   };
 
   const getProductImage = (product: any) => {
-    return product.thumbnail || product.variants?.[0]?.image || '';
+    return product.thumbnail || '';
   };
   
   const getProductPrice = (product: any) => {

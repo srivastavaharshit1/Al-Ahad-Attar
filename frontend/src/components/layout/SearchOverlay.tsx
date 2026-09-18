@@ -137,7 +137,7 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
             </h3>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
               {suggestedProducts.map((product: any) => {
-                const primaryImage = product.thumbnail || product.variants?.[0]?.image || '';
+                const primaryImage = product.thumbnail || '';
                 return (
                   <Link key={product.id} to={`/product/${product.id}`} onClick={onClose} className="group flex flex-col gap-4 p-4 rounded-xl hover:bg-surface-container-lowest transition-colors border border-transparent hover:border-outline-variant/30 shadow-none hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                     <div className="aspect-square bg-surface-container rounded-lg overflow-hidden relative">

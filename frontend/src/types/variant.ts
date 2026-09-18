@@ -7,7 +7,6 @@ export interface Variant {
   price: number;
   stock: number;
   sku: string;
-  image: string;
   active: boolean;
   productId?: number;
   productName?: string;

@@ -136,7 +136,7 @@ export const Search: React.FC = () => {
   // lightweight ProductSummaryResponse shape (thumbnail/minimumPrice), not the full Product shape
   // (variants/images) this file is typed against — check both, same as admin/Products.tsx does.
   const getProductImage = (product: Product) => {
-    return (product as any).thumbnail || product.variants?.[0]?.image || '';
+    return (product as any).thumbnail || '';
   };
 
   const getProductPrice = (product: Product) => {
