@@ -25,6 +25,7 @@ public class HomepageServiceImpl implements HomepageService {
     private final TestimonialRepository testimonialRepository;
     private final WhyChooseUsItemRepository whyChooseUsRepository;
     private final StorageService storageService;
+    private final com.alahadattars.mapper.HomepageMapper homepageMapper;
 
     // --- Homepage Sections ---
 
@@ -340,79 +341,23 @@ public class HomepageServiceImpl implements HomepageService {
 
     // --- Mappers ---
 
-    private String resolveAndBust(String imageUrl, String proxyPathFallback, java.time.LocalDateTime updatedAt) {
-        String resolved = storageService.resolveUrl(imageUrl, proxyPathFallback);
-        if (resolved == null) return null;
-        String buster = "v=" + (updatedAt != null ? updatedAt.toEpochSecond(java.time.ZoneOffset.UTC) : System.currentTimeMillis());
-        return resolved.contains("?") ? resolved + "&" + buster : resolved + "?" + buster;
-    }
-
     private HomepageSectionResponse mapSection(HomepageSection s) {
-        return HomepageSectionResponse.builder()
-                .id(s.getId())
-                .sectionKey(s.getSectionKey())
-                .title(s.getTitle())
-                .subtitle(s.getSubtitle())
-                .description(s.getDescription())
-                .visible(s.isVisible())
-                .displayOrder(s.getDisplayOrder())
-                .maxItems(s.getMaxItems())
-                .imageUrl(resolveAndBust(s.getImageUrl(), "/api/homepage/sections/" + s.getSectionKey() + "/image", s.getUpdatedAt()))
-                .build();
+        return homepageMapper.mapSection(s, true);
     }
 
     private HeroBannerResponse mapHero(HeroBanner h) {
-        return HeroBannerResponse.builder()
-                .id(h.getId())
-                .title(h.getTitle())
-                .subtitle(h.getSubtitle())
-                .description(h.getDescription())
-                .buttonText(h.getButtonText())
-                .buttonUrl(h.getButtonUrl())
-                .badge(h.getBadge())
-                .imageUrl(resolveAndBust(h.getImageUrl(), "/api/homepage/heroes/" + h.getId() + "/image", h.getUpdatedAt()))
-                .mobileImageUrl(resolveAndBust(h.getMobileImageUrl(), "/api/homepage/heroes/" + h.getId() + "/mobile-image", h.getUpdatedAt()))
-                .active(h.isActive())
-                .displayOrder(h.getDisplayOrder())
-                .build();
+        return homepageMapper.mapHero(h, true);
     }
 
     private PromoBannerResponse mapPromo(PromoBanner p) {
-        return PromoBannerResponse.builder()
-                .id(p.getId())
-                .title(p.getTitle())
-                .subtitle(p.getSubtitle())
-                .imageUrl(resolveAndBust(p.getImageUrl(), "/api/homepage/banners/" + p.getId() + "/image", p.getUpdatedAt()))
-                .buttonText(p.getButtonText())
-                .buttonUrl(p.getButtonUrl())
-                .backgroundColor(p.getBackgroundColor())
-                .priority(p.getPriority())
-                .startDate(p.getStartDate())
-                .endDate(p.getEndDate())
-                .active(p.isActive())
-                .build();
+        return homepageMapper.mapPromo(p, true);
     }
 
     private TestimonialResponse mapTestimonial(Testimonial t) {
-        return TestimonialResponse.builder()
-                .id(t.getId())
-                .customerName(t.getCustomerName())
-                .photoUrl(resolveAndBust(t.getPhotoUrl(), "/api/homepage/testimonials/" + t.getId() + "/photo", t.getUpdatedAt()))
-                .rating(t.getRating())
-                .review(t.getReview())
-                .displayOrder(t.getDisplayOrder())
-                .active(t.isActive())
-                .build();
+        return homepageMapper.mapTestimonial(t, true);
     }
 
     private WhyChooseUsItemResponse mapWhyChoose(WhyChooseUsItem w) {
-        return WhyChooseUsItemResponse.builder()
-                .id(w.getId())
-                .icon(w.getIcon())
-                .title(w.getTitle())
-                .description(w.getDescription())
-                .displayOrder(w.getDisplayOrder())
-                .active(w.isActive())
-                .build();
+        return homepageMapper.mapWhyChoose(w);
     }
 }

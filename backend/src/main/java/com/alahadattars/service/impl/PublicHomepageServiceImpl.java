@@ -37,6 +37,7 @@ public class PublicHomepageServiceImpl implements PublicHomepageService {
     // worker thread that has no transaction of its own — see the CompletableFuture below.
     private final ProductService productService;
     private final StorageService storageService;
+    private final com.alahadattars.mapper.HomepageMapper homepageMapper;
 
     // Two Executor beans exist (this one and emailTaskExecutor, see AsyncConfig) — disambiguated
     // by Spring's by-name fallback since the field name matches the @Bean name exactly. A
@@ -120,73 +121,24 @@ public class PublicHomepageServiceImpl implements PublicHomepageService {
     }
 
     private HomepageSectionResponse mapSection(HomepageSection s) {
-        return HomepageSectionResponse.builder()
-                .id(s.getId())
-                .sectionKey(s.getSectionKey())
-                .title(s.getTitle())
-                .subtitle(s.getSubtitle())
-                .description(s.getDescription())
-                .visible(s.isVisible())
-                .displayOrder(s.getDisplayOrder())
-                .maxItems(s.getMaxItems())
-                .imageUrl(storageService.resolveUrl(s.getImageUrl(), "/api/homepage/sections/" + s.getSectionKey() + "/image"))
-                .build();
+        return homepageMapper.mapSection(s, false);
     }
 
     private HeroBannerResponse mapHero(HeroBanner h) {
-        return HeroBannerResponse.builder()
-                .id(h.getId())
-                .title(h.getTitle())
-                .subtitle(h.getSubtitle())
-                .description(h.getDescription())
-                .buttonText(h.getButtonText())
-                .buttonUrl(h.getButtonUrl())
-                .badge(h.getBadge())
-                .imageUrl(storageService.resolveUrl(h.getImageUrl(), "/api/homepage/heroes/" + h.getId() + "/image"))
-                .mobileImageUrl(storageService.resolveUrl(h.getMobileImageUrl(), "/api/homepage/heroes/" + h.getId() + "/mobile-image"))
-                .active(h.isActive())
-                .displayOrder(h.getDisplayOrder())
-                .build();
+        return homepageMapper.mapHero(h, false);
     }
 
 
     private PromoBannerResponse mapPromo(PromoBanner p) {
-        return PromoBannerResponse.builder()
-                .id(p.getId())
-                .title(p.getTitle())
-                .subtitle(p.getSubtitle())
-                .imageUrl(storageService.resolveUrl(p.getImageUrl(), "/api/homepage/banners/" + p.getId() + "/image"))
-                .buttonText(p.getButtonText())
-                .buttonUrl(p.getButtonUrl())
-                .backgroundColor(p.getBackgroundColor())
-                .priority(p.getPriority())
-                .startDate(p.getStartDate())
-                .endDate(p.getEndDate())
-                .active(p.isActive())
-                .build();
+        return homepageMapper.mapPromo(p, false);
     }
 
     private TestimonialResponse mapTestimonial(Testimonial t) {
-        return TestimonialResponse.builder()
-                .id(t.getId())
-                .customerName(t.getCustomerName())
-                .photoUrl(storageService.resolveUrl(t.getPhotoUrl(), "/api/homepage/testimonials/" + t.getId() + "/photo"))
-                .rating(t.getRating())
-                .review(t.getReview())
-                .displayOrder(t.getDisplayOrder())
-                .active(t.isActive())
-                .build();
+        return homepageMapper.mapTestimonial(t, false);
     }
 
 
     private WhyChooseUsItemResponse mapWhyChoose(WhyChooseUsItem w) {
-        return WhyChooseUsItemResponse.builder()
-                .id(w.getId())
-                .icon(w.getIcon())
-                .title(w.getTitle())
-                .description(w.getDescription())
-                .displayOrder(w.getDisplayOrder())
-                .active(w.isActive())
-                .build();
+        return homepageMapper.mapWhyChoose(w);
     }
 }
