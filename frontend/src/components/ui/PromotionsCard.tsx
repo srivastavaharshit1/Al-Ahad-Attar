@@ -345,7 +345,7 @@ export const State01Default = ({ couponInput, setCouponInput, handleApply, isApp
           </div>
           <span className="text-[11px]" style={{ color: C.navyLight }}>Festive Sale Live</span>
         </div>
-        <div className={`flex items-center rounded-full overflow-hidden transition-all duration-300 mb-4 ${localError ? 'ring-2 ring-[#c0392b]' : 'ring-1 ring-transparent focus-within:ring-2 focus-within:ring-[#C9A227]'}`} style={{ backgroundColor: '#ffffff', boxShadow: '0 2px 15px rgba(0, 0, 0, 0.03)' }}>
+        <div className={`flex items-center rounded-full overflow-hidden transition-all duration-300 mb-4 shadow-[0_2px_15px_rgba(0,0,0,0.03)] ${localError ? 'ring-2 ring-[#c0392b]' : 'ring-1 ring-transparent focus-within:ring-2 focus-within:ring-[#C9A227]'}`} style={{ backgroundColor: '#ffffff' }}>
           <span className="pl-5 material-symbols-outlined text-[18px]" style={{ color: C.muted }}>local_offer</span>
           <input type="text" value={couponInput} onChange={e => setCouponInput(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && handleApply()} placeholder="ENTER DISCOUNT CODE" className="flex-grow px-4 py-3.5 text-[12px] font-semibold tracking-wider uppercase outline-none bg-transparent border-none focus:ring-0 focus:border-transparent focus:outline-none" style={{ color: C.navy }} disabled={isApplying} />
           <button onClick={() => handleApply()} disabled={!couponInput.trim() || isApplying} className="mr-2 px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest rounded-full transition-all hover:brightness-110 disabled:opacity-40" style={{ color: C.navy, backgroundColor: C.border }}>
@@ -427,7 +427,7 @@ export const State03Progress = ({ spendMoreMsg, couponInput, setCouponInput, han
           </div>
           <span className="text-[11px]" style={{ color: C.navyLight }}>Special Offer</span>
         </div>
-        <div className="flex items-center rounded-full overflow-hidden transition-all duration-300 mb-4 ring-1 ring-transparent focus-within:ring-2 focus-within:ring-[#C9A227]" style={{ backgroundColor: '#ffffff', boxShadow: '0 2px 15px rgba(0, 0, 0, 0.03)' }}>
+        <div className="flex items-center rounded-full overflow-hidden transition-all duration-300 mb-4 shadow-[0_2px_15px_rgba(0,0,0,0.03)] ring-1 ring-transparent focus-within:ring-2 focus-within:ring-[#C9A227]" style={{ backgroundColor: '#ffffff' }}>
           <span className="pl-5 material-symbols-outlined text-[18px]" style={{ color: C.muted }}>local_offer</span>
           <input type="text" value={couponInput} onChange={e => setCouponInput(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && handleApply()} placeholder="ENTER DISCOUNT CODE" className="flex-grow px-4 py-3.5 text-[12px] font-semibold tracking-wider uppercase outline-none bg-transparent border-none focus:ring-0 focus:border-transparent focus:outline-none" style={{ color: C.navy }} disabled={isApplying} />
           <button onClick={() => handleApply()} disabled={!couponInput.trim() || isApplying} className="mr-2 px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest rounded-full transition-all hover:brightness-110 disabled:opacity-40" style={{ color: '#fff', backgroundColor: C.goldDark }}>
