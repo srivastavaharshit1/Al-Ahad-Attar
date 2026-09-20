@@ -123,10 +123,14 @@ export const EditProduct: React.FC = () => {
       
       await productService.updateProduct(id as string, productPayload);
 
-      const variantUpdatePromises = variants.map(async (variant) => {
+      const createVariants: any[] = [];
+      const updateVariants: any[] = [];
+      const deleteVariantIds: number[] = [];
+
+      for (const variant of variants) {
         if (variant.id) {
-          // Update existing variant
-          return apiClient.put(`/variants/${variant.id}`, {
+          updateVariants.push({
+            id: variant.id,
             productType: variant.productType,
             sku: variant.sku || `${formData.slug}-${variant.size.replace(/\s+/g, '')}`,
             size: variant.size,
@@ -135,29 +139,31 @@ export const EditProduct: React.FC = () => {
             active: variant.active
           });
         } else if (variant.price > 0 || variant.stock > 0) {
-          // Create new variant
-          const variantPayload = {
+          createVariants.push({
             productType: variant.productType,
             sku: variant.sku || `${formData.slug}-${variant.size.replace(/\s+/g, '')}`,
             size: variant.size,
             price: Number(variant.price),
             stock: Number(variant.stock),
             active: variant.active
-          };
-          return apiClient.post(`/products/${id}/variants`, variantPayload);
+          });
+        }
+      }
+
+      const currentVariantIds = variants.map(v => v.id).filter(id => id !== undefined);
+      initialVariants.forEach(v => {
+        if (v.id && !currentVariantIds.includes(v.id)) {
+          deleteVariantIds.push(v.id);
         }
       });
-      await Promise.all(variantUpdatePromises);
 
-      // Handle variant deletion concurrently
-      const currentVariantIds = variants.map(v => v.id).filter(id => id !== undefined);
-      const variantsToDelete = initialVariants.filter(v => v.id && !currentVariantIds.includes(v.id));
-      const deletePromises = variantsToDelete
-        .filter(variant => variant.id)
-        .map(variant => apiClient.delete(`/variants/${variant.id}`).catch(e => {
-          console.error(`Failed to delete variant ${variant.id}`, e);
-        }));
-      await Promise.all(deletePromises);
+      if (createVariants.length > 0 || updateVariants.length > 0 || deleteVariantIds.length > 0) {
+        await apiClient.put(`/products/${id}/variants/bulk`, {
+          createVariants,
+          updateVariants,
+          deleteVariantIds
+        });
+      }
 
       // Reorder images per-type bucket so Attar and Perfume orders stay independent.
       // Group remote (number-id) images by their type tag and reorder each group separately.

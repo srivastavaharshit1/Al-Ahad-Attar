@@ -59,10 +59,12 @@ export const TypedImageManager: React.FC<TypedImageManagerProps> = ({
       // Direct Upload Mode — immediately uploads to the server
       setUploading(true);
       try {
-        const uploadPromises = newFiles.map(async (file) => {
+        const newUploadedImages: ManagedImage[] = [];
+        
+        for (const file of newFiles) {
           if (file.size > 5 * 1024 * 1024) {
             toast.error(`File ${file.name} exceeds 5MB limit.`);
-            return null;
+            continue;
           }
           const compressedFile = await imageCompression(file, {
             maxSizeMB: 1,
@@ -72,7 +74,7 @@ export const TypedImageManager: React.FC<TypedImageManagerProps> = ({
 
           if (compressedFile.size > 5 * 1024 * 1024) {
             toast.error(`Compressed file ${file.name} is still too large.`);
-            return null;
+            continue;
           }
 
           let finalName = file.name;
@@ -85,21 +87,27 @@ export const TypedImageManager: React.FC<TypedImageManagerProps> = ({
           const formData = new FormData();
           formData.append('file', compressedFile, finalName);
 
-          // Key change: pass productType so the backend tags the image correctly
           const queryParam = (productType === 'ATTAR' || productType === 'PERFUME')
              ? `?productType=${productType}`
              : '';
 
-          return apiClient.post(
-            `/products/${productId}/images${queryParam}`,
-            formData,
-            { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 }
-          );
-        });
+          try {
+            const res = await apiClient.post(
+              `/products/${productId}/images${queryParam}`,
+              formData,
+              { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 }
+            );
+            if (res && res.data && res.data.data) {
+              newUploadedImages.push(res.data.data);
+            }
+          } catch (uploadErr: any) {
+            toast.error(`Failed to upload ${file.name}: ${uploadErr.message}`);
+          }
+        }
 
-        const responses = await Promise.all(uploadPromises);
-        const newUploadedImages = responses.filter((res) => res !== null).map((res) => res!.data.data);
-        onImagesChange([...images, ...newUploadedImages]);
+        if (newUploadedImages.length > 0) {
+          onImagesChange([...images, ...newUploadedImages]);
+        }
       } catch (error: any) {
         toast.error('Failed to upload images: ' + error.message);
       } finally {

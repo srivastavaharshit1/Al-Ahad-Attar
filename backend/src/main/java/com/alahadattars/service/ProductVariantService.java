@@ -16,4 +16,5 @@ public interface ProductVariantService {
     List<VariantSummaryResponse> getVariantsByProduct(Long productId);
     void updateStock(Long id, Integer stock);
     void updateStatus(Long id, Boolean active);
+    void bulkUpdateVariants(Long productId, com.alahadattars.dto.variant.BulkVariantRequest request);
 }

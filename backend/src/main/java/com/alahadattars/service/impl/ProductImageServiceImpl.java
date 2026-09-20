@@ -31,13 +31,11 @@ public class ProductImageServiceImpl implements ProductImageService {
     private final StorageService storageService;
 
     @Override
-    @Transactional
     public ProductImageResponse uploadImage(Long productId, MultipartFile file) {
         return uploadImage(productId, file, null);
     }
 
     @Override
-    @Transactional
     public ProductImageResponse uploadImage(Long productId, MultipartFile file, String productType) {
         if (file.isEmpty()) {
             throw new BadRequestException("File is empty");
@@ -88,7 +86,6 @@ public class ProductImageServiceImpl implements ProductImageService {
                     .active(true)
                     .build();
 
-            product.addImage(productImage);
             ProductImage savedImage = productImageRepository.save(productImage);
 
             log.info("Uploaded {} image for product {}: {}", typeTag != null ? typeTag : "shared", productId, storedPath);

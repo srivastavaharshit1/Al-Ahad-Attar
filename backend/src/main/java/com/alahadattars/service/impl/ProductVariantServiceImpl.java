@@ -171,4 +171,29 @@ public class ProductVariantServiceImpl implements ProductVariantService {
         }
         // Disabled strict size validation so the admin can specify arbitrary variant sizes (e.g., 100 gm, 1 pc).
     }
+
+    @Override
+    @Transactional
+    public void bulkUpdateVariants(Long productId, com.alahadattars.dto.variant.BulkVariantRequest request) {
+        log.info("Starting bulk variant update for product ID: {}", productId);
+        
+        if (request.getDeleteVariantIds() != null && !request.getDeleteVariantIds().isEmpty()) {
+            for (Long id : request.getDeleteVariantIds()) {
+                deleteVariant(id);
+            }
+        }
+        
+        if (request.getUpdateVariants() != null && !request.getUpdateVariants().isEmpty()) {
+            for (com.alahadattars.dto.variant.UpdateVariantRequestWithId updateReq : request.getUpdateVariants()) {
+                updateVariant(updateReq.getId(), updateReq);
+            }
+        }
+        
+        if (request.getCreateVariants() != null && !request.getCreateVariants().isEmpty()) {
+            for (CreateVariantRequest createReq : request.getCreateVariants()) {
+                createVariant(productId, createReq);
+            }
+        }
+        log.info("Completed bulk variant update for product ID: {}", productId);
+    }
 }

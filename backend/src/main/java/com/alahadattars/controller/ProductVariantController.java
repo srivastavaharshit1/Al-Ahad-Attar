@@ -175,4 +175,17 @@ public class ProductVariantController {
                 .message("Variant status updated successfully")
                 .build());
     }
+    @PutMapping("/api/products/{productId}/variants/bulk")
+    @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(value = {"products", "homepage"}, allEntries = true)
+    public ResponseEntity<ApiResponse<Void>> bulkUpdateVariants(
+            @PathVariable Long productId,
+            @Valid @RequestBody com.alahadattars.dto.variant.BulkVariantRequest request) {
+        log.info("Received request for bulk variant update for product ID: {}", productId);
+        variantService.bulkUpdateVariants(productId, request);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Variants updated successfully")
+                .build());
+    }
 }
