@@ -88,6 +88,7 @@ public class R2StorageServiceImpl implements StorageService {
                             .bucket(bucket)
                             .key(objectKey)
                             .contentType(contentTypeFor(extension))
+                            .cacheControl("public, max-age=31536000, immutable")
                             .build(),
                     RequestBody.fromBytes(file.getBytes()));
             log.info("Uploaded object to R2: {}", objectKey);
