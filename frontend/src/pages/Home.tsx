@@ -132,8 +132,76 @@ export const Home: React.FC = () => {
 
 // --- Skeletons ---
 const HomeSkeleton = () => (
-  <div className="w-full bg-white animate-pulse">
-    <div className="h-screen min-h-[700px] w-full bg-gray-100"></div>
+  <div className="w-full flex flex-col font-light animate-pulse">
+    {/* Hero Skeleton */}
+    <section className="relative h-[90vh] min-h-[700px] w-full flex items-center justify-center text-center overflow-hidden bg-[#f5f2eb]">
+      <div className="relative z-10 px-6 max-w-4xl mx-auto flex flex-col items-center pt-20 w-full">
+        <div className="h-3 w-48 bg-[#121c2a]/10 mb-6"></div>
+        <div className="h-16 md:h-24 w-3/4 bg-[#121c2a]/10 mb-8"></div>
+        <div className="h-6 w-2/3 bg-[#121c2a]/10 mb-12"></div>
+        <div className="flex flex-col sm:flex-row gap-6 items-center">
+          <div className="h-14 w-64 bg-[#121c2a]/10"></div>
+          <div className="h-14 w-64 bg-[#121c2a]/10"></div>
+        </div>
+      </div>
+    </section>
+
+    {/* Categories Skeleton */}
+    <div className="bg-[#faf9f8]">
+      <section className="py-32 px-4 md:px-8 max-w-7xl mx-auto">
+        <div className="flex flex-col items-center mb-20 w-full">
+          <div className="h-3 w-32 bg-[#121c2a]/10 mb-4"></div>
+          <div className="h-12 w-64 bg-[#121c2a]/10 mb-6"></div>
+          <div className="h-5 w-96 bg-[#121c2a]/10 max-w-full"></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="aspect-[3/4] bg-[#121c2a]/5 rounded-sm"></div>
+          ))}
+        </div>
+      </section>
+    </div>
+
+    {/* Brand Story Skeleton */}
+    <div className="bg-white">
+      <section className="py-32 px-4 md:px-8 max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row gap-12 lg:gap-24 items-center">
+          <div className="w-full md:w-1/2 aspect-[4/5] md:aspect-[3/4] bg-[#121c2a]/5 rounded-sm"></div>
+          <div className="w-full md:w-1/2 flex flex-col justify-center">
+            <div className="max-w-md w-full">
+              <div className="h-3 w-32 bg-[#121c2a]/10 mb-6"></div>
+              <div className="h-12 w-3/4 bg-[#121c2a]/10 mb-8"></div>
+              <div className="h-4 w-full bg-[#121c2a]/10 mb-3"></div>
+              <div className="h-4 w-full bg-[#121c2a]/10 mb-3"></div>
+              <div className="h-4 w-5/6 bg-[#121c2a]/10 mb-12"></div>
+              <div className="h-4 w-32 bg-[#121c2a]/10"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    {/* Featured Products Skeleton */}
+    <div className="bg-[#f5f2eb]">
+      <section className="py-32 px-4 md:px-8 max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row justify-between items-end mb-16 border-b border-[#121c2a]/10 pb-6 gap-6">
+          <div className="w-full max-w-xl">
+            <div className="h-3 w-32 bg-[#121c2a]/10 mb-4"></div>
+            <div className="h-12 w-64 bg-[#121c2a]/10 mb-4"></div>
+            <div className="h-5 w-full bg-[#121c2a]/10"></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex flex-col">
+              <div className="aspect-[4/5] bg-[#121c2a]/5 rounded-sm mb-4"></div>
+              <div className="h-5 w-3/4 bg-[#121c2a]/10 mb-2"></div>
+              <div className="h-4 w-1/2 bg-[#121c2a]/10"></div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
   </div>
 );
 
