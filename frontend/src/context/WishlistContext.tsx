@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, type ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef, type ReactNode } from 'react';
 import { storage } from '../utils/storage';
 import { wishlistService } from '../services/wishlistService';
 import { AuthContext } from './AuthContext';
@@ -17,6 +17,10 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [productIds, setProductIds] = useState<string[]>([]);
   const authContext = useContext(AuthContext);
   const isAuthenticated = authContext?.isAuthenticated;
+
+  // Track in-flight mutations per variantId to prevent rapid-click race conditions.
+  // Using a ref (not state) so mutations don't trigger re-renders.
+  const inFlight = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -42,35 +46,64 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, [productIds, isAuthenticated]);
 
-  const addToWishlist = async (variantId: string) => {
-    if (isAuthenticated) {
-      try {
-        await wishlistService.addToWishlist(Number(variantId));
-      } catch (err) {
-        console.error("Failed to add to remote wishlist", err);
-        toast.error('Failed to add to wishlist');
-        return;
-      }
-    }
+  const addToWishlist = (variantId: string) => {
+    // Prevent duplicate concurrent request for the same variant
+    if (inFlight.current.has(variantId)) return;
+
+    // --- OPTIMISTIC UPDATE: change UI immediately ---
     setProductIds(prev => {
       if (prev.includes(variantId)) return prev;
       return [...prev, variantId];
     });
-    toast.success('Added to wishlist');
+
+    if (isAuthenticated) {
+      inFlight.current.add(variantId);
+      wishlistService.addToWishlist(Number(variantId))
+        .then(() => {
+          toast.success('Added to wishlist');
+        })
+        .catch((err) => {
+          console.error('Failed to add to remote wishlist', err);
+          // --- ROLLBACK on failure ---
+          setProductIds(prev => prev.filter(id => id !== variantId));
+          toast.error('Failed to add to wishlist');
+        })
+        .finally(() => {
+          inFlight.current.delete(variantId);
+        });
+    } else {
+      toast.success('Added to wishlist');
+    }
   };
 
-  const removeFromWishlist = async (variantId: string) => {
-    if (isAuthenticated) {
-      try {
-        await wishlistService.removeFromWishlist(Number(variantId));
-      } catch (err) {
-        console.error("Failed to remove from remote wishlist", err);
-        toast.error('Failed to remove from wishlist');
-        return;
-      }
-    }
+  const removeFromWishlist = (variantId: string) => {
+    // Prevent duplicate concurrent request for the same variant
+    if (inFlight.current.has(variantId)) return;
+
+    // --- OPTIMISTIC UPDATE: change UI immediately ---
     setProductIds(prev => prev.filter(id => id !== variantId));
-    toast.success('Removed from wishlist');
+
+    if (isAuthenticated) {
+      inFlight.current.add(variantId);
+      wishlistService.removeFromWishlist(Number(variantId))
+        .then(() => {
+          toast.success('Removed from wishlist');
+        })
+        .catch((err) => {
+          console.error('Failed to remove from remote wishlist', err);
+          // --- ROLLBACK on failure ---
+          setProductIds(prev => {
+            if (prev.includes(variantId)) return prev;
+            return [...prev, variantId];
+          });
+          toast.error('Failed to remove from wishlist');
+        })
+        .finally(() => {
+          inFlight.current.delete(variantId);
+        });
+    } else {
+      toast.success('Removed from wishlist');
+    }
   };
 
   const isInWishlist = (variantId: string) => productIds.includes(variantId);
