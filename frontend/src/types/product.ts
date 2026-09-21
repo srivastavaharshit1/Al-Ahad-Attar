@@ -38,6 +38,7 @@ export interface Product {
   category: Category;
   categoryName?: string;
   minimumPrice?: number;
+  effectiveMinimumPrice?: number;
   averageRating: number;
   reviewCount: number;
   variants: Variant[];
@@ -57,6 +58,7 @@ export interface ProductSummary {
   categoryName: string;
   subCategory?: SubCategory;
   minimumPrice: number;
+  effectiveMinimumPrice?: number;
   thumbnail: string;
   totalStock: number;
   defaultVariantId: number;

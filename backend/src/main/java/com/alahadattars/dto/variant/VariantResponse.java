@@ -19,6 +19,7 @@ public class VariantResponse {
     private ProductType productType;
     private String size;
     private BigDecimal price;
+    private BigDecimal effectivePrice;
     private Integer stock;
     private String sku;
     private boolean active;

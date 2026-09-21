@@ -38,6 +38,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductVariantRepository productVariantRepository;
+    private final com.alahadattars.repository.PromotionRepository promotionRepository;
     private final ProductMapper productMapper;
 
     @Override
@@ -65,7 +66,8 @@ public class ProductServiceImpl implements ProductService {
         Product savedProduct = productRepository.save(product);
         log.info("Product Created: ID={}, Slug={}", savedProduct.getId(), savedProduct.getSlug());
 
-        return productMapper.toResponse(savedProduct);
+        List<com.alahadattars.entity.Promotion> activePromotions = promotionRepository.findActiveAutomaticPromotions(java.time.LocalDateTime.now());
+        return productMapper.toResponse(savedProduct, activePromotions);
     }
 
     @Override
@@ -120,7 +122,8 @@ public class ProductServiceImpl implements ProductService {
         Product updatedProduct = productRepository.save(product);
         log.info("Product Updated: ID={}, Slug={}", updatedProduct.getId(), updatedProduct.getSlug());
 
-        return productMapper.toResponse(updatedProduct);
+        List<com.alahadattars.entity.Promotion> activePromotions = promotionRepository.findActiveAutomaticPromotions(java.time.LocalDateTime.now());
+        return productMapper.toResponse(updatedProduct, activePromotions);
     }
 
     @Override
@@ -154,7 +157,8 @@ public class ProductServiceImpl implements ProductService {
                     log.warn("Product fetch failed: " + AppConstants.PRODUCT_NOT_FOUND_MSG + id);
                     return new ResourceNotFoundException(AppConstants.PRODUCT_NOT_FOUND_MSG + id);
                 });
-        return productMapper.toResponse(product);
+        List<com.alahadattars.entity.Promotion> activePromotions = promotionRepository.findActiveAutomaticPromotions(java.time.LocalDateTime.now());
+        return productMapper.toResponse(product, activePromotions);
     }
 
     @Override
@@ -166,14 +170,16 @@ public class ProductServiceImpl implements ProductService {
                     log.warn("Product fetch failed: Product not found with Slug: " + slug);
                     return new ResourceNotFoundException("Product not found with Slug: " + slug);
                 });
-        return productMapper.toResponse(product);
+        List<com.alahadattars.entity.Promotion> activePromotions = promotionRepository.findActiveAutomaticPromotions(java.time.LocalDateTime.now());
+        return productMapper.toResponse(product, activePromotions);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ProductSummaryResponse> getFeaturedProducts() {
+        List<com.alahadattars.entity.Promotion> activePromotions = promotionRepository.findActiveAutomaticPromotions(java.time.LocalDateTime.now());
         return productRepository.findByFeaturedTrueAndActiveTrue().stream()
-                .map(productMapper::toSummaryResponse)
+                .map(p -> productMapper.toSummaryResponse(p, null, activePromotions))
                 .collect(Collectors.toList());
     }
 
@@ -194,16 +200,18 @@ public class ProductServiceImpl implements ProductService {
         }
         final String finalContextType = contextType;
 
+        List<com.alahadattars.entity.Promotion> activePromotions = promotionRepository.findActiveAutomaticPromotions(java.time.LocalDateTime.now());
         return productRepository.findByCategoryAndActiveTrue(category).stream()
-                .map(p -> productMapper.toSummaryResponse(p, finalContextType))
+                .map(p -> productMapper.toSummaryResponse(p, finalContextType, activePromotions))
                 .collect(Collectors.toList());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ProductSummaryResponse> getActiveProducts() {
+        List<com.alahadattars.entity.Promotion> activePromotions = promotionRepository.findActiveAutomaticPromotions(java.time.LocalDateTime.now());
         return productRepository.findByActiveTrue().stream()
-                .map(productMapper::toSummaryResponse)
+                .map(p -> productMapper.toSummaryResponse(p, null, activePromotions))
                 .collect(Collectors.toList());
     }
 
@@ -369,7 +377,8 @@ public class ProductServiceImpl implements ProductService {
         }
         final String finalContextType = contextType;
 
-        return productRepository.findAll(spec, pageable).map(p -> productMapper.toSummaryResponse(p, finalContextType));
+        List<com.alahadattars.entity.Promotion> activePromotions = promotionRepository.findActiveAutomaticPromotions(java.time.LocalDateTime.now());
+        return productRepository.findAll(spec, pageable).map(p -> productMapper.toSummaryResponse(p, finalContextType, activePromotions));
     }
 
     @Override
@@ -430,8 +439,9 @@ public class ProductServiceImpl implements ProductService {
             }
         }
 
+        List<com.alahadattars.entity.Promotion> activePromotions = promotionRepository.findActiveAutomaticPromotions(java.time.LocalDateTime.now());
         return relatedProducts.stream()
-                .map(productMapper::toSummaryResponse)
+                .map(p -> productMapper.toSummaryResponse(p, null, activePromotions))
                 .collect(Collectors.toList());
     }
 }

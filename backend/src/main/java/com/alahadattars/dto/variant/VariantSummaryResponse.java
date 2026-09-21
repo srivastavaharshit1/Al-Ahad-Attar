@@ -15,5 +15,6 @@ public class VariantSummaryResponse {
     private Long id;
     private String size;
     private BigDecimal price;
+    private BigDecimal effectivePrice;
     private boolean inStock;
 }

@@ -29,6 +29,12 @@ public interface PromotionEngineService {
     BigDecimal calculateBestProductPrice(Product product, BigDecimal originalPrice);
 
     /**
+     * Calculates the best automatic promotion available using a pre-fetched list of active promotions.
+     * This avoids N+1 queries when mapping large catalogs of products.
+     */
+    BigDecimal calculateBestProductPrice(Product product, BigDecimal originalPrice, List<com.alahadattars.entity.Promotion> activePromotions);
+
+    /**
      * Returns eligible free product options for the cart based on all active FREE_PRODUCT promotions.
      * Called standalone from CartController for the /api/cart/free-product-options endpoint.
      *

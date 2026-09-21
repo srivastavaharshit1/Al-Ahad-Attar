@@ -15,6 +15,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.cache.annotation.CacheEvict;
 
 @RestController
 @RequestMapping("/api/admin/promotions")
@@ -59,6 +60,7 @@ public class AdminPromotionController {
     }
 
     @PostMapping
+    @CacheEvict(value = {"products", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<PromotionResponse>> createPromotion(@Valid @RequestBody PromotionRequest request) {
         promotionConfigValidator.validate(request);
         Promotion promotion = toEntity(request);
@@ -71,6 +73,7 @@ public class AdminPromotionController {
     }
 
     @PutMapping("/{id}")
+    @CacheEvict(value = {"products", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<PromotionResponse>> updatePromotion(
             @PathVariable Long id, 
             @Valid @RequestBody PromotionRequest request) {
@@ -90,6 +93,7 @@ public class AdminPromotionController {
     }
 
     @DeleteMapping("/{id}")
+    @CacheEvict(value = {"products", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<Void>> deletePromotion(@PathVariable Long id) {
         if (!promotionRepository.existsById(id)) {
             throw new ResourceNotFoundException("Promotion not found");
@@ -102,6 +106,7 @@ public class AdminPromotionController {
     }
 
     @PatchMapping("/{id}/status")
+    @CacheEvict(value = {"products", "homepage"}, allEntries = true)
     public ResponseEntity<ApiResponse<Void>> toggleStatus(
             @PathVariable Long id, 
             @RequestParam boolean active) {

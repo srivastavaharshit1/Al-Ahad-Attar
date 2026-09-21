@@ -23,8 +23,13 @@ public class ProductMapper {
     private final ProductVariantMapper productVariantMapper;
     private final StorageService storageService;
     private final ProductImageResolver productImageResolver;
+    private final com.alahadattars.service.PromotionEngineService promotionEngineService;
 
     public ProductResponse toResponse(Product product) {
+        return toResponse(product, java.util.Collections.emptyList());
+    }
+
+    public ProductResponse toResponse(Product product, java.util.List<com.alahadattars.entity.Promotion> activePromotions) {
         if (product == null) {
             return null;
         }
@@ -33,7 +38,7 @@ public class ProductMapper {
         if (product.getVariants() != null) {
             variantResponses = product.getVariants().stream()
                     .filter(ProductVariant::isActive)
-                    .map(productVariantMapper::toResponse)
+                    .map(v -> productVariantMapper.toResponse(v, activePromotions))
                     .collect(Collectors.toList());
         }
 
@@ -109,10 +114,14 @@ public class ProductMapper {
     }
 
     public ProductSummaryResponse toSummaryResponse(Product product) {
-        return toSummaryResponse(product, null);
+        return toSummaryResponse(product, null, java.util.Collections.emptyList());
     }
 
     public ProductSummaryResponse toSummaryResponse(Product product, String requestedContextType) {
+        return toSummaryResponse(product, requestedContextType, java.util.Collections.emptyList());
+    }
+
+    public ProductSummaryResponse toSummaryResponse(Product product, String requestedContextType, java.util.List<com.alahadattars.entity.Promotion> activePromotions) {
         if (product == null) {
             return null;
         }
@@ -124,6 +133,12 @@ public class ProductMapper {
         List<ProductVariant> preferredVariants = getPreferredVariants(product, preferredType);
 
         BigDecimal minPrice = resolveMinimumPrice(preferredVariants);
+
+        BigDecimal effectiveMinPrice = minPrice;
+        if (minPrice != null && activePromotions != null && !activePromotions.isEmpty()) {
+            effectiveMinPrice = promotionEngineService.calculateBestProductPrice(product, minPrice, activePromotions);
+        }
+
         ProductVariant defaultVariant = resolveDefaultVariant(preferredVariants, minPrice);
 
         Long defaultVariantId = defaultVariant != null ? defaultVariant.getId() : null;
@@ -152,6 +167,7 @@ public class ProductMapper {
                 .categoryType(categoryType)
                 .subcategory(product.getSubcategory())
                 .minimumPrice(minPrice)
+                .effectiveMinimumPrice(effectiveMinPrice)
                 .thumbnail(thumb)
                 .totalStock(totalStock)
                 .defaultVariantId(defaultVariantId)

@@ -3,13 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { Product } from '../../types';
 import { useCart } from '../../hooks/useCart';
 import { useWishlist } from '../../hooks/useWishlist';
-import { formatPrice } from '../../utils/formatPrice';
+
 import { getImageUrl } from '../../utils/getImageUrl';
 import { usePromotions } from '../../context/PromotionContext';
 import { getPromoBadge } from '../../utils/promotionHelpers';
 import { StarRating } from '../common/StarRating';
 import { BottleSelectionModal } from './BottleSelectionModal';
 import { resolveProductImage } from '../../utils/productUtils';
+import { PriceDisplay } from '../common/PriceDisplay';
 
 interface ProductCardProps {
   product: Product;
@@ -36,8 +37,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
   const size = defaultVariant?.size || (product as any).defaultVariantSize || '';
   const stock = defaultVariant?.stock !== undefined ? defaultVariant.stock : (product as any).totalStock;
 
-  // Assuming `oldPrice` might be available if there's a discount
-  const oldPrice = (product as any).oldPrice || null;
+  const effectivePrice = defaultVariant?.effectivePrice || (product as any).effectiveMinimumPrice || null;
 
   const { addItem } = useCart();
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
@@ -232,14 +232,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
         </div>
 
         <div className="flex items-center gap-3">
-          {oldPrice && (
-            <span className="text-xs text-on-surface-variant/60 line-through">
-              {formatPrice(Number(oldPrice))}
-            </span>
-          )}
-          <span className="font-body-md text-ink tracking-wider">
-            {formatPrice(Number(price))}
-          </span>
+          <PriceDisplay
+            originalPrice={Number(price)}
+            effectivePrice={effectivePrice ? Number(effectivePrice) : null}
+            priceClassName="font-body-md text-ink tracking-wider"
+            originalPriceClassName="text-xs text-on-surface-variant/60 line-through"
+            badgeClassName="text-[10px] font-semibold px-1.5 py-0.5 bg-accent text-ink rounded uppercase tracking-wider"
+          />
         </div>
       </div>
       </div>

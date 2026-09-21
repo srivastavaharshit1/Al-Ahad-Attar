@@ -5,6 +5,7 @@ export interface Variant {
   productType: string;
   size: string;
   price: number;
+  effectivePrice?: number;
   stock: number;
   sku: string;
   active: boolean;
