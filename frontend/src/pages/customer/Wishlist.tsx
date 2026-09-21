@@ -2,14 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../hooks/useCart';
 import { useWishlist } from '../../hooks/useWishlist';
-
+import { formatPrice } from '../../utils/formatPrice';
 import { type WishlistItem } from '../../services/wishlistService';
 import { apiClient } from '../../api/axios';
 import { getImageUrl } from '../../utils/getImageUrl';
 import { Loader } from '../../components/ui/Loader';
 import { useInView } from '../../hooks/useInView';
 import { resolveProductImage } from '../../utils/productUtils';
-import { PriceDisplay } from '../../components/common/PriceDisplay';
 
 
 export const Wishlist: React.FC = () => {
@@ -126,19 +125,11 @@ export const Wishlist: React.FC = () => {
                       {item.variant.productName || 'Unknown Product'}
                     </Link>
                   </h3>
-                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-outline-variant/30">
-                    <div className="font-body-sm text-on-surface-variant uppercase tracking-wider">
-                      Size: {item.variant.size}
-                    </div>
-                    <div className="font-headline-sm text-headline-sm font-medium text-on-surface">
-                      <PriceDisplay
-                        originalPrice={item.variant.price}
-                        effectivePrice={item.variant.effectivePrice}
-                        priceClassName="text-on-surface"
-                        originalPriceClassName="text-[11px] text-on-surface-variant/60 line-through"
-                        badgeClassName="text-[10px] font-semibold px-1 py-0.5 bg-accent text-ink rounded uppercase tracking-wider"
-                      />
-                    </div>
+                  <div className="text-on-surface-variant font-body-sm text-body-sm leading-relaxed mb-3">
+                    Size: {item.variant.size}
+                  </div>
+                  <div className="font-headline-sm text-headline-sm font-medium text-on-surface">
+                    {formatPrice(item.variant.price)}
                   </div>
                 </div>
                 <button

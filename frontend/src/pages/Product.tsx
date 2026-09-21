@@ -5,7 +5,7 @@ import { Loader } from '../components/ui/Loader';
 import { productService } from '../services/productService';
 import { useCart } from '../hooks/useCart';
 import { useWishlist } from '../hooks/useWishlist';
-
+import { formatPrice } from '../utils/formatPrice';
 import type { Product as ProductType, Variant, ProductImage } from '../types';
 import { getImageUrl } from '../utils/getImageUrl';
 import { usePromotions } from '../context/PromotionContext';
@@ -17,7 +17,6 @@ import { useInView } from '../hooks/useInView';
 import { SEO } from '../components/seo/SEO';
 import { BottleSelectionModal } from '../components/product/BottleSelectionModal';
 import { resolveProductImage } from '../utils/productUtils';
-import { PriceDisplay } from '../components/common/PriceDisplay';
 
 function getAllProductImages(images: ProductImage[]): ProductImage[] {
   const unique = new Map<string | number, ProductImage>();
@@ -449,17 +448,7 @@ export const ProductPage: React.FC = () => {
             </div>
 
             <div className="flex items-baseline space-x-4 mb-7">
-              {selectedVariant ? (
-                <PriceDisplay
-                  originalPrice={selectedVariant.price}
-                  effectivePrice={selectedVariant.effectivePrice}
-                  priceClassName="font-display-lg-mobile text-display-lg-mobile text-primary font-bold"
-                  originalPriceClassName="font-body-lg text-body-lg text-on-surface-variant line-through"
-                  badgeClassName="font-label-md px-2 py-1 bg-accent text-ink rounded uppercase tracking-wider"
-                />
-              ) : (
-                <span className="font-display-lg-mobile text-display-lg-mobile text-primary">N/A</span>
-              )}
+              <span className="font-display-lg-mobile text-display-lg-mobile text-primary">{selectedVariant ? formatPrice(selectedVariant.price) : 'N/A'}</span>
             </div>
 
             <p className="font-body-lg text-body-lg text-on-surface-variant mb-8 max-w-[85%] leading-relaxed">

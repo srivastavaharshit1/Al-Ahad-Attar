@@ -23,7 +23,6 @@ public class ProductSummaryResponse {
     private String categoryType;
     private String subcategory;
     private BigDecimal minimumPrice;
-    private BigDecimal effectiveMinimumPrice;
     private String thumbnail;
     private Integer totalStock;
     private Long defaultVariantId;

@@ -13,20 +13,10 @@ import java.util.stream.Collectors;
 public class ProductVariantMapper {
 
     private final ProductImageMapper productImageMapper;
-    private final com.alahadattars.service.PromotionEngineService promotionEngineService;
 
     public VariantResponse toResponse(ProductVariant variant) {
-        return toResponse(variant, java.util.Collections.emptyList());
-    }
-
-    public VariantResponse toResponse(ProductVariant variant, java.util.List<com.alahadattars.entity.Promotion> activePromotions) {
         if (variant == null) {
             return null;
-        }
-
-        java.math.BigDecimal effectivePrice = variant.getPrice();
-        if (variant.getProduct() != null && activePromotions != null && !activePromotions.isEmpty()) {
-            effectivePrice = promotionEngineService.calculateBestProductPrice(variant.getProduct(), variant.getPrice(), activePromotions);
         }
 
         return VariantResponse.builder()
@@ -34,7 +24,6 @@ public class ProductVariantMapper {
                 .productType(variant.getProductType())
                 .size(variant.getSize())
                 .price(variant.getPrice())
-                .effectivePrice(effectivePrice)
                 .stock(variant.getStock())
                 .sku(variant.getSku())
                 .active(variant.isActive())
@@ -48,24 +37,14 @@ public class ProductVariantMapper {
     }
     
     public VariantSummaryResponse toSummaryResponse(ProductVariant variant) {
-        return toSummaryResponse(variant, java.util.Collections.emptyList());
-    }
-
-    public VariantSummaryResponse toSummaryResponse(ProductVariant variant, java.util.List<com.alahadattars.entity.Promotion> activePromotions) {
         if (variant == null) {
             return null;
         }
         
-        java.math.BigDecimal effectivePrice = variant.getPrice();
-        if (variant.getProduct() != null && activePromotions != null && !activePromotions.isEmpty()) {
-            effectivePrice = promotionEngineService.calculateBestProductPrice(variant.getProduct(), variant.getPrice(), activePromotions);
-        }
-
         return VariantSummaryResponse.builder()
                 .id(variant.getId())
                 .size(variant.getSize())
                 .price(variant.getPrice())
-                .effectivePrice(effectivePrice)
                 .inStock(variant.getStock() != null && variant.getStock() > 0)
                 .build();
     }

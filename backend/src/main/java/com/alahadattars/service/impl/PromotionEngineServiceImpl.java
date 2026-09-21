@@ -681,13 +681,8 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
     public BigDecimal calculateBestProductPrice(Product product, BigDecimal originalPrice) {
         LocalDateTime now = LocalDateTime.now();
         List<Promotion> automaticPromotions = promotionRepository.findActiveAutomaticPromotions(now);
-        return calculateBestProductPrice(product, originalPrice, automaticPromotions);
-    }
-
-    @Override
-    public BigDecimal calculateBestProductPrice(Product product, BigDecimal originalPrice, List<Promotion> activePromotions) {
         BigDecimal bestPrice = originalPrice;
-        for (Promotion promo : activePromotions) {
+        for (Promotion promo : automaticPromotions) {
             if (promo.getPromotionType() == PromotionType.FREE_PRODUCT) continue;
             if (promo.getPromotionType() == PromotionType.PRODUCT_DISCOUNT
                     || promo.getPromotionType() == PromotionType.CATEGORY_DISCOUNT) {
