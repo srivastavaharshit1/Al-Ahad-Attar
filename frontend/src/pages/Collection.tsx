@@ -45,7 +45,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
   const [totalElements, setTotalElements] = useState(0);
 
   // Filter state
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | ''>('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | '' | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('');
   const [selectedGender, setSelectedGender] = useState('');
   const [selectedBrand, setSelectedBrand] = useState('');
@@ -63,7 +63,14 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
   useEffect(() => {
     categoryService.getActiveCategories().then(res => {
       setCategories(res.data || []);
-    }).catch(console.error);
+      // If categories are truly empty, unblock the fetch
+      if (!res.data || res.data.length === 0) {
+        setSelectedCategoryId('');
+      }
+    }).catch((err) => {
+      console.error(err);
+      setSelectedCategoryId(''); // fallback on error to unblock product fetch
+    });
   }, []);
 
   // Resolve the URL/prop category name to its numeric ID purely from already-loaded state — no
@@ -105,6 +112,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
   }, [location.state, categories]);
 
   useEffect(() => {
+    if (selectedCategoryId === null) return;
     fetchProducts();
   }, [selectedCategoryId, selectedSubcategory, selectedGender, selectedBrand, sortBy, searchQuery, currentPage]);
 
@@ -256,7 +264,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
   };
 
   const clearFilters = () => {
-    setSelectedCategoryId('');
+    setSelectedCategoryId(activeCategory ? selectedCategoryId : '');
     setSelectedSubcategory('');
     setSelectedGender('');
     setSelectedBrand('');
@@ -278,7 +286,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
   // Derive which sidebar filter is currently checked based on categoryId + subcategory.
   // This is the single place that maps current state → active sidebar filter.
   const activeSidebarFilter = (() => {
-    if (selectedCategoryId === '') return 'all';
+    if (selectedCategoryId === '' || selectedCategoryId === null) return 'all';
     const cat = categories.find(c => c.id === selectedCategoryId);
     if (!cat) return 'all';
     if (cat.type === 'ATTARS') return 'attars';
@@ -291,7 +299,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
     return 'all';
   })();
 
-  const hasActiveFilters = selectedCategoryId !== '' || selectedGender !== '' || selectedBrand !== '' || searchQuery !== '';
+  const hasActiveFilters = (selectedCategoryId !== '' && selectedCategoryId !== null) || selectedGender !== '' || selectedBrand !== '' || searchQuery !== '';
   const hasUserFilters = selectedGender !== '' || selectedBrand !== '' || searchQuery !== '';
 
   // Page title: prefer the more specific sidebar filter label, fall back to top-level collection.
@@ -371,7 +379,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
       </header>
 
       {/* Custom Subcategory Tabs for Bakhoor and Perfumes */}
-      {selectedCategoryId !== '' && selectedCatName === 'bakhoor' && (
+      {selectedCategoryId !== '' && selectedCategoryId !== null && selectedCatName === 'bakhoor' && (
         <div className="flex justify-center mb-12 flex-wrap gap-2">
           <div className="inline-flex flex-wrap justify-center bg-surface-container-lowest border border-outline-variant/30 rounded-full p-1 max-w-full">
             <button
@@ -397,7 +405,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
           </div>
         </div>
       )}
-      {selectedCategoryId !== '' && selectedCatName === 'perfumes' && (
+      {selectedCategoryId !== '' && selectedCategoryId !== null && selectedCatName === 'perfumes' && (
         <div className="flex justify-center mb-12 flex-wrap gap-2">
           <div className="inline-flex flex-wrap justify-center bg-surface-container-lowest border border-outline-variant/30 rounded-full p-1 max-w-full">
             <button
