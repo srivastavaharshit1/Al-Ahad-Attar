@@ -40,7 +40,8 @@ import java.util.HashSet;
         @Index(name = "idx_product_brand", columnList = "brand"),
         @Index(name = "idx_product_category_id", columnList = "category_id"),
         @Index(name = "idx_product_featured", columnList = "featured"),
-        @Index(name = "idx_product_active", columnList = "active")
+        @Index(name = "idx_product_active", columnList = "active"),
+        @Index(name = "idx_product_active_name", columnList = "active, name")
     }
 )
 @Getter
