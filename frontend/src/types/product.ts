@@ -64,6 +64,7 @@ export interface ProductSummary {
   defaultVariantType?: string;
   categoryType?: string;
   availableSizes: string[];
+  availablePrices: number[];
   averageRating: number;
   reviewCount: number;
   active: boolean;

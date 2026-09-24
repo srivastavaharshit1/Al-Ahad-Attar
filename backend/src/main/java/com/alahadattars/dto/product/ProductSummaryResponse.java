@@ -29,6 +29,8 @@ public class ProductSummaryResponse {
     private String defaultVariantSize;
     private String defaultVariantType;
     private java.util.List<String> availableSizes;
+    /** Prices parallel to availableSizes — index i of availablePrices is the price of availableSizes[i]. */
+    private java.util.List<java.math.BigDecimal> availablePrices;
     private Double averageRating;
     private Integer reviewCount;
     private boolean active;

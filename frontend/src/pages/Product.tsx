@@ -75,8 +75,21 @@ export const ProductPage: React.FC = () => {
             }
 
             setActiveType(initialType);
-            const initialVariants = res.data.variants.filter((v: Variant) => v.productType === initialType);
-            setSelectedVariant(initialVariants.length > 0 ? initialVariants[0] : res.data.variants[0]);
+            const initialVariants = (res.data.variants.filter((v: Variant) => v.productType === initialType) as Variant[])
+              .sort((a, b) => a.price - b.price);
+
+            // ── Preferred default size ─────────────────────────────────────────
+            // Attar → prefer 6ml.  Perfume → prefer 60ml.
+            // Falls back to the cheapest active variant when preferred size is absent.
+            const preferredDefaultSize = initialType === 'ATTAR' ? '6ml' : initialType === 'PERFUME' ? '60ml' : null;
+            let initialVariant: Variant | null = null;
+            if (preferredDefaultSize) {
+              initialVariant = initialVariants.find((v: Variant) => v.size === preferredDefaultSize) ?? null;
+            }
+            if (!initialVariant) {
+              initialVariant = initialVariants.length > 0 ? initialVariants[0] : (res.data.variants[0] ?? null);
+            }
+            setSelectedVariant(initialVariant);
 
             // Set initial image to primary of the correct type bucket
             const resolvedImage = resolveProductImage(imgs, initialType);
@@ -173,9 +186,13 @@ export const ProductPage: React.FC = () => {
 
   const handleTypeChange = (type: string) => {
     setActiveType(type);
-    const newVariants = product?.variants?.filter(v => v.productType === type) || [];
+    const newVariants = (product?.variants?.filter(v => v.productType === type) || [])
+      .sort((a, b) => a.price - b.price);
     if (newVariants.length > 0) {
-      setSelectedVariant(newVariants[0]);
+      // Apply the same preferred-size logic as the initial load.
+      const preferredSize = type === 'ATTAR' ? '6ml' : type === 'PERFUME' ? '60ml' : null;
+      const preferred = preferredSize ? newVariants.find(v => v.size === preferredSize) ?? null : null;
+      setSelectedVariant(preferred ?? newVariants[0]);
     }
 
     if (product?.images) {

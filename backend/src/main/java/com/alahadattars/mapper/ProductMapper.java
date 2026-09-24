@@ -138,6 +138,10 @@ public class ProductMapper {
                 .map(ProductVariant::getSize)
                 .collect(Collectors.toList());
 
+        List<java.math.BigDecimal> availablePricesList = preferredVariants.stream()
+                .map(ProductVariant::getPrice)
+                .collect(Collectors.toList());
+
         String thumb = productImageResolver.resolveImage(product.getImages(), preferredType);
 
         return ProductSummaryResponse.builder()
@@ -158,6 +162,7 @@ public class ProductMapper {
                 .defaultVariantSize(defaultVariantSize)
                 .defaultVariantType(defaultVariantType)
                 .availableSizes(availableSizesList)
+                .availablePrices(availablePricesList)
                 .averageRating(product.getAverageRating())
                 .reviewCount(product.getReviewCount())
                 .active(product.isActive())

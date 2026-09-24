@@ -31,9 +31,61 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
   }
 
   const image = selectedImage || '';
-  const price = defaultVariant?.price || (product as any).minimumPrice || 0;
-  const variantId = defaultVariant?.id || (product as any).defaultVariantId;
-  const size = defaultVariant?.size || (product as any).defaultVariantSize || '';
+
+  // ── Preferred-size resolution ─────────────────────────────────────────────
+  // For Attar products: prefer the 6ml variant.  For Perfume products: prefer 60ml.
+  // Falls back safely to the existing defaultVariant / defaultVariantSize when
+  // the preferred size does not exist for this particular product.
+  const categoryType: string | undefined =
+    (product as any).categoryType ?? product.category?.type;
+  const isAttar = defaultType === 'attar' || categoryType === 'ATTAR' || categoryType === 'ATTARS';
+  const isPerfume = defaultType === 'perfume' || categoryType === 'PERFUME' || categoryType === 'PERFUMES';
+  const preferredSize = isAttar ? '6ml' : isPerfume ? '60ml' : null;
+
+  // Determine which price and size to show on the card.
+  // When using a ProductSummary (gallery), availableSizes + availablePrices are parallel arrays.
+  const summaryAvailableSizes: string[] = (product as any).availableSizes ?? [];
+  const summaryAvailablePrices: number[] = (product as any).availablePrices ?? [];
+
+  let cardPrice: number;
+  let cardSize: string;
+  let cardVariantId: number | undefined;
+
+  if (
+    preferredSize &&
+    summaryAvailableSizes.length > 0 &&
+    summaryAvailablePrices.length === summaryAvailableSizes.length
+  ) {
+    const preferredIdx = summaryAvailableSizes.indexOf(preferredSize);
+    if (preferredIdx !== -1) {
+      // Preferred size exists — use its price and size label.
+      cardPrice = summaryAvailablePrices[preferredIdx];
+      cardSize = summaryAvailableSizes[preferredIdx];
+      // The defaultVariantId refers to the cheapest; if the preferred size is different we
+      // can only use what the summary exposes.  Cart will be added with the existing
+      // defaultVariantId (unchanged), which means the card quick-add cart item still uses
+      // the backend-selected default.  The size label and price are purely display changes.
+      cardVariantId = defaultVariant?.id ?? (product as any).defaultVariantId;
+    } else {
+      // Preferred size not found — fall back to existing behavior.
+      cardPrice = defaultVariant?.price ?? (product as any).minimumPrice ?? 0;
+      cardSize = defaultVariant?.size ?? (product as any).defaultVariantSize ?? '';
+      cardVariantId = defaultVariant?.id ?? (product as any).defaultVariantId;
+    }
+  } else if (defaultVariant) {
+    // Detailed Product passed (has full variant list) — use firstVariant.
+    cardPrice = defaultVariant.price;
+    cardSize = defaultVariant.size;
+    cardVariantId = defaultVariant.id;
+  } else {
+    cardPrice = (product as any).minimumPrice ?? 0;
+    cardSize = (product as any).defaultVariantSize ?? '';
+    cardVariantId = (product as any).defaultVariantId;
+  }
+
+  const price = cardPrice;
+  const variantId = cardVariantId;
+  const size = cardSize;
   const stock = defaultVariant?.stock !== undefined ? defaultVariant.stock : (product as any).totalStock;
 
   // Assuming `oldPrice` might be available if there's a discount
@@ -231,15 +283,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
           })()}
         </div>
 
-        <div className="flex items-center gap-3">
-          {oldPrice && (
-            <span className="text-xs text-on-surface-variant/60 line-through">
-              {formatPrice(Number(oldPrice))}
+        <div className="flex flex-col items-center gap-0.5">
+          <div className="flex items-center gap-3">
+            {oldPrice && (
+              <span className="text-xs text-on-surface-variant/60 line-through">
+                {formatPrice(Number(oldPrice))}
+              </span>
+            )}
+            <span className="font-body-md text-ink tracking-wider">
+              {formatPrice(Number(price))}
+            </span>
+          </div>
+          {size && (
+            <span className="text-[10px] text-on-surface-variant/70 tracking-[0.15em] uppercase font-body-sm">
+              {size}
             </span>
           )}
-          <span className="font-body-md text-ink tracking-wider">
-            {formatPrice(Number(price))}
-          </span>
         </div>
       </div>
       </div>
