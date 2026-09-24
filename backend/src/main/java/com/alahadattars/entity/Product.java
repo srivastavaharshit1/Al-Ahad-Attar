@@ -119,9 +119,6 @@ public class Product extends BaseEntity {
     @Builder.Default
     private Integer reviewCount = 0;
 
-    @org.hibernate.annotations.Formula("(SELECT COALESCE(MIN(v.price), 0) FROM product_variant v WHERE v.product_id = id AND v.active = true)")
-    private java.math.BigDecimal price;
-
     @ToString.Exclude
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
