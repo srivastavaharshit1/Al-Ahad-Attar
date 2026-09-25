@@ -24,6 +24,7 @@ public class ProductVariantMapper {
                 .productType(variant.getProductType())
                 .size(variant.getSize())
                 .price(variant.getPrice())
+                .discountedPrice(variant.getDiscountedPrice())
                 .stock(variant.getStock())
                 .sku(variant.getSku())
                 .active(variant.isActive())
@@ -54,10 +55,12 @@ public class ProductVariantMapper {
             return null;
         }
 
+        java.math.BigDecimal discountedPrice = request.getDiscountedPrice() != null ? request.getDiscountedPrice() : request.getPrice();
         return ProductVariant.builder()
                 .productType(request.getProductType() != null ? request.getProductType() : com.alahadattars.enums.ProductType.ATTAR)
                 .size(request.getSize())
                 .price(request.getPrice())
+                .discountedPrice(discountedPrice)
                 .stock(request.getStock())
                 .sku(request.getSku())
                 .active(request.isActive())

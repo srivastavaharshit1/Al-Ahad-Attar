@@ -30,6 +30,10 @@ public class UpdateVariantRequest {
     @Schema(description = "Price of the variant", example = "900.00")
     private BigDecimal price;
 
+    @PositiveOrZero(message = "Discounted price must be positive or zero")
+    @Schema(description = "Discounted price of the variant", example = "850.00")
+    private BigDecimal discountedPrice;
+
     @NotBlank(message = "SKU is required")
     @Schema(description = "Unique SKU for the variant", example = "ATTAR-OUD-6ML")
     private String sku;

@@ -31,6 +31,10 @@ public class CreateVariantRequest {
     @Schema(description = "Price of the variant", example = "500.00")
     private BigDecimal price;
 
+    @PositiveOrZero(message = "Discounted price must be positive or zero")
+    @Schema(description = "Discounted price of the variant. If null, price is used.", example = "450.00")
+    private BigDecimal discountedPrice;
+
     @NotNull(message = "Stock is required")
     @PositiveOrZero(message = "Stock must be positive or zero")
     @Schema(description = "Available stock", example = "50")

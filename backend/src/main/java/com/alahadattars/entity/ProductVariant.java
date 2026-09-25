@@ -11,6 +11,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -67,6 +69,11 @@ public class ProductVariant extends BaseEntity {
 
     @NotNull
     @PositiveOrZero
+    @Column(name = "discounted_price", precision = 10, scale = 2, nullable = false)
+    private BigDecimal discountedPrice;
+
+    @NotNull
+    @PositiveOrZero
     @Column(nullable = false)
     private Integer stock;
 
@@ -85,4 +92,12 @@ public class ProductVariant extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
+
+    @PrePersist
+    @PreUpdate
+    public void prePersistOrUpdate() {
+        if (discountedPrice == null) {
+            discountedPrice = price;
+        }
+    }
 }

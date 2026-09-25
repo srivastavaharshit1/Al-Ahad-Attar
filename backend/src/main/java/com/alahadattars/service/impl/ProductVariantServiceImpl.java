@@ -84,6 +84,8 @@ public class ProductVariantServiceImpl implements ProductVariantService {
         validateVariantSize(variant.getProduct().getCategory().getType(), variant.getSize());
         
         variant.setPrice(request.getPrice());
+        java.math.BigDecimal discountedPrice = request.getDiscountedPrice() != null ? request.getDiscountedPrice() : request.getPrice();
+        variant.setDiscountedPrice(discountedPrice);
         variant.setSku(request.getSku());
 
         if (request.getStock() != null) variant.setStock(request.getStock());
