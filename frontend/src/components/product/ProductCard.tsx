@@ -56,7 +56,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
     summaryAvailableSizes.length > 0 &&
     summaryAvailablePrices.length === summaryAvailableSizes.length
   ) {
-    const preferredIdx = summaryAvailableSizes.indexOf(preferredSize);
+    const preferredIdx = summaryAvailableSizes.findIndex(s => s.toLowerCase() === preferredSize);
     if (preferredIdx !== -1) {
       // Preferred size exists — use its price and size label.
       cardPrice = summaryAvailablePrices[preferredIdx];

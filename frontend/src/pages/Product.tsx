@@ -84,7 +84,7 @@ export const ProductPage: React.FC = () => {
             const preferredDefaultSize = initialType === 'ATTAR' ? '6ml' : initialType === 'PERFUME' ? '60ml' : null;
             let initialVariant: Variant | null = null;
             if (preferredDefaultSize) {
-              initialVariant = initialVariants.find((v: Variant) => v.size === preferredDefaultSize) ?? null;
+              initialVariant = initialVariants.find((v: Variant) => v.size.toLowerCase() === preferredDefaultSize) ?? null;
             }
             if (!initialVariant) {
               initialVariant = initialVariants.length > 0 ? initialVariants[0] : (res.data.variants[0] ?? null);
@@ -191,7 +191,7 @@ export const ProductPage: React.FC = () => {
     if (newVariants.length > 0) {
       // Apply the same preferred-size logic as the initial load.
       const preferredSize = type === 'ATTAR' ? '6ml' : type === 'PERFUME' ? '60ml' : null;
-      const preferred = preferredSize ? newVariants.find(v => v.size === preferredSize) ?? null : null;
+      const preferred = preferredSize ? newVariants.find(v => v.size.toLowerCase() === preferredSize) ?? null : null;
       setSelectedVariant(preferred ?? newVariants[0]);
     }
 
