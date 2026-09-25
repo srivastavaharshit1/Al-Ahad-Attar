@@ -46,11 +46,26 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
 
   // Filter state
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | '' | null>(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string>('');
-  const [selectedGender, setSelectedGender] = useState('');
-  const [selectedBrand, setSelectedBrand] = useState('');
-  const [sortBy, setSortBy] = useState('name,asc');
-  const [searchQuery, setSearchQuery] = useState('');
+
+  const selectedSubcategory = searchParams.get('subcategory') || '';
+  const selectedGender = searchParams.get('gender') || '';
+  const selectedBrand = searchParams.get('brand') || '';
+  const sortBy = searchParams.get('sort') || 'name,asc';
+  const searchQuery = searchParams.get('search') || '';
+
+  const updateParam = (key: string, value: string) => {
+    setSearchParams(prev => {
+      if (value) prev.set(key, value);
+      else prev.delete(key);
+      return prev;
+    });
+  };
+
+  const setSelectedSubcategory = (val: string) => updateParam('subcategory', val);
+  const setSelectedGender = (val: string) => updateParam('gender', val);
+  const setSelectedBrand = (val: string) => updateParam('brand', val);
+  const setSortBy = (val: string) => updateParam('sort', val);
+  const setSearchQuery = (val: string) => updateParam('search', val);
 
   const { ref: gridRef, inView: gridInView } = useInView(0);
 
@@ -95,21 +110,11 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
         (c: Category) => c.name.toLowerCase().replace(/\s+/g, '-') === normalizedActive
       );
       setSelectedCategoryId(match ? match.id : '');
-      setSelectedSubcategory('');
     }
   }, [activeCategory, categories]);
 
-  // When navigating cross-collection with a sub-filter (e.g., clicking "Incense Sticks" while
-  // on /category/perfumes navigates to /category/bakhoor with state), apply the sub-filter
-  // once the categories list is loaded and the activeCategory effect has run.
-  useEffect(() => {
-    const subfilter = (location.state as any)?.subfilter;
-    if (subfilter && categories.length > 0) {
-      setSelectedSubcategory(subfilter);
-      // Clear the state so a future back-navigation doesn't re-apply the sub-filter
-      navigate(location.pathname, { replace: true, state: {} });
-    }
-  }, [location.state, categories]);
+  // URL-based state eliminates the need for location.state.subfilter.
+  // The subcategory is natively read from searchParams above.
 
   useEffect(() => {
     if (selectedCategoryId === null) return;
@@ -221,14 +226,11 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
 
     if (filterId === 'incense-sticks') {
       if (location.pathname !== '/category/bakhoor') {
-        // Navigate to bakhoor route; once mounted the useEffect will resolve the category.
-        // We use state to signal that the subcategory should be Incense Sticks after mount.
-        navigate('/category/bakhoor', { state: { subfilter: 'Incense Sticks' } });
+        navigate('/category/bakhoor?subcategory=Incense+Sticks');
       } else {
         const bakhoorCat = categories.find(c => c.type === 'BAKHOOR');
         setSelectedCategoryId(bakhoorCat?.id ?? '');
-        setSelectedSubcategory('Incense Sticks');
-        resetPage();
+        setSearchParams(prev => { prev.set('subcategory', 'Incense Sticks'); prev.delete('page'); return prev; });
       }
       return;
     }
@@ -239,20 +241,18 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
       } else {
         const perfumeCat = categories.find(c => c.type === 'PERFUMES');
         setSelectedCategoryId(perfumeCat?.id ?? '');
-        setSelectedSubcategory('');
-        resetPage();
+        setSearchParams(prev => { prev.delete('subcategory'); prev.delete('page'); return prev; });
       }
       return;
     }
 
     if (filterId === 'car-perfumes') {
       if (location.pathname !== '/category/perfumes') {
-        navigate('/category/perfumes', { state: { subfilter: 'Car Perfumes' } });
+        navigate('/category/perfumes?subcategory=Car+Perfumes');
       } else {
         const perfumeCat = categories.find(c => c.type === 'PERFUMES');
         setSelectedCategoryId(perfumeCat?.id ?? '');
-        setSelectedSubcategory('Car Perfumes');
-        resetPage();
+        setSearchParams(prev => { prev.set('subcategory', 'Car Perfumes'); prev.delete('page'); return prev; });
       }
       return;
     }
@@ -265,12 +265,15 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
 
   const clearFilters = () => {
     setSelectedCategoryId(activeCategory ? selectedCategoryId : '');
-    setSelectedSubcategory('');
-    setSelectedGender('');
-    setSelectedBrand('');
-    setSearchQuery('');
-    setSortBy('name,asc');
-    resetPage();
+    setSearchParams(prev => {
+      prev.delete('subcategory');
+      prev.delete('gender');
+      prev.delete('brand');
+      prev.delete('search');
+      prev.delete('sort');
+      prev.delete('page');
+      return prev;
+    });
   };
 
   const handlePageChange = (page: number) => {

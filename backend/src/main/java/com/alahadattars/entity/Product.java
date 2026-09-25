@@ -14,6 +14,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.CollectionTable;
+import org.hibernate.annotations.Formula;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -22,9 +23,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
-
 import java.util.ArrayList;
 import java.util.List;
+import java.math.BigDecimal;
 import java.util.Set;
 import java.util.HashSet;
 
@@ -119,6 +120,9 @@ public class Product extends BaseEntity {
     @Column(name = "review_count", nullable = false)
     @Builder.Default
     private Integer reviewCount = 0;
+
+    @Formula("(SELECT COALESCE(MIN(v.discounted_price), 0) FROM product_variant v WHERE v.product_id = id AND v.active = true)")
+    private BigDecimal price;
 
     @ToString.Exclude
     @NotNull
