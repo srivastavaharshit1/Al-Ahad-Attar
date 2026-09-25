@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -141,6 +142,58 @@ public class GlobalExceptionHandler {
                 .message("File size exceeds the 5MB limit")
                 .build();
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(org.springframework.http.converter.HttpMessageNotReadableException ex) {
+        log.warn("HttpMessageNotReadableException: {}", ex.getMessage());
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(false)
+                .message("Invalid request payload format or unreadable data (e.g. invalid numbers).")
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+        log.warn("DataIntegrityViolationException: {}", ex.getMessage());
+        String msg = "A database constraint was violated. Please check if the data (like SKU or Slug) is unique, and all required fields are provided.";
+        if (ex.getRootCause() != null && ex.getRootCause().getMessage() != null) {
+            msg = ex.getRootCause().getMessage();
+        }
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(false)
+                .message(msg)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConstraintViolationException(jakarta.validation.ConstraintViolationException ex) {
+        log.warn("ConstraintViolationException: {}", ex.getMessage());
+        String msg = ex.getConstraintViolations().stream()
+                .map(cv -> cv.getPropertyPath() + " " + cv.getMessage())
+                .findFirst()
+                .orElse(ex.getMessage());
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(false)
+                .message("Validation failed: " + msg)
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(org.springframework.transaction.TransactionSystemException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTransactionSystemException(org.springframework.transaction.TransactionSystemException ex) {
+        Throwable cause = ex.getRootCause();
+        if (cause instanceof jakarta.validation.ConstraintViolationException) {
+            return handleConstraintViolationException((jakarta.validation.ConstraintViolationException) cause);
+        }
+        log.error("TransactionSystemException: ", ex);
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(false)
+                .message("An unexpected transaction error occurred.")
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(Exception.class)

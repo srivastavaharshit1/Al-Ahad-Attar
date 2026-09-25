@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class CreateVariantRequest {
 
+    @NotNull(message = "Product type is required")
     @Schema(description = "Type of product variant", example = "ATTARS")
     private ProductType productType;
 
