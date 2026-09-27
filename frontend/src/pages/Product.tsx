@@ -84,7 +84,7 @@ export const ProductPage: React.FC = () => {
             const preferredDefaultSize = initialType === 'ATTAR' ? '6ml' : initialType === 'PERFUME' ? '60ml' : null;
             let initialVariant: Variant | null = null;
             if (preferredDefaultSize) {
-              initialVariant = initialVariants.find((v: Variant) => v.size.toLowerCase() === preferredDefaultSize) ?? null;
+              initialVariant = initialVariants.find((v: Variant) => v.size?.toLowerCase() === preferredDefaultSize) ?? null;
             }
             if (!initialVariant) {
               initialVariant = initialVariants.length > 0 ? initialVariants[0] : (res.data.variants[0] ?? null);
@@ -191,7 +191,7 @@ export const ProductPage: React.FC = () => {
     if (newVariants.length > 0) {
       // Apply the same preferred-size logic as the initial load.
       const preferredSize = type === 'ATTAR' ? '6ml' : type === 'PERFUME' ? '60ml' : null;
-      const preferred = preferredSize ? newVariants.find(v => v.size.toLowerCase() === preferredSize) ?? null : null;
+      const preferred = preferredSize ? newVariants.find(v => v.size?.toLowerCase() === preferredSize) ?? null : null;
       setSelectedVariant(preferred ?? newVariants[0]);
     }
 
@@ -250,7 +250,7 @@ export const ProductPage: React.FC = () => {
   const applicablePromos = activePromotions.filter(promo => {
     if (promo.promotionType === 'PRODUCT_DISCOUNT' && promo.configuration?.applicableProductIds?.includes(product.id)) return true;
     if (promo.promotionType === 'CATEGORY_DISCOUNT' && product.category?.id && promo.configuration?.applicableCategoryIds?.includes(product.category.id)) {
-        const categoryName = product.category.name.toLowerCase();
+        const categoryName = product.category.name?.toLowerCase() || '';
         if (categoryName.includes('attar') && activeType !== 'ATTAR') return false;
         if (categoryName.includes('perfume') && activeType !== 'PERFUME') return false;
         return true;
@@ -508,7 +508,7 @@ export const ProductPage: React.FC = () => {
               {product.category?.name === 'Bakhoor' || filteredVariants.length === 1 ? (
                 <div>
                   <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-3">
-                    {product.category?.name?.toLowerCase() === 'car perfume' || filteredVariants[0]?.size?.toLowerCase().includes('pc') ? 'Quantity' : 'Weight'}
+                    {product.category?.name?.toLowerCase() === 'car perfume' || filteredVariants[0]?.size?.toLowerCase()?.includes('pc') ? 'Quantity' : 'Weight'}
                   </h3>
                   <div className="px-6 py-3 border border-outline-variant rounded-DEFAULT font-label-md text-label-md text-on-surface inline-block bg-surface-bright">
                     {filteredVariants[0]?.size} Pack

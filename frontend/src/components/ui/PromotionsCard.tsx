@@ -267,7 +267,7 @@ export const PromotionsCard: React.FC<PromotionsCardProps> = ({ className = '' }
       setApplySuccess(true);
       setTimeout(() => setApplySuccess(false), 2000);
     } catch (err: any) {
-      setLocalError(err.response?.data?.message || 'Invalid or expired code. Please try again.');
+      setLocalError(err.message || err.response?.data?.message || 'Invalid or expired code. Please try again.');
     } finally {
       setIsApplying(false);
     }

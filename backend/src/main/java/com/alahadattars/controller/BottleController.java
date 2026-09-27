@@ -75,7 +75,8 @@ public class BottleController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> uploadImage(@RequestParam("file") MultipartFile file) {
         String fileName = storageService.uploadFile(file, "bottles");
-        return ResponseEntity.ok(fileName);
+        String resolvedUrl = storageService.resolveUrl(fileName, "/api/bottles/public/images/" + (fileName.startsWith("bottles/") ? fileName.substring(8) : fileName));
+        return ResponseEntity.ok(resolvedUrl);
     }
 
     @GetMapping("/public/images/{fileName}")

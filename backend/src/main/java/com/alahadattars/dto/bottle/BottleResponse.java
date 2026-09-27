@@ -28,8 +28,14 @@ public class BottleResponse {
         
         String url = bottle.getImageUrl();
         if (storageService != null && url != null) {
-            String fileName = url.startsWith("bottles/") ? url.substring(8) : url;
-            url = storageService.resolveUrl(url, "/api/bottles/public/images/" + fileName);
+            if (url.startsWith("http")) {
+                // Already fully resolved remote URL
+            } else if (url.startsWith("/api/bottles/public/images/")) {
+                url = storageService.resolveUrl(url, url);
+            } else {
+                String fileName = url.startsWith("bottles/") ? url.substring(8) : url;
+                url = storageService.resolveUrl(url, "/api/bottles/public/images/" + fileName);
+            }
         }
         
         return BottleResponse.builder()

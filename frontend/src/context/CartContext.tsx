@@ -363,11 +363,22 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const response = await cartService.applyCoupon(code);
         if (response) {
             syncCartState(response.data);
-            toast.success("Coupon applied");
+            
+            const msgs = response.data.unlockMessages || [];
+            const invalidMsg = msgs.find((m: string) => m.toLowerCase().includes('invalid') || m.toLowerCase().includes('expired'));
+            
+            if (invalidMsg) {
+                throw new Error(invalidMsg);
+            }
+            
+            const isApplied = response.data.appliedPromotions?.some((p: any) => p.code?.toUpperCase() === code.toUpperCase());
+            if (isApplied) {
+                toast.success("Coupon applied");
+            }
         }
       } catch (error: any) {
         console.error("Failed to apply coupon", error);
-        toast.error(error.response?.data?.message || "Failed to apply coupon");
+        toast.error(error.response?.data?.message || error.message || "Failed to apply coupon");
         throw error;
       }
     } else {
