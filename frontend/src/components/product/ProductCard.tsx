@@ -118,7 +118,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
     if (!variantId) return;
 
     const isBakhoorCategory = product.category?.type === 'BAKHOOR' || (product as any).categoryType === 'BAKHOOR' || product.category?.name?.toLowerCase() === 'bakhoor';
-    const isFragranceVariant = (defaultVariant?.productType === 'ATTAR' || defaultVariant?.productType === 'PERFUME' || (product as any).defaultVariantType === 'ATTAR' || (product as any).defaultVariantType === 'PERFUME') && !isBakhoorCategory;
+    const isFragranceVariant = (isAttar || isPerfume) && !isBakhoorCategory;
     
     if (isFragranceVariant) {
       setShowBottleModal(true);

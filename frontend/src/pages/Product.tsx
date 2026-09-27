@@ -205,7 +205,10 @@ export const ProductPage: React.FC = () => {
     if (!selectedVariant) return;
 
     const isBakhoorCategory = product?.category?.type === 'BAKHOOR' || (product as any)?.categoryType === 'BAKHOOR' || product?.category?.name?.toLowerCase() === 'bakhoor';
-    const isFragranceVariant = (selectedVariant.productType === 'ATTAR' || selectedVariant.productType === 'PERFUME') && !isBakhoorCategory;
+    const categoryType = product?.category?.type || (product as any)?.categoryType;
+    const isAttar = activeType === 'ATTAR' || categoryType === 'ATTAR' || categoryType === 'ATTARS';
+    const isPerfume = activeType === 'PERFUME' || categoryType === 'PERFUME' || categoryType === 'PERFUMES';
+    const isFragranceVariant = (isAttar || isPerfume) && !isBakhoorCategory;
 
     if (isFragranceVariant) {
       setShowBottleModal(true);
