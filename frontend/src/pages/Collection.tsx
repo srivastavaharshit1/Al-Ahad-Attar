@@ -154,15 +154,9 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
           else if (cat.type === 'ATTARS') type = 'ATTAR';
         }
       }
-      if (isCarPerfumesTab) {
-        const bakhoorCat = categories.find(c => c.type === 'BAKHOOR');
-        if (bakhoorCat) params.categoryId = bakhoorCat.id;
-        params.subcategory = 'FRESHENERS';
-      } else {
-        if (type) params.type = type;
-        if (selectedCategoryId) params.categoryId = selectedCategoryId;
-        if (selectedSubcategory) params.subcategory = selectedSubcategory;
-      }
+      if (type) params.type = type;
+      if (selectedCategoryId) params.categoryId = selectedCategoryId;
+      if (selectedSubcategory) params.subcategory = selectedSubcategory;
       if (selectedGender) params.gender = selectedGender;
       if (selectedBrand) params.brand = selectedBrand;
       if (searchQuery.trim()) params.search = searchQuery.trim();

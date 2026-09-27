@@ -282,8 +282,22 @@ public class ProductServiceImpl implements ProductService {
             // The Perfumes/Attars broad OR-with-variant-type logic must NOT apply so that
             // a product that merely has a PERFUME variant cannot leak into Car Perfumes.
             boolean isCarPerfumes = subcategory != null && subcategory.equalsIgnoreCase("Car Perfumes");
-            if (categoryId != null) {
-                if (!isCarPerfumes && categoryName != null && "Perfumes".equalsIgnoreCase(categoryName)) {
+            if (isCarPerfumes) {
+                // Car Perfumes tab: pull from BOTH historical storage locations
+                // 1. PERFUMES + "Car Perfumes"
+                // 2. BAKHOOR + "FRESHENERS"
+                Predicate perfumesMatch = cb.and(
+                    cb.equal(root.get("category").get("type"), com.alahadattars.enums.CategoryType.PERFUMES),
+                    cb.equal(root.get("subcategory"), "Car Perfumes")
+                );
+                Predicate bakhoorMatch = cb.and(
+                    cb.equal(root.get("category").get("type"), com.alahadattars.enums.CategoryType.BAKHOOR),
+                    cb.equal(root.get("subcategory"), "FRESHENERS")
+                );
+                query.distinct(true);
+                predicates.add(cb.or(perfumesMatch, bakhoorMatch));
+            } else if (categoryId != null) {
+                if (categoryName != null && "Perfumes".equalsIgnoreCase(categoryName)) {
                     // Normal Perfumes tab: a product belongs if its category is Perfumes OR it has a PERFUME variant
                     // AND it belongs to a cross-pollinatable category (Attars or Perfumes)
                     jakarta.persistence.criteria.Join<Product, ProductVariant> variantJoin = root.join("variants", jakarta.persistence.criteria.JoinType.LEFT);
@@ -295,7 +309,7 @@ public class ProductServiceImpl implements ProductService {
                     );
                     query.distinct(true);
                     predicates.add(cb.or(catMatch, cb.and(variantMatch, isCrossPollinatable)));
-                } else if (!isCarPerfumes && categoryName != null && "Attars".equalsIgnoreCase(categoryName)) {
+                } else if (categoryName != null && "Attars".equalsIgnoreCase(categoryName)) {
                     // Normal Attars tab: a product belongs if its category is Attars OR it has an ATTAR variant
                     // AND it belongs to a cross-pollinatable category (Attars or Perfumes)
                     jakarta.persistence.criteria.Join<Product, ProductVariant> variantJoin = root.join("variants", jakarta.persistence.criteria.JoinType.LEFT);
@@ -308,12 +322,12 @@ public class ProductServiceImpl implements ProductService {
                     query.distinct(true);
                     predicates.add(cb.or(catMatch, cb.and(variantMatch, isCrossPollinatable)));
                 } else {
-                    // Car Perfumes tab and all other categories: strict category match only —
+                    // All other categories: strict category match only —
                     // no variant-type OR so PERFUME/ATTAR variants cannot pull in unrelated products.
                     predicates.add(cb.equal(root.get("category").get("id"), categoryId));
                 }
             }
-            if (subcategory != null && !subcategory.trim().isEmpty()) {
+            if (!isCarPerfumes && subcategory != null && !subcategory.trim().isEmpty()) {
                 if (subcategory.equalsIgnoreCase("none")) {
                     predicates.add(cb.or(cb.isNull(root.get("subcategory")), cb.equal(root.get("subcategory"), "")));
                 } else {
