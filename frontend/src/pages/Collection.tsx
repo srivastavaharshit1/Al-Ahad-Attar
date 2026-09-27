@@ -154,9 +154,15 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
           else if (cat.type === 'ATTARS') type = 'ATTAR';
         }
       }
-      if (type && !isCarPerfumesTab) params.type = type;
-      if (selectedCategoryId) params.categoryId = selectedCategoryId;
-      if (selectedSubcategory) params.subcategory = selectedSubcategory;
+      if (isCarPerfumesTab) {
+        const bakhoorCat = categories.find(c => c.type === 'BAKHOOR');
+        if (bakhoorCat) params.categoryId = bakhoorCat.id;
+        params.subcategory = 'FRESHENERS';
+      } else {
+        if (type) params.type = type;
+        if (selectedCategoryId) params.categoryId = selectedCategoryId;
+        if (selectedSubcategory) params.subcategory = selectedSubcategory;
+      }
       if (selectedGender) params.gender = selectedGender;
       if (selectedBrand) params.brand = selectedBrand;
       if (searchQuery.trim()) params.search = searchQuery.trim();
@@ -381,12 +387,11 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
         </div>
       </header>
 
-      {/* Custom Subcategory Tabs for Bakhoor and Perfumes */}
       {selectedCategoryId !== '' && selectedCategoryId !== null && selectedCatName === 'bakhoor' && (
         <div className="flex justify-center mb-12 flex-wrap gap-2">
           <div className="inline-flex flex-wrap justify-center bg-surface-container-lowest border border-outline-variant/30 rounded-full p-1 max-w-full">
             <button
-              onClick={() => { setSelectedSubcategory(''); resetPage(); }}
+              onClick={() => setSearchParams(prev => { prev.delete('subcategory'); prev.delete('page'); return prev; })}
               className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                 selectedSubcategory === ''
                   ? 'bg-accent-soft text-accent-hover'
@@ -396,7 +401,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
               Bakhoor
             </button>
             <button
-              onClick={() => { setSelectedSubcategory('Incense Sticks'); resetPage(); }}
+              onClick={() => setSearchParams(prev => { prev.set('subcategory', 'Incense Sticks'); prev.delete('page'); return prev; })}
               className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                 selectedSubcategory === 'Incense Sticks'
                   ? 'bg-accent-soft text-accent-hover'
@@ -412,7 +417,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
         <div className="flex justify-center mb-12 flex-wrap gap-2">
           <div className="inline-flex flex-wrap justify-center bg-surface-container-lowest border border-outline-variant/30 rounded-full p-1 max-w-full">
             <button
-              onClick={() => { setSelectedSubcategory(''); resetPage(); }}
+              onClick={() => setSearchParams(prev => { prev.delete('subcategory'); prev.delete('page'); return prev; })}
               className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                 selectedSubcategory === ''
                   ? 'bg-accent-soft text-accent-hover'
@@ -422,7 +427,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
               Perfumes
             </button>
             <button
-              onClick={() => { setSelectedSubcategory('Car Perfumes'); resetPage(); }}
+              onClick={() => setSearchParams(prev => { prev.set('subcategory', 'Car Perfumes'); prev.delete('page'); return prev; })}
               className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                 selectedSubcategory === 'Car Perfumes'
                   ? 'bg-accent-soft text-accent-hover'
