@@ -561,7 +561,9 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
                   // For Car Perfumes, do not impose a type context on the card.
                   // The card should display the product's own label and image (not "PERFUMES").
                   let cardDefaultType: string | undefined;
-                  if (!isCarPerfumesTab) {
+                  if (isCarPerfumesTab) {
+                    cardDefaultType = 'car perfume';
+                  } else {
                     const selectedCat = categories.find(c => c.id === selectedCategoryId);
                     cardDefaultType = searchParams.get('type') ||
                       (selectedCat?.type === 'PERFUMES' ? 'perfume'
