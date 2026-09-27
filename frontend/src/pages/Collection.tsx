@@ -510,9 +510,11 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
               <div className="w-16 h-16 border border-accent rounded-full flex items-center justify-center mb-6">
                 <span className="material-symbols-outlined text-accent text-2xl">error_outline</span>
               </div>
-              <h3 className="font-headline-md text-on-surface mb-2 tracking-widest uppercase text-lg">Connection Error</h3>
-              <p className="font-body-md text-on-surface-variant mb-8 max-w-sm leading-relaxed">{error}</p>
-              <button onClick={fetchProducts} className="btn btn-primary">Retry</button>
+              <h3 className="font-headline-md text-on-surface mb-2 tracking-widest uppercase text-lg">Something went wrong</h3>
+              <p className="font-body-md text-on-surface-variant mb-8 max-w-sm leading-relaxed">
+                We’re having trouble loading the collection right now. Please try again in a moment.
+              </p>
+              <button onClick={fetchProducts} className="btn btn-primary">TRY AGAIN</button>
             </div>
           ) : products.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center py-20 md:py-24">
