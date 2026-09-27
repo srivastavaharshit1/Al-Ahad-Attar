@@ -74,7 +74,9 @@ export const AppRoutes: React.FC = () => {
           <Route path="collection" element={<Navigate to="/collections" replace />} />
           <Route path="category/attars" element={<Collection category="attars" />} />
           <Route path="category/bakhoor" element={<Collection category="bakhoor" />} />
+          <Route path="category/incense-sticks" element={<Collection category="incense-sticks" />} />
           <Route path="category/perfumes" element={<Collection category="perfumes" />} />
+          <Route path="category/car-perfumes" element={<Collection category="car-perfumes" />} />
           <Route path="product/:id" element={<Product />} />
           <Route path="cart" element={<Cart />} />
           <Route path="about" element={<About />} />

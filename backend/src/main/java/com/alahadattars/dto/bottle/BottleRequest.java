@@ -33,4 +33,6 @@ public class BottleRequest {
     @NotNull(message = "Stock quantity is required")
     @PositiveOrZero(message = "Stock must be zero or positive")
     private Integer stockQuantity;
+
+    private com.alahadattars.enums.BottleApplicability applicability;
 }

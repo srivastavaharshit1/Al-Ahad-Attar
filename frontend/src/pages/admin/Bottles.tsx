@@ -14,7 +14,8 @@ const EMPTY_FORM: BottleRequest = {
   imageUrl: '',
   price: 0,
   stockQuantity: 0,
-  active: true
+  active: true,
+  applicability: 'BOTH'
 };
 
 export const Bottles: React.FC = () => {
@@ -57,7 +58,8 @@ export const Bottles: React.FC = () => {
       price: bottle.price,
       // @ts-ignore
       stockQuantity: bottle.stockQuantity || 0,
-      active: bottle.active
+      active: bottle.active,
+      applicability: bottle.applicability || 'BOTH'
     });
     setShowModal(true);
   };
@@ -169,6 +171,9 @@ export const Bottles: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 text-gray-500">
                   {bottle.capacity || <span className="text-gray-400 italic">Universal</span>}
+                  <div className="text-xs text-gray-400 mt-1">
+                    {bottle.applicability === 'ATTAR' ? 'Attars Only' : bottle.applicability === 'PERFUME' ? 'Perfumes Only' : 'Attars & Perfumes'}
+                  </div>
                 </td>
                 <td className="px-6 py-4 font-medium text-[#b89445]">
                   +{formatPrice(bottle.price)}
@@ -276,6 +281,20 @@ export const Bottles: React.FC = () => {
                   onChange={e => setForm(f => ({ ...f, stockQuantity: parseInt(e.target.value) || 0 }))}
                   className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Applies To *</label>
+                <select
+                  required
+                  value={form.applicability || 'BOTH'}
+                  onChange={e => setForm(f => ({ ...f, applicability: e.target.value as any }))}
+                  className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
+                >
+                  <option value="BOTH">Attars & Perfumes</option>
+                  <option value="ATTAR">Attars Only</option>
+                  <option value="PERFUME">Perfumes Only</option>
+                </select>
               </div>
 
               <div>

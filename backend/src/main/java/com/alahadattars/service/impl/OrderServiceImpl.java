@@ -233,11 +233,23 @@ public class OrderServiceImpl implements OrderService {
                     if (!bottle.isActive()) {
                         throw new BadRequestException("Selected bottle is not available");
                     }
+                    if (bottle.getApplicability() != com.alahadattars.enums.BottleApplicability.BOTH) {
+                        if (variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR && bottle.getApplicability() != com.alahadattars.enums.BottleApplicability.ATTAR) {
+                            throw new BadRequestException("This bottle is not applicable for Attars.");
+                        }
+                        if (variant.getProductType() == com.alahadattars.enums.ProductType.PERFUME && bottle.getApplicability() != com.alahadattars.enums.BottleApplicability.PERFUME) {
+                            throw new BadRequestException("This bottle is not applicable for Perfumes.");
+                        }
+                    }
                     finalPrice = finalPrice.add(bottle.getPrice());
                 }
 
-                if (variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR && bottle == null) {
-                    throw new BadRequestException("A bottle must be selected for Attar variants.");
+                boolean isBakhoor = variant.getProduct().getCategory() != null &&
+                                    (variant.getProduct().getCategory().getType() == com.alahadattars.enums.CategoryType.BAKHOOR ||
+                                     "Bakhoor".equalsIgnoreCase(variant.getProduct().getCategory().getName()));
+
+                if ((variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR || variant.getProductType() == com.alahadattars.enums.ProductType.PERFUME) && !isBakhoor && bottle == null) {
+                    throw new BadRequestException("A bottle must be selected for this fragrance.");
                 }
 
                 CartItem ci = new CartItem();

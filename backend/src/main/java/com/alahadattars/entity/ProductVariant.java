@@ -64,7 +64,7 @@ public class ProductVariant extends BaseEntity {
 
     @NotNull
     @PositiveOrZero
-    @Column(precision = 10, scale = 2, nullable = false)
+    @Column(precision = 10, scale = 2, nullable = false, columnDefinition = "numeric(10,2) default 0.0")
     private BigDecimal price;
 
     @NotNull

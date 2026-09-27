@@ -9,6 +9,7 @@ import java.util.List;
 @Repository
 public interface BottleRepository extends JpaRepository<Bottle, Long> {
     List<Bottle> findByActiveTrue();
+    List<Bottle> findByActiveTrueAndApplicabilityIn(List<com.alahadattars.enums.BottleApplicability> applicabilities);
 
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("UPDATE Bottle b SET b.stockQuantity = b.stockQuantity - :quantity WHERE b.id = :id AND b.stockQuantity >= :quantity")

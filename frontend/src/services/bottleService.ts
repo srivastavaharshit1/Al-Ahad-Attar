@@ -9,6 +9,7 @@ export interface Bottle {
     imageUrl?: string;
     stockQuantity?: number;
     active: boolean;
+    applicability?: 'ATTAR' | 'PERFUME' | 'BOTH';
 }
 
 export interface BottleRequest {
@@ -19,6 +20,7 @@ export interface BottleRequest {
     imageUrl?: string;
     stockQuantity?: number;
     active: boolean;
+    applicability?: 'ATTAR' | 'PERFUME' | 'BOTH';
 }
 
 export const bottleService = {
@@ -27,8 +29,9 @@ export const bottleService = {
         return response.data;
     },
 
-    getActive: async () => {
-        const response = await api.get<Bottle[]>('/bottles/public/active');
+    getActive: async (productType?: string) => {
+        const url = productType ? `/bottles/public/active?productType=${productType}` : '/bottles/public/active';
+        const response = await api.get<Bottle[]>(url);
         return response.data;
     },
 

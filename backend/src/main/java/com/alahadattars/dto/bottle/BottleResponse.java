@@ -21,6 +21,7 @@ public class BottleResponse {
     private String imageUrl;
     private boolean active;
     private Integer stockQuantity;
+    private String applicability;
 
     public static BottleResponse fromEntity(Bottle bottle, com.alahadattars.service.StorageService storageService) {
         if (bottle == null) return null;
@@ -40,6 +41,7 @@ public class BottleResponse {
                 .imageUrl(url)
                 .active(bottle.isActive())
                 .stockQuantity(bottle.getStockQuantity())
+                .applicability(bottle.getApplicability() != null ? bottle.getApplicability().name() : null)
                 .build();
     }
 }

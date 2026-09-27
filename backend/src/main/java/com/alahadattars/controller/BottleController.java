@@ -31,7 +31,10 @@ public class BottleController {
     private String baseUploadDir;
 
     @GetMapping("/public/active")
-    public ResponseEntity<List<BottleResponse>> getActiveBottles() {
+    public ResponseEntity<List<BottleResponse>> getActiveBottles(@RequestParam(required = false) String productType) {
+        if (productType != null) {
+            return ResponseEntity.ok(bottleService.getActiveBottlesByProductType(productType));
+        }
         return ResponseEntity.ok(bottleService.getActiveBottles());
     }
 

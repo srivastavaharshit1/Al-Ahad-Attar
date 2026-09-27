@@ -9,6 +9,7 @@ import java.util.List;
 public interface BottleService {
     List<BottleResponse> getAllBottles();
     List<BottleResponse> getActiveBottles();
+    List<BottleResponse> getActiveBottlesByProductType(String productType);
     BottleResponse getBottleById(Long id);
     Bottle getBottleEntityById(Long id);
     List<Bottle> getBottleEntitiesByIds(java.util.Set<Long> ids);

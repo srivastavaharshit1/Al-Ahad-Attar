@@ -1,5 +1,6 @@
 package com.alahadattars.entity;
 
+import com.alahadattars.enums.BottleApplicability;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -52,4 +53,10 @@ public class Bottle extends BaseEntity {
     @Column(nullable = false, name = "stock_quantity", columnDefinition = "integer default 0")
     @Builder.Default
     private Integer stockQuantity = 0;
+
+    @NotNull
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(name = "applicability", length = 20, nullable = false, columnDefinition = "varchar(20) default 'BOTH'")
+    @Builder.Default
+    private BottleApplicability applicability = BottleApplicability.BOTH;
 }

@@ -40,6 +40,23 @@ public class BottleServiceImpl implements BottleService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<BottleResponse> getActiveBottlesByProductType(String productType) {
+        List<com.alahadattars.enums.BottleApplicability> applicabilities = new java.util.ArrayList<>();
+        applicabilities.add(com.alahadattars.enums.BottleApplicability.BOTH);
+        
+        if ("ATTAR".equalsIgnoreCase(productType) || "ATTARS".equalsIgnoreCase(productType)) {
+            applicabilities.add(com.alahadattars.enums.BottleApplicability.ATTAR);
+        } else if ("PERFUME".equalsIgnoreCase(productType) || "PERFUMES".equalsIgnoreCase(productType)) {
+            applicabilities.add(com.alahadattars.enums.BottleApplicability.PERFUME);
+        }
+        
+        return bottleRepository.findByActiveTrueAndApplicabilityIn(applicabilities).stream()
+                .map(b -> BottleResponse.fromEntity(b, storageService))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public BottleResponse getBottleById(Long id) {
         return BottleResponse.fromEntity(getBottleEntityById(id), storageService);
     }
@@ -68,6 +85,7 @@ public class BottleServiceImpl implements BottleService {
                 .imageUrl(request.getImageUrl())
                 .active(request.getActive() != null ? request.getActive() : true)
                 .stockQuantity(request.getStockQuantity() != null ? request.getStockQuantity() : 0)
+                .applicability(request.getApplicability() != null ? request.getApplicability() : com.alahadattars.enums.BottleApplicability.BOTH)
                 .build();
         return BottleResponse.fromEntity(bottleRepository.save(bottle), storageService);
     }
@@ -91,6 +109,10 @@ public class BottleServiceImpl implements BottleService {
 
         if (request.getStockQuantity() != null) {
             bottle.setStockQuantity(request.getStockQuantity());
+        }
+
+        if (request.getApplicability() != null) {
+            bottle.setApplicability(request.getApplicability());
         }
 
         return BottleResponse.fromEntity(bottleRepository.save(bottle), storageService);

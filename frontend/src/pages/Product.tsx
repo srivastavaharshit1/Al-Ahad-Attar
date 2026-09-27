@@ -360,6 +360,7 @@ export const ProductPage: React.FC = () => {
         onClose={() => setShowBottleModal(false)}
         onConfirm={addToCartWithBottle}
         selectedSize={selectedVariant?.size}
+        productType={activeType === 'PERFUME' ? 'PERFUME' : activeType === 'ATTAR' ? 'ATTAR' : ''}
       />
 
       {/* SECTION 1: Product Hero (1400px) */}

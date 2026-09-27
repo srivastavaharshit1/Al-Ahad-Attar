@@ -11,6 +11,7 @@ interface BottleSelectionModalProps {
   onClose: () => void;
   onConfirm: (bottle: Bottle | null) => void;
   selectedSize?: string;
+  productType?: 'ATTAR' | 'PERFUME' | '';
 }
 
 import { createPortal } from 'react-dom';
@@ -20,6 +21,7 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
   onClose,
   onConfirm,
   selectedSize,
+  productType,
 }) => {
   const [bottles, setBottles] = useState<Bottle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,7 +32,7 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
       // Prevent body scrolling when modal is open
       document.body.style.overflow = 'hidden';
       setIsLoading(true);
-      bottleService.getActive()
+      bottleService.getActive(productType)
         .then((data) => {
           let filtered = data || [];
           if (selectedSize) {
@@ -58,7 +60,7 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, selectedSize]);
+  }, [isOpen, selectedSize, productType]);
 
   if (!isOpen) return null;
 
@@ -77,7 +79,7 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
         {/* Content */}
         <div className="p-6 overflow-y-auto flex-1 bg-gray-50/50">
           <p className="text-gray-600 mb-6 text-center max-w-md mx-auto">
-            Choose a bottle design for your Attar. We offer a variety of premium crystal cuts and standard glass options.
+            Choose a bottle design for your {productType === 'PERFUME' ? 'Perfume' : 'Attar'}. We offer a variety of premium crystal cuts and standard glass options.
           </p>
 
           {isLoading ? (

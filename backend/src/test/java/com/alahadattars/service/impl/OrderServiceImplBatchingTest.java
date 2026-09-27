@@ -93,6 +93,7 @@ public class OrderServiceImplBatchingTest {
         OrderItemRequest req1 = new OrderItemRequest();
         req1.setVariantId(10L);
         req1.setQuantity(2);
+        req1.setBottleId(50L);
         req1.setFreeItem(false);
 
         OrderItemRequest req2 = new OrderItemRequest();
@@ -135,6 +136,7 @@ public class OrderServiceImplBatchingTest {
         b.setId(50L);
         b.setPrice(BigDecimal.ONE);
         b.setActive(true);
+        b.setApplicability(com.alahadattars.enums.BottleApplicability.BOTH);
 
         org.mockito.Mockito.lenient().when(variantRepository.findAllById(Set.of(10L, 20L))).thenReturn(Arrays.asList(v1, v2));
         org.mockito.Mockito.lenient().when(bottleRepository.findAllById(Set.of(50L))).thenReturn(List.of(b));
