@@ -39,9 +39,14 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
           filtered.sort((a: Bottle, b: Bottle) => (a.price || 0) - (b.price || 0));
           setBottles(filtered);
           if (filtered.length > 0) {
-            // Pre-select the first one with price 0 if exists, or just the first one
-            const freeBottle = filtered.find((b: Bottle) => b.price === 0);
-            setSelectedId(freeBottle ? freeBottle.id : filtered[0].id);
+            // Pre-select the first one with price 0 AND in stock if exists, or just the first one in stock
+            const freeBottle = filtered.find((b) => b.price === 0 && (b.stockQuantity || 0) > 0);
+            if (freeBottle) {
+              setSelectedId(freeBottle.id);
+            } else {
+              const inStockBottle = filtered.find((b) => (b.stockQuantity || 0) > 0);
+              setSelectedId(inStockBottle ? inStockBottle.id : null);
+            }
           }
         })
         .catch(() => toast.error('Failed to load bottle options'))
@@ -90,10 +95,15 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
               {bottles.map(bottle => (
                 <div 
                   key={bottle.id}
-                  onClick={() => setSelectedId(bottle.id)}
+                  onClick={() => {
+                    if ((bottle.stockQuantity || 0) > 0) {
+                      setSelectedId(bottle.id);
+                    }
+                  }}
                   className={`
-                    relative bg-white border-2 rounded-xl p-4 cursor-pointer transition-all duration-200 flex flex-col items-center text-center
-                    ${selectedId === bottle.id ? 'border-[#b89445] shadow-md ring-1 ring-[#b89445]' : 'border-gray-200 hover:border-[#b89445]/50 hover:shadow-sm'}
+                    relative bg-white border-2 rounded-xl p-4 transition-all duration-200 flex flex-col items-center text-center
+                    ${bottle.stockQuantity === 0 ? 'opacity-50 cursor-not-allowed border-gray-100' : 'cursor-pointer'}
+                    ${selectedId === bottle.id ? 'border-[#b89445] shadow-md ring-1 ring-[#b89445]' : ((bottle.stockQuantity || 0) > 0 ? 'border-gray-200 hover:border-[#b89445]/50 hover:shadow-sm' : '')}
                   `}
                 >
                   {selectedId === bottle.id && (
@@ -114,6 +124,11 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
                   <div className="text-[#b89445] font-medium text-sm mt-auto">
                     {bottle.price === 0 ? 'Included' : `+${formatPrice(bottle.price)}`}
                   </div>
+                  {bottle.stockQuantity === 0 && (
+                    <div className="text-red-500 font-bold text-xs mt-1 bg-red-50 px-2 py-0.5 rounded uppercase">
+                      Out of Stock
+                    </div>
+                  )}
                   {bottle.description && (
                     <p className="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed">
                       {bottle.description}

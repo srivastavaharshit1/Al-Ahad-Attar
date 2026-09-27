@@ -51,6 +51,7 @@ class RefundTransactionSupportTest {
     @Mock private OrderRepository orderRepository;
     @Mock private RefundRepository refundRepository;
     @Mock private ProductVariantRepository variantRepository;
+    @Mock private com.alahadattars.repository.BottleRepository bottleRepository;
 
     @InjectMocks
     private RefundTransactionSupport support;

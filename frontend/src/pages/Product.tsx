@@ -205,9 +205,9 @@ export const ProductPage: React.FC = () => {
     if (!selectedVariant) return;
 
     const isBakhoorCategory = product?.category?.type === 'BAKHOOR' || (product as any)?.categoryType === 'BAKHOOR' || product?.category?.name?.toLowerCase() === 'bakhoor';
-    const isAttarVariant = selectedVariant.productType === 'ATTAR' && !isBakhoorCategory;
+    const isFragranceVariant = (selectedVariant.productType === 'ATTAR' || selectedVariant.productType === 'PERFUME') && !isBakhoorCategory;
 
-    if (isAttarVariant) {
+    if (isFragranceVariant) {
       setShowBottleModal(true);
     } else {
       addToCartWithBottle(null);
@@ -446,7 +446,7 @@ export const ProductPage: React.FC = () => {
             ) : (
               <div className="flex flex-col items-center justify-center text-on-surface-variant p-6 h-full w-full bg-surface-container select-none">
                 <span className="material-symbols-outlined text-5xl mb-2 opacity-50">image_not_supported</span>
-                <p className="font-body-md text-center">No images available for {activeType === 'ATTAR' ? 'Attar' : 'Perfume'}.</p>
+                <p className="font-body-md text-center">No images available for {activeType === 'ATTAR' ? 'Attar' : (activeType === 'PERFUME' ? 'Perfume' : 'this type')}.</p>
               </div>
             )}
           </div>

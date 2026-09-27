@@ -43,6 +43,7 @@ public class RefundTransactionSupport {
     private final OrderRepository orderRepository;
     private final RefundRepository refundRepository;
     private final ProductVariantRepository variantRepository;
+    private final com.alahadattars.repository.BottleRepository bottleRepository;
 
     /**
      * Customer self-cancellation: only CONFIRMED orders owned by {@code email} may be cancelled.
@@ -295,6 +296,10 @@ public class RefundTransactionSupport {
                 ProductVariant variant = item.getVariant();
                 variantRepository.incrementStock(variant.getId(), item.getQuantity());
                 log.info("Inventory restored for variant {} (+{})", variant.getId(), item.getQuantity());
+            }
+            if (item.getBottleId() != null) {
+                bottleRepository.incrementStock(item.getBottleId(), item.getQuantity());
+                log.info("Inventory restored for bottle {} (+{})", item.getBottleId(), item.getQuantity());
             }
         }
     }

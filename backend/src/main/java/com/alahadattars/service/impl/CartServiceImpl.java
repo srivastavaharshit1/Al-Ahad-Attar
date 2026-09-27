@@ -67,17 +67,18 @@ public class CartServiceImpl implements CartService {
                     if (itemReq.getBottleId() != null) {
                         bottle = java.util.Optional.ofNullable(bottleMap.get(itemReq.getBottleId()))
                                 .orElseThrow(() -> new com.alahadattars.exception.ResourceNotFoundException("Bottle not found with id: " + itemReq.getBottleId()));
-                        if (bottle.isActive()) {
-                            finalPrice = finalPrice.add(bottle.getPrice());
+                        if (!bottle.isActive()) {
+                            throw new com.alahadattars.exception.BadRequestException("Selected bottle is not available");
                         }
+                        finalPrice = finalPrice.add(bottle.getPrice());
                     }
 
                     boolean isBakhoor = variant.getProduct().getCategory() != null &&
                                         (variant.getProduct().getCategory().getType() == com.alahadattars.enums.CategoryType.BAKHOOR ||
                                          "Bakhoor".equalsIgnoreCase(variant.getProduct().getCategory().getName()));
 
-                    if (!itemReq.isFreeItem() && variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR && !isBakhoor && bottle == null) {
-                        throw new com.alahadattars.exception.BadRequestException("A bottle must be selected for Attar variants.");
+                    if (!itemReq.isFreeItem() && (variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR || variant.getProductType() == com.alahadattars.enums.ProductType.PERFUME) && !isBakhoor && bottle == null) {
+                        throw new com.alahadattars.exception.BadRequestException("A bottle must be selected for this fragrance.");
                     }
 
                     CartItem item = CartItem.builder()
@@ -136,6 +137,9 @@ public class CartServiceImpl implements CartService {
         if (bottleId != null) {
             bottle = bottleService.getBottleEntityById(bottleId);
             if (!bottle.isActive()) throw new BadRequestException("Selected bottle is not available");
+            if (bottle.getStockQuantity() < request.getQuantity()) {
+                throw new BadRequestException("Insufficient stock for bottle. Available: " + bottle.getStockQuantity());
+            }
             finalPrice = finalPrice.add(bottle.getPrice());
         }
 
@@ -143,8 +147,8 @@ public class CartServiceImpl implements CartService {
                             (variant.getProduct().getCategory().getType() == com.alahadattars.enums.CategoryType.BAKHOOR ||
                              "Bakhoor".equalsIgnoreCase(variant.getProduct().getCategory().getName()));
 
-        if (variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR && !isBakhoor && bottle == null) {
-            throw new BadRequestException("A bottle must be selected for Attar variants.");
+        if ((variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR || variant.getProductType() == com.alahadattars.enums.ProductType.PERFUME) && !isBakhoor && bottle == null) {
+            throw new BadRequestException("A bottle must be selected for this fragrance.");
         }
 
         // Don't merge with free items of same variant — they must stay separate
@@ -194,6 +198,9 @@ public class CartServiceImpl implements CartService {
         } else {
             if (item.getVariant().getStock() < quantity)
                 throw new BadRequestException("Insufficient stock. Available: " + item.getVariant().getStock());
+            if (item.getBottle() != null && item.getBottle().getStockQuantity() < quantity) {
+                throw new BadRequestException("Insufficient stock for bottle " + item.getBottle().getName() + ". Available: " + item.getBottle().getStockQuantity());
+            }
             item.setQuantity(quantity);
         }
 

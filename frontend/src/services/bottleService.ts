@@ -7,6 +7,7 @@ export interface Bottle {
     price: number;
     capacity?: string;
     imageUrl?: string;
+    stockQuantity?: number;
     active: boolean;
 }
 
@@ -16,6 +17,7 @@ export interface BottleRequest {
     price: number;
     capacity?: string;
     imageUrl?: string;
+    stockQuantity?: number;
     active: boolean;
 }
 

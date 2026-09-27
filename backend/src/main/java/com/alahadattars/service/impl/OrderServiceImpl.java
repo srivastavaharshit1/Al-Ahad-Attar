@@ -285,6 +285,15 @@ public class OrderServiceImpl implements OrderService {
             if (variant.getStock() < itemRes.getQuantity()) {
                 throw new BadRequestException("Insufficient stock for " + variant.getProduct().getName() + " (" + variant.getSize() + "). Available: " + variant.getStock() + ", Requested: " + itemRes.getQuantity());
             }
+            if (itemRes.getBottle() != null) {
+                com.alahadattars.entity.Bottle bottle = java.util.Optional.ofNullable(bottleMap.get(itemRes.getBottle().getId())).orElseThrow();
+                if (!bottle.isActive()) {
+                    throw new BadRequestException("Selected bottle " + bottle.getName() + " is no longer available.");
+                }
+                if (bottle.getStockQuantity() < itemRes.getQuantity()) {
+                    throw new BadRequestException("Insufficient stock for bottle " + bottle.getName() + ". Available: " + bottle.getStockQuantity() + ", Requested: " + itemRes.getQuantity());
+                }
+            }
         }
 
         for (CartItemResponse itemRes : cartEval.getItems()) {
@@ -297,6 +306,12 @@ public class OrderServiceImpl implements OrderService {
             if (variantRepository.decrementStock(variant.getId(), itemRes.getQuantity()) == 0) {
                 throw new BadRequestException("Insufficient stock for " + variant.getProduct().getName()
                         + " (" + variant.getSize() + "). Stock just changed — please refresh your cart and try again.");
+            }
+
+            if (itemRes.getBottle() != null) {
+                if (bottleRepository.decrementStock(itemRes.getBottle().getId(), itemRes.getQuantity()) == 0) {
+                    throw new BadRequestException("Insufficient stock for bottle " + itemRes.getBottle().getName() + ". Please refresh your cart and try again.");
+                }
             }
 
             boolean isFreeOrderItem = itemRes.isFreeItem();

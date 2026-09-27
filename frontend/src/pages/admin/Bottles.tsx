@@ -13,6 +13,7 @@ const EMPTY_FORM: BottleRequest = {
   capacity: '',
   imageUrl: '',
   price: 0,
+  stockQuantity: 0,
   active: true
 };
 
@@ -54,6 +55,8 @@ export const Bottles: React.FC = () => {
       description: bottle.description || '',
       imageUrl: bottle.imageUrl || '',
       price: bottle.price,
+      // @ts-ignore
+      stockQuantity: bottle.stockQuantity || 0,
       active: bottle.active
     });
     setShowModal(true);
@@ -143,6 +146,7 @@ export const Bottles: React.FC = () => {
               <th className="px-6 py-4 font-medium text-gray-500 text-sm">NAME & DESC</th>
               <th className="px-6 py-4 font-medium text-gray-500 text-sm">CAPACITY</th>
               <th className="px-6 py-4 font-medium text-gray-500 text-sm">PRICE</th>
+              <th className="px-6 py-4 font-medium text-gray-500 text-sm">STOCK</th>
               <th className="px-6 py-4 font-medium text-gray-500 text-sm">STATUS</th>
               <th className="px-6 py-4 font-medium text-gray-500 text-sm text-right">ACTIONS</th>
             </tr>
@@ -168,6 +172,15 @@ export const Bottles: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 font-medium text-[#b89445]">
                   +{formatPrice(bottle.price)}
+                </td>
+                <td className="px-6 py-4">
+                  {/* @ts-ignore */}
+                  {bottle.stockQuantity === 0 ? (
+                    <span className="text-red-500 font-bold text-sm">0 (Out)</span>
+                  ) : (
+                    // @ts-ignore
+                    <span className="text-gray-900">{bottle.stockQuantity}</span>
+                  )}
                 </td>
                 <td className="px-6 py-4">
                   <span className={`px-2 py-1 text-xs rounded-full ${bottle.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
@@ -247,6 +260,20 @@ export const Bottles: React.FC = () => {
                   step="0.01"
                   value={form.price}
                   onChange={e => setForm(f => ({ ...f, price: parseFloat(e.target.value) || 0 }))}
+                  className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity *</label>
+                <input
+                  required
+                  type="number"
+                  min="0"
+                  // @ts-ignore
+                  value={form.stockQuantity}
+                  // @ts-ignore
+                  onChange={e => setForm(f => ({ ...f, stockQuantity: parseInt(e.target.value) || 0 }))}
                   className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
                 />
               </div>

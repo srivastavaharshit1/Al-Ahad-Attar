@@ -82,7 +82,7 @@ class PaymentServiceWebhookTest {
         webhookFailedEventType = null;
         webhookCapturedThrowable = null;
 
-        refundTransactionSupport = new RefundTransactionSupport(null, null, null) {
+        refundTransactionSupport = new RefundTransactionSupport(null, null, null, null) {
             @Override
             public void reconcileRefundFromWebhook(String razorpayRefundId, String paymentId, String razorpayStatus) {
                 refundReconciled = true;

@@ -29,4 +29,8 @@ public class BottleRequest {
     private String imageUrl;
 
     private Boolean active;
+
+    @NotNull(message = "Stock quantity is required")
+    @PositiveOrZero(message = "Stock must be zero or positive")
+    private Integer stockQuantity;
 }

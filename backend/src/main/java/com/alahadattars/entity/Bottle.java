@@ -46,4 +46,10 @@ public class Bottle extends BaseEntity {
     @Column(nullable = false)
     @Builder.Default
     private boolean active = true;
+
+    @NotNull
+    @PositiveOrZero
+    @Column(nullable = false, name = "stock_quantity", columnDefinition = "integer default 0")
+    @Builder.Default
+    private Integer stockQuantity = 0;
 }

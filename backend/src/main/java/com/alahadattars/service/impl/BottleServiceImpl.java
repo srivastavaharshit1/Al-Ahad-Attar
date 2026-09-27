@@ -67,6 +67,7 @@ public class BottleServiceImpl implements BottleService {
                 .capacity(request.getCapacity())
                 .imageUrl(request.getImageUrl())
                 .active(request.getActive() != null ? request.getActive() : true)
+                .stockQuantity(request.getStockQuantity() != null ? request.getStockQuantity() : 0)
                 .build();
         return BottleResponse.fromEntity(bottleRepository.save(bottle), storageService);
     }
@@ -86,6 +87,10 @@ public class BottleServiceImpl implements BottleService {
         
         if (request.getActive() != null) {
             bottle.setActive(request.getActive());
+        }
+
+        if (request.getStockQuantity() != null) {
+            bottle.setStockQuantity(request.getStockQuantity());
         }
 
         return BottleResponse.fromEntity(bottleRepository.save(bottle), storageService);
