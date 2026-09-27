@@ -217,119 +217,121 @@ export const Bottles: React.FC = () => {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b flex justify-between items-center">
+          <div className="bg-white rounded-lg w-full max-w-md flex flex-col max-h-[calc(100vh-2rem)]">
+            <div className="px-6 py-4 border-b flex justify-between items-center shrink-0">
               <h2 className="text-lg font-medium">{editingBottle ? 'Edit Bottle' : 'Add Bottle'}</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">&times;</button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                <input
-                  required
-                  type="text"
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  value={form.description}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Capacity (Size)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 3ml, 6ml, 12ml (Leave empty for universal)"
-                  value={form.capacity || ''}
-                  onChange={e => setForm(f => ({ ...f, capacity: e.target.value }))}
-                  className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Price Extra (₹) *</label>
-                <input
-                  required
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price}
-                  onChange={e => setForm(f => ({ ...f, price: parseFloat(e.target.value) || 0 }))}
-                  className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity *</label>
-                <input
-                  required
-                  type="number"
-                  min="0"
-                  // @ts-ignore
-                  value={form.stockQuantity}
-                  // @ts-ignore
-                  onChange={e => setForm(f => ({ ...f, stockQuantity: parseInt(e.target.value) || 0 }))}
-                  className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Applies To *</label>
-                <select
-                  required
-                  value={form.applicability || 'BOTH'}
-                  onChange={e => setForm(f => ({ ...f, applicability: e.target.value as any }))}
-                  className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
-                >
-                  <option value="BOTH">Attars & Perfumes</option>
-                  <option value="ATTAR">Attars Only</option>
-                  <option value="PERFUME">Perfumes Only</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Bottle Image</label>
-                <div className="flex items-center gap-4">
-                  {form.imageUrl && (
-                    <img src={getImageUrl(form.imageUrl)} alt="Preview" className="w-16 h-16 object-cover border rounded" />
-                  )}
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={imageUploading}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-[#b89445] file:text-white hover:file:bg-[#a08035]"
+                    required
+                    type="text"
+                    value={form.name}
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
                   />
                 </div>
-                {imageUploading && <p className="text-sm text-[#b89445] mt-2">Uploading image...</p>}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    value={form.description}
+                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                    className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Capacity (Size)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 3ml, 6ml, 12ml (Leave empty for universal)"
+                    value={form.capacity || ''}
+                    onChange={e => setForm(f => ({ ...f, capacity: e.target.value }))}
+                    className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Price Extra (₹) *</label>
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.price}
+                    onChange={e => setForm(f => ({ ...f, price: parseFloat(e.target.value) || 0 }))}
+                    className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity *</label>
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    // @ts-ignore
+                    value={form.stockQuantity}
+                    // @ts-ignore
+                    onChange={e => setForm(f => ({ ...f, stockQuantity: parseInt(e.target.value) || 0 }))}
+                    className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Applies To *</label>
+                  <select
+                    required
+                    value={form.applicability || 'BOTH'}
+                    onChange={e => setForm(f => ({ ...f, applicability: e.target.value as any }))}
+                    className="w-full p-2 border rounded focus:ring-1 focus:ring-[#b89445] focus:border-[#b89445]"
+                  >
+                    <option value="BOTH">Attars & Perfumes</option>
+                    <option value="ATTAR">Attars Only</option>
+                    <option value="PERFUME">Perfumes Only</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Bottle Image</label>
+                  <div className="flex items-center gap-4">
+                    {form.imageUrl && (
+                      <img src={getImageUrl(form.imageUrl)} alt="Preview" className="w-16 h-16 object-cover border rounded" />
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={imageUploading}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-[#b89445] file:text-white hover:file:bg-[#a08035]"
+                    />
+                  </div>
+                  {imageUploading && <p className="text-sm text-[#b89445] mt-2">Uploading image...</p>}
+                </div>
+
+                <div className="flex items-center gap-2 mt-4">
+                  <input
+                    type="checkbox"
+                    id="active"
+                    checked={form.active}
+                    onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
+                    className="w-4 h-4 text-[#b89445] focus:ring-[#b89445] border-gray-300 rounded"
+                  />
+                  <label htmlFor="active" className="text-sm font-medium text-gray-700">Active (Visible to customers)</label>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 mt-4">
-                <input
-                  type="checkbox"
-                  id="active"
-                  checked={form.active}
-                  onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
-                  className="w-4 h-4 text-[#b89445] focus:ring-[#b89445] border-gray-300 rounded"
-                />
-                <label htmlFor="active" className="text-sm font-medium text-gray-700">Active (Visible to customers)</label>
-              </div>
-
-              <div className="pt-4 flex justify-end gap-3">
+              <div className="px-6 py-4 border-t flex justify-end gap-3 shrink-0 bg-gray-50">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border rounded text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border rounded text-gray-700 hover:bg-gray-50 bg-white"
                   disabled={isSubmitting}
                 >
                   Cancel
