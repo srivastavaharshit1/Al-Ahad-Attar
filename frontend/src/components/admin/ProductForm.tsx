@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import type { Category } from '../../types';
 import { TypedImageManager, type ManagedImage } from './TypedImageManager';
-import { ChevronDown, ChevronUp, Loader2, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Plus, Trash2, Upload } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { cmsService } from '../../services/cmsService';
+import { getImageUrl } from '../../utils/getImageUrl';
 
 
 export interface ProductFormData {
@@ -219,7 +222,41 @@ const ColourRow: React.FC<{
   index: number;
   onChange: (idx: number, field: string, value: string | number | boolean) => void;
   onRemove: (idx: number) => void;
-}> = ({ variant, index, onChange, onRemove }) => (
+}> = ({ variant, index, onChange, onRemove }) => {
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+       toast.error("Please upload a valid image file");
+       return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+       toast.error("Image must be smaller than 5MB");
+       return;
+    }
+
+    try {
+      setIsUploading(true);
+      const url = await cmsService.uploadImage(file);
+      onChange(index, 'imageUrl', url);
+    } catch (err) {
+      toast.error("Failed to upload image");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeImage = () => {
+    onChange(index, 'imageUrl', '');
+  };
+
+  return (
   <tr className="group border-b border-outline-variant/40 last:border-0 hover:bg-surface-container/40 transition-colors">
     <td className="px-3 py-2.5">
       <input
@@ -255,13 +292,51 @@ const ColourRow: React.FC<{
       />
     </td>
     <td className="px-3 py-2.5">
-      <input
-        className="field-input field-input-sm font-body-sm text-body-sm text-on-surface-variant w-full min-w-[120px]"
-        type="text"
-        value={variant.imageUrl || ''}
-        onChange={e => onChange(index, 'imageUrl', e.target.value)}
-        placeholder="/images/black.jpg"
-      />
+      <div className="flex items-center gap-2 w-full min-w-[150px]">
+        {isUploading ? (
+          <div className="w-10 h-10 flex items-center justify-center bg-surface-container rounded-md border border-outline-variant animate-pulse shrink-0">
+            <Loader2 size={16} className="animate-spin text-accent" />
+          </div>
+        ) : variant.imageUrl ? (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-md overflow-hidden border border-outline-variant shrink-0 bg-surface">
+              <img src={getImageUrl(variant.imageUrl)} alt="Preview" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="text-[10px] font-label-sm uppercase text-accent hover:text-accent-hover transition-colors text-left focus-visible:outline-none focus-visible:underline"
+              >
+                Change
+              </button>
+              <button
+                type="button"
+                onClick={removeImage}
+                className="text-[10px] font-label-sm uppercase text-error hover:text-error/80 transition-colors text-left focus-visible:outline-none focus-visible:underline"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1.5 px-2 py-1.5 border border-dashed border-outline-variant rounded-md text-on-surface-variant hover:text-accent hover:border-accent hover:bg-accent-soft transition-all text-xs w-full justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Upload size={14} />
+            <span className="font-label-sm uppercase tracking-wider">Upload</span>
+          </button>
+        )}
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          onChange={handleUpload} 
+          accept="image/jpeg,image/png,image/webp" 
+          className="hidden" 
+        />
+      </div>
     </td>
     <td className="px-3 py-2.5 text-center">
       <button
@@ -274,7 +349,8 @@ const ColourRow: React.FC<{
       </button>
     </td>
   </tr>
-);
+  );
+};
 
 const ColourTable: React.FC<{
   variants: VariantData[];
@@ -312,7 +388,7 @@ const ColourTable: React.FC<{
               <th className="px-3 py-2 text-left text-xs font-label-sm uppercase tracking-wider text-on-surface-variant">Colour Name</th>
               <th className="px-3 py-2 text-left text-xs font-label-sm uppercase tracking-wider text-on-surface-variant">Price (₹)</th>
               <th className="px-3 py-2 text-left text-xs font-label-sm uppercase tracking-wider text-on-surface-variant">Stock</th>
-              <th className="px-3 py-2 text-left text-xs font-label-sm uppercase tracking-wider text-on-surface-variant">Image URL</th>
+              <th className="px-3 py-2 text-left text-xs font-label-sm uppercase tracking-wider text-on-surface-variant">Image</th>
               <th className="px-3 py-2 text-center text-xs font-label-sm uppercase tracking-wider text-on-surface-variant w-10"></th>
             </tr>
           </thead>
