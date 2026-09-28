@@ -355,7 +355,7 @@ export const Checkout: React.FC = () => {
               <div className="flex justify-between items-start">
                 <div className="font-serif text-[17px]" style={{ color: C.navy }}>{item.name}</div>
               </div>
-              <div className="text-[11px] mt-0.5" style={{ color: C.navyLight }}>{item.size} • Concentrated Perfume Oil</div>
+              <div className="text-[11px] mt-0.5" style={{ color: C.navyLight }}>{(item.size || '').match(/ml|gm|Pack/) ? `Size: ${item.size}` : `Colour: ${item.size}`}</div>
               <div className="flex justify-between items-end mt-1">
                 <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.navyLight }}>QTY: {item.quantity}</div>
                 <div className="text-sm font-semibold" style={{ color: C.navy }}>
@@ -1078,7 +1078,7 @@ const MobileOrderSummary: React.FC<{
                   <div className="flex justify-between items-start">
                     <div className="font-serif text-[17px]" style={{ color: C.navy }}>{item.name}</div>
                   </div>
-                  <div className="text-[11px] mt-0.5" style={{ color: C.navyLight }}>{item.size} • Concentrated Perfume Oil</div>
+                  <div className="text-[11px] mt-0.5" style={{ color: C.navyLight }}>{(item.size || '').match(/ml|gm|Pack/) ? `Size: ${item.size}` : `Colour: ${item.size}`}</div>
                   <div className="flex justify-between items-end mt-1">
                     <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.navyLight }}>QTY: {item.quantity}</div>
                     <div className="text-sm font-semibold" style={{ color: C.navy }}>

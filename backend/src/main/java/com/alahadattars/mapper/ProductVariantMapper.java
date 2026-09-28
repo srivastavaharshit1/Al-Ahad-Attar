@@ -27,6 +27,8 @@ public class ProductVariantMapper {
                 .discountedPrice(variant.getDiscountedPrice())
                 .stock(variant.getStock())
                 .sku(variant.getSku())
+                .colorName(variant.getColorName())
+                .imageUrl(variant.getImageUrl())
                 .active(variant.isActive())
                 .productId(variant.getProduct() != null ? variant.getProduct().getId() : null)
                 .productName(variant.getProduct() != null ? variant.getProduct().getName() : null)
@@ -63,6 +65,8 @@ public class ProductVariantMapper {
                 .discountedPrice(discountedPrice)
                 .stock(request.getStock())
                 .sku(request.getSku())
+                .colorName(request.getColorName())
+                .imageUrl(request.getImageUrl())
                 .active(request.isActive())
                 .build();
     }

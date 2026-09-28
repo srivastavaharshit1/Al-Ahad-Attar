@@ -90,6 +90,8 @@ public class ProductVariantServiceImpl implements ProductVariantService {
 
         if (request.getStock() != null) variant.setStock(request.getStock());
         if (request.getActive() != null) variant.setActive(request.getActive());
+        if (request.getColorName() != null) variant.setColorName(request.getColorName());
+        if (request.getImageUrl() != null) variant.setImageUrl(request.getImageUrl());
 
         ProductVariant updatedVariant = productVariantRepository.save(variant);
         log.info("Variant Updated: ID={}, SKU={}", updatedVariant.getId(), updatedVariant.getSku());

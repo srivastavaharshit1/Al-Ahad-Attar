@@ -22,6 +22,8 @@ public class VariantResponse {
     private BigDecimal discountedPrice;
     private Integer stock;
     private String sku;
+    private String colorName;
+    private String imageUrl;
     private boolean active;
     private Long productId;
     private String productName;

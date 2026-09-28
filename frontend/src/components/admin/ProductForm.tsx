@@ -32,6 +32,8 @@ export interface VariantData {
   price: number;
   stock: number;
   active: boolean;
+  colorName?: string;
+  imageUrl?: string;
 }
 
 interface ProductFormProps {
@@ -212,6 +214,141 @@ const VariantTable: React.FC<{
   );
 };
 
+const ColourRow: React.FC<{
+  variant: VariantData;
+  index: number;
+  onChange: (idx: number, field: string, value: string | number | boolean) => void;
+  onRemove: (idx: number) => void;
+}> = ({ variant, index, onChange, onRemove }) => (
+  <tr className="group border-b border-outline-variant/40 last:border-0 hover:bg-surface-container/40 transition-colors">
+    <td className="px-3 py-2.5">
+      <input
+        className="field-input field-input-sm font-body-md text-body-md w-full min-w-[100px]"
+        type="text"
+        required
+        value={variant.colorName || ''}
+        onChange={e => onChange(index, 'colorName', e.target.value)}
+        placeholder="e.g. Black"
+      />
+    </td>
+    <td className="px-3 py-2.5">
+      <div className="relative">
+        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-xs">₹</span>
+        <input
+          className="field-input field-input-sm font-body-md text-body-md pl-5 w-full min-w-[80px]"
+          type="number"
+          min="0"
+          required
+          value={variant.price}
+          onChange={e => onChange(index, 'price', e.target.value)}
+        />
+      </div>
+    </td>
+    <td className="px-3 py-2.5">
+      <input
+        className="field-input field-input-sm font-body-md text-body-md w-full min-w-[70px]"
+        type="number"
+        min="0"
+        required
+        value={variant.stock}
+        onChange={e => onChange(index, 'stock', e.target.value)}
+      />
+    </td>
+    <td className="px-3 py-2.5">
+      <input
+        className="field-input field-input-sm font-body-sm text-body-sm text-on-surface-variant w-full min-w-[120px]"
+        type="text"
+        value={variant.imageUrl || ''}
+        onChange={e => onChange(index, 'imageUrl', e.target.value)}
+        placeholder="/images/black.jpg"
+      />
+    </td>
+    <td className="px-3 py-2.5 text-center">
+      <button
+        type="button"
+        onClick={() => onRemove(index)}
+        className="p-1.5 text-on-surface-variant hover:text-error transition-colors rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-error"
+        title="Remove colour"
+      >
+        <Trash2 size={15} />
+      </button>
+    </td>
+  </tr>
+);
+
+const ColourTable: React.FC<{
+  variants: VariantData[];
+  onChangeAll: (newAll: VariantData[]) => void;
+  slugPrefix: string;
+}> = ({ variants, onChangeAll, slugPrefix }) => {
+  
+  const handleChange = (idx: number, field: string, value: string | number | boolean) => {
+    const newAll = [...variants];
+    newAll[idx] = { ...newAll[idx], [field]: value };
+    // Auto-generate SKU based on color if it's empty
+    if (field === 'colorName' && !newAll[idx].sku) {
+      newAll[idx].sku = `${slugPrefix}-${(value as string).replace(/\s+/g, '')}`;
+    }
+    onChangeAll(newAll);
+  };
+
+  const handleRemove = (idx: number) => {
+    onChangeAll(variants.filter((_, i) => i !== idx));
+  };
+
+  const handleAdd = () => {
+    onChangeAll([
+      ...variants,
+      { sku: '', size: 'Standard', price: 0, stock: 0, active: true, productType: 'PERFUME', colorName: '', imageUrl: '' },
+    ]);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="overflow-x-auto rounded-lg border border-outline-variant">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-surface-container border-b border-outline-variant">
+              <th className="px-3 py-2 text-left text-xs font-label-sm uppercase tracking-wider text-on-surface-variant">Colour Name</th>
+              <th className="px-3 py-2 text-left text-xs font-label-sm uppercase tracking-wider text-on-surface-variant">Price (₹)</th>
+              <th className="px-3 py-2 text-left text-xs font-label-sm uppercase tracking-wider text-on-surface-variant">Stock</th>
+              <th className="px-3 py-2 text-left text-xs font-label-sm uppercase tracking-wider text-on-surface-variant">Image URL</th>
+              <th className="px-3 py-2 text-center text-xs font-label-sm uppercase tracking-wider text-on-surface-variant w-10"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {variants.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-on-surface-variant font-body-sm text-sm">
+                  No colours added yet. Click below to add one.
+                </td>
+              </tr>
+            ) : (
+              variants.map((v, idx) => (
+                <ColourRow
+                  key={v.id ?? `new-colour-${idx}`}
+                  variant={v}
+                  index={idx}
+                  onChange={handleChange}
+                  onRemove={handleRemove}
+                />
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      <button
+        type="button"
+        onClick={handleAdd}
+        className="flex items-center gap-1.5 text-sm font-label-md text-accent hover:text-accent-hover transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent rounded-sm px-1"
+      >
+        <Plus size={16} />
+        Add Colour
+      </button>
+    </div>
+  );
+};
+
 
 export const ProductForm: React.FC<ProductFormProps> = ({
   initialData,
@@ -245,6 +382,15 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const [showPerfume, setShowPerfume] = useState(
     initialVariants.some(v => v.productType === 'PERFUME') || perfumeImages.length > 0
   );
+
+  const [multipleColours, setMultipleColours] = useState(
+    initialVariants.some(v => !!v.colorName)
+  );
+
+  const selectedCategory = categories.find(c => c.id.toString() === formData.categoryId);
+  const isFragranceCategory = selectedCategory?.type === 'ATTARS' || selectedCategory?.type === 'PERFUMES' || selectedCategory?.type === 'BAKHOOR' || selectedCategory?.type === 'ATTAR' || selectedCategory?.type === 'PERFUME';
+  
+  const isCarPerfume = formData.subcategory?.toLowerCase() === 'car perfumes' || formData.subcategory?.toLowerCase() === 'fresheners';
 
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
@@ -290,9 +436,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     const allImages = [...sharedImages, ...attarImages, ...perfumeImages];
     onSubmit(formData, variants, allImages);
   };
-
-  const selectedCategory = categories.find(c => c.id.toString() === formData.categoryId.toString());
-  const isFragranceCategory = selectedCategory && (selectedCategory.type === 'ATTARS' || selectedCategory.type === 'PERFUMES');
 
   // Automatically populate variants for new products based on category
   useEffect(() => {
@@ -461,8 +604,41 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         </div>
       </div>
 
+      {isCarPerfume && (
+        <div className="card overflow-hidden border-l-4 border-l-primary/40 mb-6">
+          <div className="flex items-center justify-between px-6 md:px-8 pt-6 pb-4 bg-primary/[0.04]">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 border border-primary/20">
+                <span className="text-xs font-bold text-primary">C</span>
+              </span>
+              <div>
+                <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">Multiple Colours</h3>
+                <p className="text-xs text-on-surface-variant mt-0.5">Enable if this Car Perfume has colour options</p>
+              </div>
+            </div>
+            <label className="flex items-center cursor-pointer gap-2">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={multipleColours}
+                  onChange={(e) => setMultipleColours(e.target.checked)}
+                />
+                <div className={`block w-10 h-6 rounded-full transition-colors ${multipleColours ? 'bg-primary' : 'bg-outline'}`}></div>
+                <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${multipleColours ? 'translate-x-4' : ''}`}></div>
+              </div>
+            </label>
+          </div>
+          {multipleColours && (
+            <div className="px-6 md:px-8 py-6 space-y-6 border-t border-outline-variant/40">
+              <ColourTable variants={variants} onChangeAll={setVariants} slugPrefix={slugPrefix} />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── ATTAR SECTION (only for fragrance categories) ── */}
-      {isFragranceCategory && showAttar && (
+      {isFragranceCategory && (!isCarPerfume || !multipleColours) && showAttar && (
         <div className="card overflow-hidden border-l-4 border-l-accent/60">
           {/* Section Header */}
           <div className="flex items-center justify-between px-6 md:px-8 pt-6 pb-4 bg-accent-soft/20">
@@ -520,7 +696,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       )}
 
       {/* Add Attar button (when section is hidden but category is fragrance) */}
-      {isFragranceCategory && !showAttar && (
+      {isFragranceCategory && (!isCarPerfume || !multipleColours) && !showAttar && (
         <button
           type="button"
           onClick={handleAddAttar}
@@ -532,7 +708,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       )}
 
       {/* ── PERFUME SECTION (only for fragrance categories) ── */}
-      {isFragranceCategory && showPerfume && (
+      {isFragranceCategory && (!isCarPerfume || !multipleColours) && showPerfume && (
         <div className="card overflow-hidden border-l-4 border-l-primary/40">
           {/* Section Header */}
           <div className="flex items-center justify-between px-6 md:px-8 pt-6 pb-4 bg-primary/[0.04]">
@@ -590,7 +766,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       )}
 
       {/* Add Perfume button (when section is hidden but category is fragrance) */}
-      {isFragranceCategory && !showPerfume && (
+      {isFragranceCategory && (!isCarPerfume || !multipleColours) && !showPerfume && (
         <button
           type="button"
           onClick={handleAddPerfume}

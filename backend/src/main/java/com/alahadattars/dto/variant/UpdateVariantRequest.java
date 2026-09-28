@@ -44,5 +44,11 @@ public class UpdateVariantRequest {
     @Schema(description = "Active status of the variant", example = "true")
     private Boolean active;
 
+    @Schema(description = "Colour name of the variant (if applicable)", example = "Black")
+    private String colorName;
+
+    @Schema(description = "Image URL for the colour variant", example = "/images/black.jpg")
+    private String imageUrl;
+
 
 }

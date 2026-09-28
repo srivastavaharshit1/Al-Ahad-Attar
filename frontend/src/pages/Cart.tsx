@@ -140,7 +140,7 @@ export const Cart: React.FC = () => {
                         {item.name}
                       </h3>
                       <div className="text-[11px] mb-2" style={{ color: C.navyLight }}>
-                        <span className="font-semibold" style={{ color: C.navy }}>{item.size}</span> • Concentrated Perfume Oil
+                        <span className="font-semibold" style={{ color: C.navy }}>{(item.size || '').match(/ml|gm|Pack/) ? 'Size: ' : 'Colour: '}{item.size}</span>
                       </div>
                       
                       {item.bottle && item.bottle.name && (

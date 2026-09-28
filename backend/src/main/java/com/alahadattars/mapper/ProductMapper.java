@@ -142,6 +142,10 @@ public class ProductMapper {
                 .map(ProductVariant::getPrice)
                 .collect(Collectors.toList());
 
+        Integer colorCount = (int) preferredVariants.stream()
+                .filter(v -> v.getColorName() != null && !v.getColorName().trim().isEmpty())
+                .count();
+
         String thumb = productImageResolver.resolveImage(product.getImages(), preferredType);
 
         return ProductSummaryResponse.builder()
@@ -163,6 +167,7 @@ public class ProductMapper {
                 .defaultVariantType(defaultVariantType)
                 .availableSizes(availableSizesList)
                 .availablePrices(availablePricesList)
+                .colorCount(colorCount)
                 .averageRating(product.getAverageRating())
                 .reviewCount(product.getReviewCount())
                 .active(product.isActive())

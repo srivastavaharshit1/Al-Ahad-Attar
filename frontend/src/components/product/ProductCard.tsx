@@ -140,7 +140,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
       quantity: 1,
       name: product.name,
       image: image,
-      size: size,
+      size: (defaultVariant?.colorName) || size,
       originalPrice: basePrice,
       finalPrice: basePrice,
       bottle: bottle ? { id: bottle.id, name: bottle.name, price: bottle.price } : undefined
@@ -295,11 +295,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
               {formatPrice(Number(price))}
             </span>
           </div>
-          {size && (
-            <span className="text-[10px] text-on-surface-variant/70 tracking-[0.15em] uppercase font-body-sm">
+          {((product as any).colorCount > 1) ? (
+            <span className="text-[10px] text-primary tracking-[0.15em] uppercase font-body-sm mt-1">
+              + {(product as any).colorCount} Colours
+            </span>
+          ) : size ? (
+            <span className="text-[10px] text-on-surface-variant/70 tracking-[0.15em] uppercase font-body-sm mt-1">
               {size}
             </span>
-          )}
+          ) : null}
         </div>
       </div>
       </div>

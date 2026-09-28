@@ -8,6 +8,8 @@ export interface Variant {
   stock: number;
   sku: string;
   active: boolean;
+  colorName?: string;
+  imageUrl?: string;
   productId?: number;
   productName?: string;
   productImages?: ProductImage[];

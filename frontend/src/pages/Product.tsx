@@ -180,8 +180,9 @@ export const ProductPage: React.FC = () => {
 
   const handleVariantChange = (variant: Variant) => {
     setSelectedVariant(variant);
-    // Note: In the new architecture, images are tied to Product, not Variant.
-    // Changing variant size no longer changes the image.
+    if (variant.imageUrl) {
+      setMainImage(variant.imageUrl);
+    }
   };
 
   const handleTypeChange = (type: string) => {
@@ -230,7 +231,7 @@ export const ProductPage: React.FC = () => {
       quantity: 1,
       name: product!.name,
       image: mainImage,
-      size: selectedVariant.size,
+      size: selectedVariant.colorName || selectedVariant.size,
       originalPrice: basePrice,
       finalPrice: basePrice,
       bottle: bottle ? { id: bottle.id, name: bottle.name, price: bottle.price } : undefined
@@ -508,27 +509,29 @@ export const ProductPage: React.FC = () => {
               {product.category?.name === 'Bakhoor' || filteredVariants.length === 1 ? (
                 <div>
                   <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-3">
-                    {product.category?.name?.toLowerCase() === 'car perfume' || filteredVariants[0]?.size?.toLowerCase()?.includes('pc') ? 'Quantity' : 'Weight'}
+                    {filteredVariants[0]?.colorName ? 'Colour' : (product.category?.name?.toLowerCase() === 'car perfume' || filteredVariants[0]?.size?.toLowerCase()?.includes('pc') ? 'Quantity' : 'Weight')}
                   </h3>
                   <div className="px-6 py-3 border border-outline-variant rounded-DEFAULT font-label-md text-label-md text-on-surface inline-block bg-surface-bright">
-                    {filteredVariants[0]?.size} Pack
+                    {filteredVariants[0]?.colorName || `${filteredVariants[0]?.size} Pack`}
                   </div>
                 </div>
               ) : (
                 <div>
-                  <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-3">Select Size</h3>
+                  <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-3">
+                    {filteredVariants.some(v => v.colorName) ? 'Select Colour' : 'Select Size'}
+                  </h3>
                   <div className="flex flex-wrap gap-4">
                     {filteredVariants.map((variant) => (
                       <label key={variant.id} className="cursor-pointer">
                         <input
                           type="radio"
-                          name="size"
+                          name="variant-selection"
                           className="peer sr-only variant-radio"
                           checked={selectedVariant?.id === variant.id}
                           onChange={() => handleVariantChange(variant)}
                         />
                         <div className="px-6 py-3 border border-outline-variant rounded-md font-label-md text-label-md text-on-surface hover:border-accent peer-checked:bg-accent peer-checked:text-ink peer-checked:border-accent peer-focus-visible:ring-2 peer-focus-visible:ring-accent peer-focus-visible:ring-offset-2 transition-all duration-200 shadow-sm">
-                          {variant.size}
+                          {variant.colorName || variant.size}
                         </div>
                       </label>
                     ))}

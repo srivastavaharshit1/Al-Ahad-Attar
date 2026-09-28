@@ -83,6 +83,12 @@ public class ProductVariant extends BaseEntity {
 
 
 
+    @Column(name = "color_name", length = 50)
+    private String colorName;
+
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean active = true;
