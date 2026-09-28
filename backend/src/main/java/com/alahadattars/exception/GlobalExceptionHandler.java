@@ -157,13 +157,23 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
         log.warn("DataIntegrityViolationException: {}", ex.getMessage());
-        String msg = "A database constraint was violated. Please check if the data (like SKU or Slug) is unique, and all required fields are provided.";
-        if (ex.getRootCause() != null && ex.getRootCause().getMessage() != null) {
-            msg = ex.getRootCause().getMessage();
+        
+        String msg = "Unable to save product. Please check if the data (like SKU or Slug) is unique, and all required fields are provided.";
+        String code = "DATA_INTEGRITY_ERROR";
+        
+        // Safely extract detail without exposing raw SQL to frontend
+        if (ex.getCause() != null && ex.getCause().getCause() != null) {
+            String detailMessage = ex.getCause().getCause().getMessage();
+            if (detailMessage != null && detailMessage.toLowerCase().contains("sku")) {
+                msg = "This SKU is already in use. Please use a different SKU.";
+                code = "DUPLICATE_SKU";
+            }
         }
+        
         ApiResponse<Void> response = ApiResponse.<Void>builder()
                 .success(false)
                 .message(msg)
+                .code(code)
                 .build();
         return new ResponseEntity<>(response, HttpStatus.CONFLICT);
     }

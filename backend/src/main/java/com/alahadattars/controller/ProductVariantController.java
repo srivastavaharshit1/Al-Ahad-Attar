@@ -56,7 +56,23 @@ public class ProductVariantController {
             @PathVariable Long productId,
             @Valid @RequestBody CreateVariantRequest request) {
         log.info("Received request to create variant for product ID: {}", productId);
-        VariantResponse response = variantService.createVariant(productId, request);
+        String originalSku = request.getSku();
+        int maxRetries = 3;
+        VariantResponse response = null;
+        
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                // Restore original SKU in case it was modified by a failed attempt
+                request.setSku(originalSku);
+                response = variantService.createVariant(productId, request);
+                break; // Success
+            } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+                if (i == maxRetries - 1) {
+                    throw ex; // Max retries exceeded
+                }
+                log.warn("SKU collision or data integrity issue detected for {}, retrying (attempt {})", originalSku, i + 1);
+            }
+        }
         log.info("Successfully created variant with ID: {}", response.getId());
         return ResponseEntity.ok(ApiResponse.<VariantResponse>builder()
                 .success(true)

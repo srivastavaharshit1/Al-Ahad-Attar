@@ -132,8 +132,10 @@ export const EditProduct: React.FC = () => {
           updateVariants.push({
             id: variant.id,
             productType: variant.productType,
-            sku: variant.sku || `${formData.slug}-${variant.size.replace(/\s+/g, '')}`,
+            sku: variant.sku || `${formData.slug}-${(variant.colorName || variant.size).replace(/\s+/g, '')}`,
             size: variant.size,
+            colorName: variant.colorName,
+            imageUrl: variant.imageUrl,
             price: Number(variant.price),
             stock: Number(variant.stock),
             active: variant.active
@@ -141,8 +143,10 @@ export const EditProduct: React.FC = () => {
         } else if (variant.price > 0 || variant.stock > 0) {
           createVariants.push({
             productType: variant.productType,
-            sku: variant.sku || `${formData.slug}-${variant.size.replace(/\s+/g, '')}`,
+            sku: variant.sku || `${formData.slug}-${(variant.colorName || variant.size).replace(/\s+/g, '')}`,
             size: variant.size,
+            colorName: variant.colorName,
+            imageUrl: variant.imageUrl,
             price: Number(variant.price),
             stock: Number(variant.stock),
             active: variant.active

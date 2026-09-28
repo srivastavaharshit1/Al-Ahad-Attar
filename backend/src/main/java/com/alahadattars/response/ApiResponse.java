@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 public class ApiResponse<T> {
     private boolean success;
     private String message;
+    private String code;
     private T data;
     
     @Builder.Default

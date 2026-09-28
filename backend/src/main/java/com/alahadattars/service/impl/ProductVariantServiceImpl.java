@@ -42,10 +42,14 @@ public class ProductVariantServiceImpl implements ProductVariantService {
     @Transactional
     public VariantResponse createVariant(Long productId, CreateVariantRequest request) {
         log.debug("Attempting to create variant for product ID: {}", productId);
-        if (productVariantRepository.existsBySku(request.getSku())) {
-            log.warn("Variant creation failed: SKU already exists '{}'", request.getSku());
-            throw new ConflictException("Variant SKU already exists");
+        String baseSku = request.getSku();
+        String uniqueSku = baseSku;
+        int counter = 1;
+        while (productVariantRepository.existsBySku(uniqueSku)) {
+            counter++;
+            uniqueSku = baseSku + "-" + counter;
         }
+        request.setSku(uniqueSku);
 
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> {

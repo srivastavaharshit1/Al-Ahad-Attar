@@ -77,8 +77,10 @@ export const AddProduct: React.FC = () => {
         .map(variant => {
           const variantPayload = {
             productType: variant.productType,
-            sku: variant.sku || `${formData.slug}-${variant.size.replace(/\s+/g, '')}`,
+            sku: variant.sku || `${formData.slug}-${(variant.colorName || variant.size).replace(/\s+/g, '')}`,
             size: variant.size,
+            colorName: variant.colorName,
+            imageUrl: variant.imageUrl,
             price: Number(variant.price),
             stock: Number(variant.stock),
             active: variant.active

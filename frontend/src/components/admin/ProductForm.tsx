@@ -355,16 +355,11 @@ const ColourRow: React.FC<{
 const ColourTable: React.FC<{
   variants: VariantData[];
   onChangeAll: (newAll: VariantData[]) => void;
-  slugPrefix: string;
-}> = ({ variants, onChangeAll, slugPrefix }) => {
+}> = ({ variants, onChangeAll }) => {
   
   const handleChange = (idx: number, field: string, value: string | number | boolean) => {
     const newAll = [...variants];
     newAll[idx] = { ...newAll[idx], [field]: value };
-    // Auto-generate SKU based on color if it's empty
-    if (field === 'colorName' && !newAll[idx].sku) {
-      newAll[idx].sku = `${slugPrefix}-${(value as string).replace(/\s+/g, '')}`;
-    }
     onChangeAll(newAll);
   };
 
@@ -707,7 +702,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           </div>
           {multipleColours && (
             <div className="px-6 md:px-8 py-6 space-y-6 border-t border-outline-variant/40">
-              <ColourTable variants={variants} onChangeAll={setVariants} slugPrefix={slugPrefix} />
+              <ColourTable variants={variants} onChangeAll={setVariants} />
             </div>
           )}
         </div>
