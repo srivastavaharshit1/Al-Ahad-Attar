@@ -33,6 +33,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.dao.DataIntegrityViolationException;
+import com.alahadattars.exception.ConflictException;
 
 @Slf4j
 @RestController
@@ -54,13 +56,61 @@ public class ProductController {
     public ResponseEntity<ApiResponse<ProductResponse>> createProduct(
             @Valid @RequestBody ProductRequest request) {
         log.info("Received request to create new product: {}", request.getName());
-        ProductResponse response = productService.createProduct(request);
-        log.info("Successfully created product with ID: {}", response.getId());
-        return ResponseEntity.ok(ApiResponse.<ProductResponse>builder()
-                .success(true)
-                .message("Product created successfully")
-                .data(response)
-                .build());
+
+        String baseSlug = request.getSlug();
+        boolean isCustomSlug = true;
+
+        if (baseSlug == null || baseSlug.trim().isEmpty()) {
+            baseSlug = request.getName().toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("(^-|-$)+", "");
+            isCustomSlug = false;
+        }
+        
+        request.setSlug(baseSlug);
+
+        int maxAttempts = isCustomSlug ? 1 : 10;
+        
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                if (attempt > 1) {
+                    request.setSlug(baseSlug + "-" + attempt);
+                }
+                ProductResponse response = productService.createProduct(request);
+                log.info("Successfully created product with ID: {}", response.getId());
+                return ResponseEntity.ok(ApiResponse.<ProductResponse>builder()
+                        .success(true)
+                        .message("Product created successfully")
+                        .data(response)
+                        .build());
+            } catch (DataIntegrityViolationException e) {
+                boolean isSlugCollision = false;
+                if (e.getCause() != null && e.getCause().getCause() != null) {
+                    String detailMessage = e.getCause().getCause().getMessage();
+                    if (detailMessage != null) {
+                        String lowerMsg = detailMessage.toLowerCase();
+                        if (lowerMsg.contains("slug") && (lowerMsg.contains("unique") || lowerMsg.contains("duplicate"))) {
+                            isSlugCollision = true;
+                        }
+                    }
+                }
+                
+                if (!isSlugCollision) {
+                    // Not a slug collision (e.g. missing required fields), let GlobalExceptionHandler handle it
+                    throw e;
+                }
+
+                if (attempt == maxAttempts) {
+                    log.error("Failed to create product after {} attempts due to slug collision", maxAttempts);
+                    throw new ConflictException("This URL is already in use. Please choose another one.", "DUPLICATE_SLUG");
+                }
+                log.warn("Slug collision (concurrent DB insert) for '{}', retrying (attempt {})", request.getSlug(), attempt + 1);
+            } catch (ConflictException e) {
+                if (attempt == maxAttempts) {
+                    throw e;
+                }
+                log.warn("Slug collision for '{}', retrying (attempt {})", request.getSlug(), attempt + 1);
+            }
+        }
+        throw new ConflictException("This URL is already in use. Please choose another one.", "DUPLICATE_SLUG");
     }
 
     @Operation(summary = "Update an existing product (ADMIN)")

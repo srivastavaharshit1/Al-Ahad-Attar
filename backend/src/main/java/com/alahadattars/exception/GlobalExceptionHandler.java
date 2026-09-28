@@ -61,6 +61,7 @@ public class GlobalExceptionHandler {
         ApiResponse<Void> response = ApiResponse.<Void>builder()
                 .success(false)
                 .message(ex.getMessage())
+                .code(ex.getCode())
                 .build();
         return new ResponseEntity<>(response, HttpStatus.CONFLICT);
     }

@@ -46,7 +46,7 @@ public class ProductServiceImpl implements ProductService {
         log.debug("Attempting to create product with slug: {}", request.getSlug());
         if (productRepository.existsBySlug(request.getSlug())) {
             log.warn("Product creation failed: Slug already exists '{}'", request.getSlug());
-            throw new ConflictException("Product slug already exists");
+            throw new ConflictException("This URL is already in use. Please choose another one.", "DUPLICATE_SLUG");
         }
 
         Category category = categoryRepository.findById(request.getCategoryId())
@@ -78,9 +78,14 @@ public class ProductServiceImpl implements ProductService {
                     return new ResourceNotFoundException(AppConstants.PRODUCT_NOT_FOUND_MSG + id);
                 });
 
-        if (!product.getSlug().equals(request.getSlug()) && productRepository.existsBySlug(request.getSlug())) {
-            log.warn("Product update failed: Slug already exists '{}'", request.getSlug());
-            throw new ConflictException("Product slug already exists");
+        String newSlug = request.getSlug();
+        if (newSlug == null || newSlug.trim().isEmpty()) {
+            newSlug = product.getSlug();
+        }
+
+        if (!product.getSlug().equals(newSlug) && productRepository.existsBySlug(newSlug)) {
+            log.warn("Product update failed: Slug already exists '{}'", newSlug);
+            throw new ConflictException("This URL is already in use. Please choose another one.", "DUPLICATE_SLUG");
         }
 
         Category category = categoryRepository.findById(request.getCategoryId())
@@ -95,7 +100,7 @@ public class ProductServiceImpl implements ProductService {
         }
 
         product.setName(request.getName());
-        product.setSlug(request.getSlug());
+        product.setSlug(newSlug);
         product.setShortDescription(request.getShortDescription());
         product.setDescription(request.getDescription());
         product.setBrand(request.getBrand());

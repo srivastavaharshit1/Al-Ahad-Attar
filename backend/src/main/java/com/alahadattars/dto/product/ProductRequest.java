@@ -19,7 +19,6 @@ public class ProductRequest {
     @Schema(description = "Name of the product", example = "Oud Royale")
     private String name;
 
-    @NotBlank(message = "Slug is required")
     @Schema(description = "URL friendly slug", example = "oud-royale")
     private String slug;
 

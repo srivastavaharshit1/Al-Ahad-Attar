@@ -489,18 +489,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-
-    if (name === 'name' && !productId) {
-      const expectedSlug = formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-      if (!formData.slug || formData.slug === expectedSlug) {
-        setFormData(prev => ({
-          ...prev,
-          slug: value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
-        }));
-      }
-    }
   };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Merge all images back for submission (typed managers handle their own uploads for existing products)
@@ -1043,8 +1032,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 <input name="brand" value={formData.brand} onChange={handleInputChange} className="field-input font-body-md text-body-md" type="text" />
               </div>
               <div>
-                <label className="field-label">URL Slug</label>
-                <input name="slug" value={formData.slug} onChange={handleInputChange} className="field-input font-body-md text-body-md text-on-surface-variant" type="text" />
+                <label className="field-label">URL Slug { !productId && <span className="text-xs text-on-surface-variant font-normal ml-2">(Leave empty to auto-generate)</span> }</label>
+                <input name="slug" value={formData.slug} onChange={handleInputChange} className="field-input font-body-md text-body-md text-on-surface-variant" type="text" placeholder={ !productId ? formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') : "" } />
               </div>
               <div>
                 <label className="field-label">Gender</label>
