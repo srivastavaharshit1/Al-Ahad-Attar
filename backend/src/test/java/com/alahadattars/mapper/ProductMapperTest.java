@@ -84,6 +84,12 @@ class ProductMapperTest {
                 .productType(type)
                 .size(size)
                 .price(price)
+                // discountedPrice mirrors price (no discount in these tests) so that
+                // ProductMapper.resolveMinimumPrice() and resolveDefaultVariant(), which now
+                // read getDiscountedPrice() to stay consistent with the @Formula sort field,
+                // do not NPE. In production, the @PrePersist hook guarantees discountedPrice
+                // is never null; the builder does not enforce that invariant.
+                .discountedPrice(price)
                 .stock(stock)
                 .active(true)
                 .build();

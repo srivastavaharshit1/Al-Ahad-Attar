@@ -121,8 +121,11 @@ public class Product extends BaseEntity {
     @Builder.Default
     private Integer reviewCount = 0;
 
-    @Formula("(SELECT COALESCE(MIN(v.discounted_price), 0) FROM product_variant v WHERE v.product_id = id AND v.active = true)")
-    private BigDecimal price;
+    @Formula("(SELECT COALESCE(MIN(v.discounted_price), 999999999) FROM product_variant v WHERE v.product_id = id AND v.active = true)")
+    private BigDecimal minPrice;
+
+    @Formula("(SELECT COALESCE(MAX(v.discounted_price), 0) FROM product_variant v WHERE v.product_id = id AND v.active = true)")
+    private BigDecimal maxPrice;
 
     @ToString.Exclude
     @NotNull

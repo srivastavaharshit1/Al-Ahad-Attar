@@ -65,20 +65,20 @@ public class ProductControllerSortTest {
         pC.getVariants().add(vC1);
         productRepository.save(pC);
 
-        // Ascending sort (Expected: Product C (0), Product B (199), Product A (249))
-        mockMvc.perform(get("/api/products?categoryId=" + cat.getId() + "&sort=price,asc"))
+        // Ascending sort (Expected: Product B (199), Product A (249), Product C (999999999))
+        mockMvc.perform(get("/api/products?categoryId=" + cat.getId() + "&sort=minPrice,asc"))
                 .andDo(org.springframework.test.web.servlet.result.MockMvcResultHandlers.print())
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content[0].name", is("Product C")))
-                .andExpect(jsonPath("$.data.content[1].name", is("Product B")))
-                .andExpect(jsonPath("$.data.content[2].name", is("Product A")));
+                .andExpect(jsonPath("$.data.content[0].name", is("Product B")))
+                .andExpect(jsonPath("$.data.content[1].name", is("Product A")))
+                .andExpect(jsonPath("$.data.content[2].name", is("Product C")));
 
-        // Descending sort (Expected: Product A (249), Product B (199), Product C (0))
-        mockMvc.perform(get("/api/products?categoryId=" + cat.getId() + "&sort=price,desc"))
+        // Descending sort (Expected: Product B (499), Product A (399), Product C (0))
+        mockMvc.perform(get("/api/products?categoryId=" + cat.getId() + "&sort=maxPrice,desc"))
                 .andDo(org.springframework.test.web.servlet.result.MockMvcResultHandlers.print())
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content[0].name", is("Product A")))
-                .andExpect(jsonPath("$.data.content[1].name", is("Product B")))
+                .andExpect(jsonPath("$.data.content[0].name", is("Product B")))
+                .andExpect(jsonPath("$.data.content[1].name", is("Product A")))
                 .andExpect(jsonPath("$.data.content[2].name", is("Product C")));
     }
 }

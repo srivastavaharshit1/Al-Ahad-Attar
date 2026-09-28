@@ -373,8 +373,8 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
               className="bg-surface-container-lowest border border-outline-variant text-on-surface font-body-md text-body-md rounded-DEFAULT py-2 pl-4 pr-10 transition-colors hover:border-accent focus:border-accent focus:ring-2 focus:ring-accent/20 focus:outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30"
             >
               <option value="createdAt,desc">Newest</option>
-              <option value="price,asc">Price: Low to High</option>
-              <option value="price,desc">Price: High to Low</option>
+              <option value="minPrice,asc">Price: Low to High</option>
+              <option value="maxPrice,desc">Price: High to Low</option>
               <option value="name,asc">Name: A–Z</option>
             </select>
           </div>

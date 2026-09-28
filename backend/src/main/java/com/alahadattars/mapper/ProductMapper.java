@@ -139,7 +139,7 @@ public class ProductMapper {
                 .collect(Collectors.toList());
 
         List<java.math.BigDecimal> availablePricesList = preferredVariants.stream()
-                .map(ProductVariant::getPrice)
+                .map(ProductVariant::getDiscountedPrice)
                 .collect(Collectors.toList());
 
         Integer colorCount = (int) preferredVariants.stream()
@@ -217,7 +217,7 @@ public class ProductMapper {
 
     private BigDecimal resolveMinimumPrice(List<ProductVariant> variants) {
         return variants.stream()
-                .map(ProductVariant::getPrice)
+                .map(ProductVariant::getDiscountedPrice)
                 .min(BigDecimal::compareTo)
                 .orElse(null);
     }
@@ -225,7 +225,7 @@ public class ProductMapper {
     private ProductVariant resolveDefaultVariant(List<ProductVariant> variants, BigDecimal minPrice) {
         ProductVariant firstFallback = variants.stream().findFirst().orElse(null);
         return variants.stream()
-                .filter(v -> minPrice != null && v.getPrice().compareTo(minPrice) == 0)
+                .filter(v -> minPrice != null && v.getDiscountedPrice().compareTo(minPrice) == 0)
                 .findFirst()
                 .orElse(firstFallback);
     }

@@ -220,8 +220,8 @@ export const Search: React.FC = () => {
                 <option value="name,asc">Name: A–Z</option>
                 <option value="createdAt,desc">Newest Arrivals</option>
                 <option value="createdAt,asc">Oldest First</option>
-                <option value="price,asc">Price: Low to High</option>
-                <option value="price,desc">Price: High to Low</option>
+                <option value="minPrice,asc">Price: Low to High</option>
+                <option value="maxPrice,desc">Price: High to Low</option>
               </select>
 
               <div className="hidden sm:flex border border-outline-variant rounded overflow-hidden">
