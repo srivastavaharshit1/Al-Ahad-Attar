@@ -72,4 +72,7 @@ public class ProductRequest {
     @NotNull(message = "Category ID is required")
     @Schema(description = "ID of the associated category", example = "1")
     private Long categoryId;
+
+    @Schema(description = "Primary image URL for the product, overriding default selection")
+    private String primaryImageUrl;
 }

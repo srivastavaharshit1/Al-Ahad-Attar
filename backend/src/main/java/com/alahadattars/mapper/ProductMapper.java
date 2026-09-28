@@ -147,6 +147,14 @@ public class ProductMapper {
                 .count();
 
         String thumb = productImageResolver.resolveImage(product.getImages(), preferredType);
+        if (thumb == null) {
+            thumb = preferredVariants.stream()
+                    .filter(v -> v.getImageUrl() != null && !v.getImageUrl().trim().isEmpty())
+                    .map(ProductVariant::getImageUrl)
+                    .findFirst()
+                    .map(url -> storageService.resolveUrl(url, url))
+                    .orElse(null);
+        }
 
         return ProductSummaryResponse.builder()
                 .id(product.getId())

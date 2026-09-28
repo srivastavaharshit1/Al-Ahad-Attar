@@ -79,7 +79,8 @@ export const EditProduct: React.FC = () => {
         featured: product.featured || false,
         featuredInCollection: product.featuredInCollection || false,
         active: product.active !== undefined ? product.active : true,
-        categoryId: product.category?.id?.toString() || ''
+        categoryId: product.category?.id?.toString() || '',
+        primaryImageUrl: product.images?.find((img: any) => img.isPrimary && (!img.altText || img.altText === ''))?.imageUrl
       });
 
       setInitialImages(product.images || []);
@@ -92,7 +93,9 @@ export const EditProduct: React.FC = () => {
           size: pv.size,
           price: pv.price,
           stock: pv.stock,
-          active: pv.active
+          active: pv.active,
+          colorName: pv.colorName,
+          imageUrl: pv.imageUrl
         })));
       }
     } catch (err) {

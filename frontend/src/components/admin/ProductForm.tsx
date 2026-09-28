@@ -25,6 +25,7 @@ export interface ProductFormData {
   featuredInCollection: boolean;
   active: boolean;
   categoryId: string;
+  primaryImageUrl?: string;
 }
 
 export interface VariantData {
@@ -220,9 +221,11 @@ const VariantTable: React.FC<{
 const ColourRow: React.FC<{
   variant: VariantData;
   index: number;
+  primaryImageUrl?: string;
   onChange: (idx: number, field: string, value: string | number | boolean) => void;
+  onSetPrimary: (url: string) => void;
   onRemove: (idx: number) => void;
-}> = ({ variant, index, onChange, onRemove }) => {
+}> = ({ variant, index, primaryImageUrl, onChange, onSetPrimary, onRemove }) => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -302,21 +305,34 @@ const ColourRow: React.FC<{
             <div className="w-10 h-10 rounded-md overflow-hidden border border-outline-variant shrink-0 bg-surface">
               <img src={getImageUrl(variant.imageUrl)} alt="Preview" className="w-full h-full object-cover" />
             </div>
-            <div className="flex flex-col gap-1">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="text-[10px] font-label-sm uppercase text-accent hover:text-accent-hover transition-colors text-left focus-visible:outline-none focus-visible:underline"
-              >
-                Change
-              </button>
-              <button
-                type="button"
-                onClick={removeImage}
-                className="text-[10px] font-label-sm uppercase text-error hover:text-error/80 transition-colors text-left focus-visible:outline-none focus-visible:underline"
-              >
-                Remove
-              </button>
+            <div className="flex flex-col gap-1 items-start">
+              {primaryImageUrl === variant.imageUrl ? (
+                <span className="text-[10px] font-label-sm uppercase bg-accent text-on-primary px-1.5 py-0.5 rounded-sm shrink-0 whitespace-nowrap">Primary Image</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onSetPrimary(variant.imageUrl!)}
+                  className="text-[10px] font-label-sm uppercase text-accent hover:text-accent-hover transition-colors text-left focus-visible:outline-none focus-visible:underline"
+                >
+                  Set as Primary
+                </button>
+              )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-[10px] font-label-sm uppercase text-accent hover:text-accent-hover transition-colors text-left focus-visible:outline-none focus-visible:underline"
+                >
+                  Change
+                </button>
+                <button
+                  type="button"
+                  onClick={removeImage}
+                  className="text-[10px] font-label-sm uppercase text-error hover:text-error/80 transition-colors text-left focus-visible:outline-none focus-visible:underline"
+                >
+                  Remove
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -354,8 +370,10 @@ const ColourRow: React.FC<{
 
 const ColourTable: React.FC<{
   variants: VariantData[];
+  primaryImageUrl?: string;
   onChangeAll: (newAll: VariantData[]) => void;
-}> = ({ variants, onChangeAll }) => {
+  onSetPrimary: (url: string) => void;
+}> = ({ variants, primaryImageUrl, onChangeAll, onSetPrimary }) => {
   
   const handleChange = (idx: number, field: string, value: string | number | boolean) => {
     const newAll = [...variants];
@@ -400,7 +418,9 @@ const ColourTable: React.FC<{
                   key={v.id ?? `new-colour-${idx}`}
                   variant={v}
                   index={idx}
+                  primaryImageUrl={primaryImageUrl}
                   onChange={handleChange}
+                  onSetPrimary={onSetPrimary}
                   onRemove={handleRemove}
                 />
               ))
@@ -691,7 +711,12 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           </div>
           {multipleColours && (
             <div className="px-6 md:px-8 py-6 space-y-6 border-t border-outline-variant/40">
-              <ColourTable variants={variants} onChangeAll={setVariants} />
+              <ColourTable 
+                variants={variants} 
+                primaryImageUrl={formData.primaryImageUrl}
+                onChangeAll={setVariants}
+                onSetPrimary={(url) => setFormData(prev => ({ ...prev, primaryImageUrl: url }))}
+              />
             </div>
           )}
         </div>

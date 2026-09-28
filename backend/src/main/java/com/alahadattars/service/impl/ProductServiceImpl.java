@@ -10,8 +10,10 @@ import com.alahadattars.exception.ConflictException;
 import com.alahadattars.exception.ResourceNotFoundException;
 import com.alahadattars.mapper.ProductMapper;
 import com.alahadattars.repository.CategoryRepository;
+import com.alahadattars.repository.ProductImageRepository;
 import com.alahadattars.repository.ProductRepository;
 import com.alahadattars.repository.ProductVariantRepository;
+import com.alahadattars.entity.ProductImage;
 import com.alahadattars.service.ProductService;
 import com.alahadattars.util.AppConstants;
 import com.alahadattars.enums.Gender;
@@ -38,6 +40,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductVariantRepository productVariantRepository;
+    private final ProductImageRepository productImageRepository;
     private final ProductMapper productMapper;
 
     @Override
@@ -64,6 +67,8 @@ public class ProductServiceImpl implements ProductService {
         
         Product savedProduct = productRepository.save(product);
         log.info("Product Created: ID={}, Slug={}", savedProduct.getId(), savedProduct.getSlug());
+
+        handlePrimaryImageUrl(savedProduct, request.getPrimaryImageUrl());
 
         return productMapper.toResponse(savedProduct);
     }
@@ -124,6 +129,8 @@ public class ProductServiceImpl implements ProductService {
 
         Product updatedProduct = productRepository.save(product);
         log.info("Product Updated: ID={}, Slug={}", updatedProduct.getId(), updatedProduct.getSlug());
+
+        handlePrimaryImageUrl(updatedProduct, request.getPrimaryImageUrl());
 
         return productMapper.toResponse(updatedProduct);
     }
@@ -452,5 +459,44 @@ public class ProductServiceImpl implements ProductService {
         return relatedProducts.stream()
                 .map(productMapper::toSummaryResponse)
                 .collect(Collectors.toList());
+    }
+
+    private void handlePrimaryImageUrl(Product product, String primaryImageUrl) {
+        if (primaryImageUrl == null || primaryImageUrl.trim().isEmpty()) {
+            return;
+        }
+
+        // 1. Mark existing primary images as non-primary if they don't match
+        List<ProductImage> existingPrimary = productImageRepository.findByProductAndIsPrimaryAndActiveTrue(product, true);
+        for (ProductImage img : existingPrimary) {
+            if (!img.getImageUrl().equals(primaryImageUrl)) {
+                img.setPrimary(false);
+                productImageRepository.save(img);
+            }
+        }
+
+        // 2. Check if a ProductImage with this URL already exists
+        List<ProductImage> allImages = productImageRepository.findByProductAndActiveTrueOrderByDisplayOrderAsc(product);
+        ProductImage targetImage = allImages.stream()
+                .filter(img -> img.getImageUrl().equals(primaryImageUrl))
+                .findFirst()
+                .orElse(null);
+
+        if (targetImage != null) {
+            if (!targetImage.isPrimary()) {
+                targetImage.setPrimary(true);
+                productImageRepository.save(targetImage);
+            }
+        } else {
+            // Create new ProductImage representing this primary image
+            ProductImage newPrimary = ProductImage.builder()
+                    .product(product)
+                    .imageUrl(primaryImageUrl)
+                    .isPrimary(true)
+                    .active(true)
+                    .displayOrder(0)
+                    .build();
+            productImageRepository.save(newPrimary);
+        }
     }
 }
