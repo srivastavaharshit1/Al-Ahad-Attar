@@ -92,6 +92,24 @@ export const Home: React.FC = () => {
 
       {isSectionVisible('hero') && data.heroes?.length > 0 && <HeroSection heroes={data.heroes} section={getSection('hero')} />}
       
+      {/* ── Curated Product Carousels: ATTARS ── */}
+      {(() => {
+        const attarsSection = data.productSections?.find(sec => sec.section === 'ATTARS' && sec.products && sec.products.length > 0);
+        if (!attarsSection) return null;
+        return (
+          <div key="attars" className="bg-white">
+            <ProductCarousel
+              eyebrow="THE ESSENCE"
+              heading="Explore Our Attars"
+              description="Pure, alcohol-free traditional attars crafted from the world's finest ingredients."
+              products={attarsSection.products}
+              viewAllUrl="/collections?category=ATTARS"
+              defaultType="attar"
+            />
+          </div>
+        );
+      })()}
+
       {isSectionVisible('categories') && data.categories?.length > 0 && (
         <div className="bg-[#faf9f8]">
           <CategoriesSection categories={data.categories} section={getSection('categories')} />
@@ -113,21 +131,9 @@ export const Home: React.FC = () => {
       {/* ── Curated Product Carousels ── */}
       {data.productSections?.map(sec => {
         if (!sec.products || sec.products.length === 0) return null;
-
-        if (sec.section === 'ATTARS') {
-          return (
-            <div key="attars" className="bg-white">
-              <ProductCarousel
-                eyebrow="THE ESSENCE"
-                heading="Explore Our Attars"
-                description="Pure, alcohol-free traditional attars crafted from the world's finest ingredients."
-                products={sec.products}
-                viewAllUrl="/collections?category=ATTARS"
-                defaultType="attar"
-              />
-            </div>
-          );
-        }
+        
+        // ATTARS section is rendered explicitly above Categories
+        if (sec.section === 'ATTARS') return null;
 
         if (sec.section === 'PERFUMES_BAKHOOR') {
           return (

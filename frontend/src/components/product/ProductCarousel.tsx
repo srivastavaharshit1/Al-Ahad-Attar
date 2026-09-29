@@ -98,33 +98,30 @@ export const ProductCarousel: React.FC<ProductCarouselProps> = ({
         </div>
 
         {/* Gold divider */}
-        <div className="mt-6 h-px bg-[#121c2a]/10" />
-      </div>
+        <div className="mt-6 mb-8 h-px bg-[#121c2a]/10" />
 
-      {/*
-        Carousel track.
-        Left padding aligns with content (px-4 md:px-8 max-w-7xl).
-        Right padding (pb-4) adds breathing room so card shadows are visible.
-        snap-x mandatory + snap-start ensure cards snap cleanly.
-      */}
-      <div
-        ref={trackRef}
-        className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 hide-scrollbar
-                   pl-4 md:pl-8 pr-4 md:pr-8
-                   scroll-pl-4 md:scroll-pl-8"
-        style={{ WebkitOverflowScrolling: 'touch' }}
-        role="list"
-        aria-label={heading}
-      >
-        {products.map((product) => (
-          <div
-            key={product.id}
-            className="snap-start shrink-0 w-[calc(85vw-1rem)] sm:w-[calc(45vw-1.5rem)] lg:w-[calc(25%-0.75rem)] xl:w-[calc(25%-0.75rem)] min-w-[200px] max-w-[320px]"
-            role="listitem"
-          >
-            <ProductCard product={product as any} defaultType={defaultType} />
-          </div>
-        ))}
+        {/*
+          Carousel track.
+          Now contained within the same max-w-7xl container as the header to ensure perfect horizontal alignment.
+          Card widths are adjusted so that 4 cards + a partial 5th card are visible on desktop.
+        */}
+        <div
+          ref={trackRef}
+          className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory pb-4 hide-scrollbar"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+          role="list"
+          aria-label={heading}
+        >
+          {products.map((product) => (
+            <div
+              key={product.id}
+              className="snap-start shrink-0 w-[calc(85vw-2rem)] sm:w-[calc(45vw-2rem)] lg:w-[calc(22%)] min-w-[240px] max-w-[320px]"
+              role="listitem"
+            >
+              <ProductCard product={product as any} defaultType={defaultType} />
+            </div>
+          ))}
+        </div>
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
