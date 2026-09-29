@@ -6,6 +6,7 @@ import type { HomepageProductSlotResponse, HomepageProductSectionKey } from '../
 import type { Product } from '../../../types';
 import { getImageUrl } from '../../../utils/getImageUrl';
 import { Loader } from '../../../components/ui/Loader';
+import { ConfirmationDialog } from '../../../components/ui/ConfirmationDialog';
 
 // ── Section metadata ───────────────────────────────────────────────────────
 
@@ -23,15 +24,15 @@ const SECTIONS: {
   },
   {
     key: 'PERFUMES_BAKHOOR',
-    label: 'Perfumes & Bakhoor',
-    description: 'Shown in the "Perfumes & Bakhoor" carousel.',
-    eligibilityNote: 'Perfumes or Bakhoor products (not Car Perfumes).',
+    label: 'Perfumes & Car Perfumes',
+    description: 'Shown in the "Perfumes & Car Perfumes" carousel.',
+    eligibilityNote: 'Perfumes or Car Perfumes.',
   },
   {
     key: 'CAR_PERFUMES_INCENSE',
-    label: 'Car Perfumes & Incense',
-    description: 'Shown in the "Car Perfumes & Incense" carousel.',
-    eligibilityNote: 'Car Perfume (subcategory = "Car Perfumes") or Bakhoor/Incense products.',
+    label: 'Bakhoor & Incense Sticks',
+    description: 'Shown in the "Bakhoor & Incense Sticks" carousel.',
+    eligibilityNote: 'Bakhoor and Incense Sticks products.',
   },
 ];
 
@@ -46,6 +47,7 @@ export const ProductSectionsTab: React.FC = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteConfirmSlot, setDeleteConfirmSlot] = useState<{ id: number; productName: string } | null>(null);
 
   // Product search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -114,8 +116,32 @@ export const ProductSectionsTab: React.FC = () => {
     searchTimeout.current = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await productService.getProducts({ search: q, active: true, size: 20 });
-        setSearchResults((res.content || []) as Product[]);
+        const res = await productService.getProducts({ search: q, active: true, size: 100 });
+        
+        // Filter locally based on the active tab's eligibility rules
+        const filtered = ((res.content || []) as Product[]).filter(product => {
+          const catName = product.category?.name?.toUpperCase() || (product as any).categoryName?.toUpperCase() || '';
+          const isAttarCat = catName.includes('ATTAR');
+          const isPerfumeCat = catName.includes('PERFUME');
+          const isBakhoorCat = catName.includes('BAKHOOR');
+
+          switch (activeSection) {
+            case 'ATTARS': {
+              const hasAttarVariant = product.variants?.some(v => v.productType === 'ATTAR');
+              return isAttarCat || (isPerfumeCat && hasAttarVariant);
+            }
+            case 'PERFUMES_BAKHOOR': {
+              const hasPerfumeVariant = product.variants?.some(v => v.productType === 'PERFUME');
+              return isPerfumeCat || (isAttarCat && hasPerfumeVariant);
+            }
+            case 'CAR_PERFUMES_INCENSE': {
+              return isBakhoorCat;
+            }
+            default: return true;
+          }
+        });
+        
+        setSearchResults(filtered.slice(0, 20)); // Keep dropdown manageable
         setShowDropdown(true);
       } catch {
         toast.error('Search failed');
@@ -168,17 +194,22 @@ export const ProductSectionsTab: React.FC = () => {
 
   // ── Slot actions ────────────────────────────────────────────────────────
 
-  const handleRemove = async (slotId: number, productName: string) => {
-    if (!confirm(`Remove "${productName}" from this section?`)) return;
+  const handleRemove = (slotId: number, productName: string) => {
+    setDeleteConfirmSlot({ id: slotId, productName });
+  };
+
+  const confirmRemove = async () => {
+    if (!deleteConfirmSlot) return;
     setIsSaving(true);
     try {
-      await homepageService.removeProductSlot(slotId);
+      await homepageService.removeProductSlot(deleteConfirmSlot.id);
       toast.success('Product removed from section');
       await loadSection(activeSection);
     } catch (err: any) {
       handleError(err, 'Failed to remove product');
     } finally {
       setIsSaving(false);
+      setDeleteConfirmSlot(null);
     }
   };
 
@@ -480,6 +511,18 @@ export const ProductSectionsTab: React.FC = () => {
           </div>
         )}
       </div>
+
+      <ConfirmationDialog
+        isOpen={deleteConfirmSlot !== null}
+        onClose={() => !isSaving && setDeleteConfirmSlot(null)}
+        onConfirm={confirmRemove}
+        title="Remove Product?"
+        description={`Are you sure you want to remove ${deleteConfirmSlot?.productName} from this homepage section? This will not delete the product from your store.`}
+        confirmText="Remove"
+        actionType="DELETE"
+        dangerMode={true}
+        isLoading={isSaving}
+      />
     </div>
   );
 };

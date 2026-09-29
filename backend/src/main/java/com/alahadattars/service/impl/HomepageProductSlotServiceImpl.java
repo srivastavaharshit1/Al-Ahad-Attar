@@ -170,29 +170,22 @@ public class HomepageProductSlotServiceImpl implements HomepageProductSlotServic
                 }
             }
             case PERFUMES_BAKHOOR -> {
-                if (isCarPerfume) {
-                    throw new BadRequestException(
-                            "Car Perfume / Freshener products cannot be added to the Perfumes & Bakhoor section. " +
-                            "Use the Car Perfumes & Incense section instead.");
-                }
-                
-                boolean isPrimaryPerfumeOrBakhoor = (catType == CategoryType.PERFUMES || catType == CategoryType.BAKHOOR);
+                boolean isPrimaryPerfume = (catType == CategoryType.PERFUMES);
                 boolean hasPerfumeVariant = (catType == CategoryType.ATTARS) && 
                         product.getVariants() != null && 
                         product.getVariants().stream().anyMatch(v -> v != null && v.getProductType() == com.alahadattars.enums.ProductType.PERFUME);
 
-                if (!isPrimaryPerfumeOrBakhoor && !hasPerfumeVariant) {
+                if (!isPrimaryPerfume && !hasPerfumeVariant) {
                     throw new BadRequestException(
-                            "Only Perfumes, Bakhoor, or products containing a Perfume variant can be added to the Perfumes & Bakhoor section. " +
+                            "Only Perfumes, Car Perfumes, or products containing a Perfume variant can be added to the Perfumes & Car Perfumes section. " +
                             "This product belongs to: " + catType);
                 }
             }
             case CAR_PERFUMES_INCENSE -> {
-                boolean eligible = isCarPerfume || catType == CategoryType.BAKHOOR;
+                boolean eligible = (catType == CategoryType.BAKHOOR);
                 if (!eligible) {
                     throw new BadRequestException(
-                            "Only Car Perfume products (subcategory = 'Car Perfumes' or 'FRESHENERS') or Bakhoor/Incense products " +
-                            "can be added to the Car Perfumes & Incense section. " +
+                            "Only Bakhoor and Incense Sticks can be added to the Bakhoor & Incense Sticks section. " +
                             "This product: category=" + catType + ", subcategory=" + sub);
                 }
             }

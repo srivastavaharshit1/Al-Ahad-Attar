@@ -140,8 +140,8 @@ export const Home: React.FC = () => {
             <div key="perfumes" className="bg-[#faf9f8]">
               <ProductCarousel
                 eyebrow="FINE FRAGRANCES"
-                heading="Perfumes & Bakhoor"
-                description="Long-lasting modern perfumes and richly aromatic bakhoor for your home."
+                heading="Perfumes & Car Perfumes"
+                description="Long-lasting modern perfumes and premium car fragrances for every journey."
                 products={sec.products}
                 viewAllUrl="/collections?category=PERFUMES"
                 defaultType="perfume"
@@ -154,11 +154,12 @@ export const Home: React.FC = () => {
           return (
             <div key="car" className="bg-white">
               <ProductCarousel
-                eyebrow="ON THE GO"
-                heading="Car Perfumes & Incense"
-                description="Elevate every journey with our premium car fragrances and incense sticks."
+                eyebrow="TRADITIONAL AROMAS"
+                heading="Bakhoor & Incense Sticks"
+                description="Elevate your home with our premium bakhoor and pure incense sticks."
                 products={sec.products}
-                viewAllUrl="/collections?subcategory=Car+Perfumes"
+                viewAllUrl="/collections?category=BAKHOOR"
+                defaultType="bakhoor"
               />
             </div>
           );
