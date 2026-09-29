@@ -37,10 +37,18 @@ public class HomepageProductSlotServiceImpl implements HomepageProductSlotServic
     @Override
     @Transactional
     public List<HomepageProductSlotResponse> getSlotsForSection(HomepageProductSection section) {
+        String contextType = resolveContextType(section);
         return slotRepository.findBySectionOrderByDisplayOrderAsc(section)
                 .stream()
-                .map(this::toResponse)
+                .map(slot -> toResponse(slot, contextType))
                 .collect(Collectors.toList());
+    }
+
+    private String resolveContextType(HomepageProductSection section) {
+        if (section == HomepageProductSection.ATTARS) return "ATTAR";
+        if (section == HomepageProductSection.PERFUMES_BAKHOOR) return "PERFUME";
+        if (section == HomepageProductSection.CAR_PERFUMES_INCENSE) return "BAKHOOR";
+        return null;
     }
 
     @Override
@@ -70,7 +78,7 @@ public class HomepageProductSlotServiceImpl implements HomepageProductSlotServic
                 .build();
 
         try {
-            return toResponse(slotRepository.saveAndFlush(slot));
+            return toResponse(slotRepository.saveAndFlush(slot), resolveContextType(section));
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             throw new ConflictException("Product is already in this section (concurrent modification)");
         }
@@ -91,7 +99,7 @@ public class HomepageProductSlotServiceImpl implements HomepageProductSlotServic
         HomepageProductSlot slot = slotRepository.findById(slotId)
                 .orElseThrow(() -> new ResourceNotFoundException("Slot not found: " + slotId));
         slot.setEnabled(enabled);
-        return toResponse(slotRepository.save(slot));
+        return toResponse(slotRepository.save(slot), resolveContextType(slot.getSection()));
     }
 
     @Override
@@ -122,7 +130,10 @@ public class HomepageProductSlotServiceImpl implements HomepageProductSlotServic
                     List<com.alahadattars.dto.product.ProductSummaryResponse> products =
                             slotRepository.findEnabledBySectionOrderByDisplayOrderAsc(section)
                                     .stream()
-                                    .map(slot -> productMapper.toSummaryResponse(slot.getProduct()))
+                                    .map(slot -> {
+                                        String contextType = resolveContextType(section);
+                                        return productMapper.toSummaryResponse(slot.getProduct(), contextType);
+                                    })
                                     .collect(Collectors.toList());
                     return HomepageProductSectionResponse.builder()
                             .section(section)
@@ -194,13 +205,13 @@ public class HomepageProductSlotServiceImpl implements HomepageProductSlotServic
 
     // ── Mapping ───────────────────────────────────────────────────────────────
 
-    private HomepageProductSlotResponse toResponse(HomepageProductSlot slot) {
+    private HomepageProductSlotResponse toResponse(HomepageProductSlot slot, String contextType) {
         return HomepageProductSlotResponse.builder()
                 .id(slot.getId())
                 .section(slot.getSection())
                 .displayOrder(slot.getDisplayOrder())
                 .enabled(slot.isEnabled())
-                .product(productMapper.toSummaryResponse(slot.getProduct()))
+                .product(productMapper.toSummaryResponse(slot.getProduct(), contextType))
                 .build();
     }
 }

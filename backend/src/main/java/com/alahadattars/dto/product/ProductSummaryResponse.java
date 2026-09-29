@@ -29,6 +29,7 @@ public class ProductSummaryResponse {
     private String defaultVariantSize;
     private String defaultVariantType;
     private java.util.List<String> availableSizes;
+    private java.util.List<String> availableVariantTypes;
     /** Prices parallel to availableSizes — index i of availablePrices is the price of availableSizes[i]. */
     private java.util.List<java.math.BigDecimal> availablePrices;
     private Integer colorCount;

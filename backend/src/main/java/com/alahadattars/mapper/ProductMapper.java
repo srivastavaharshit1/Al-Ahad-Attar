@@ -138,6 +138,12 @@ public class ProductMapper {
                 .map(ProductVariant::getSize)
                 .collect(Collectors.toList());
 
+        List<String> availableTypesList = preferredVariants.stream()
+                .filter(v -> v.getProductType() != null)
+                .map(v -> v.getProductType().name())
+                .distinct()
+                .collect(Collectors.toList());
+
         List<java.math.BigDecimal> availablePricesList = preferredVariants.stream()
                 .map(ProductVariant::getDiscountedPrice)
                 .collect(Collectors.toList());
@@ -174,6 +180,7 @@ public class ProductMapper {
                 .defaultVariantSize(defaultVariantSize)
                 .defaultVariantType(defaultVariantType)
                 .availableSizes(availableSizesList)
+                .availableVariantTypes(availableTypesList)
                 .availablePrices(availablePricesList)
                 .colorCount(colorCount)
                 .averageRating(product.getAverageRating())

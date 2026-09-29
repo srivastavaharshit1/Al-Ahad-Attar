@@ -127,11 +127,11 @@ export const ProductSectionsTab: React.FC = () => {
 
           switch (activeSection) {
             case 'ATTARS': {
-              const hasAttarVariant = product.variants?.some(v => v.productType === 'ATTAR');
+              const hasAttarVariant = (product as any).availableVariantTypes?.includes('ATTAR');
               return isAttarCat || (isPerfumeCat && hasAttarVariant);
             }
             case 'PERFUMES_BAKHOOR': {
-              const hasPerfumeVariant = product.variants?.some(v => v.productType === 'PERFUME');
+              const hasPerfumeVariant = (product as any).availableVariantTypes?.includes('PERFUME');
               return isPerfumeCat || (isAttarCat && hasPerfumeVariant);
             }
             case 'CAR_PERFUMES_INCENSE': {
