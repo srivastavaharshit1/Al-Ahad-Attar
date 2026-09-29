@@ -115,58 +115,53 @@ export const Home: React.FC = () => {
           <CategoriesSection categories={data.categories} section={getSection('categories')} />
         </div>
       )}
-      
+      {/* ── Curated Product Carousels: PERFUMES ── */}
+      {(() => {
+        const perfumesSection = data.productSections?.find(sec => sec.section === 'PERFUMES_BAKHOOR' && sec.products && sec.products.length > 0);
+        if (!perfumesSection) return null;
+        return (
+          <div key="perfumes" className="bg-white">
+            <ProductCarousel
+              eyebrow="FINE FRAGRANCES"
+              heading="Perfumes & Car Perfumes"
+              description="Long-lasting modern perfumes and premium car fragrances for every journey."
+              products={perfumesSection.products}
+              viewAllUrl="/collections?category=PERFUMES"
+              defaultType="perfume"
+            />
+          </div>
+        );
+      })()}
+
       {(!getSection('brand_story') || getSection('brand_story')?.visible) && (
-        <div className="bg-white">
+        <div className="bg-[#faf9f8]">
           <BrandStorySection section={getSection('brand_story')} />
         </div>
       )}
+
+      {/* ── Curated Product Carousels: BAKHOOR ── */}
+      {(() => {
+        const bakhoorSection = data.productSections?.find(sec => sec.section === 'CAR_PERFUMES_INCENSE' && sec.products && sec.products.length > 0);
+        if (!bakhoorSection) return null;
+        return (
+          <div key="car" className="bg-white">
+            <ProductCarousel
+              eyebrow="TRADITIONAL AROMAS"
+              heading="Bakhoor & Incense Sticks"
+              description="Elevate your home with our premium bakhoor and pure incense sticks."
+              products={bakhoorSection.products}
+              viewAllUrl="/collections?category=BAKHOOR"
+              defaultType="bakhoor"
+            />
+          </div>
+        );
+      })()}
 
       {isSectionVisible('featured_products') && data.featuredProducts?.length > 0 && (
         <div className="bg-[#f5f2eb]">
           <FeaturedProductsSection products={data.featuredProducts} section={getSection('featured_products')} />
         </div>
       )}
-
-      {/* ── Curated Product Carousels ── */}
-      {data.productSections?.map(sec => {
-        if (!sec.products || sec.products.length === 0) return null;
-        
-        // ATTARS section is rendered explicitly above Categories
-        if (sec.section === 'ATTARS') return null;
-
-        if (sec.section === 'PERFUMES_BAKHOOR') {
-          return (
-            <div key="perfumes" className="bg-[#faf9f8]">
-              <ProductCarousel
-                eyebrow="FINE FRAGRANCES"
-                heading="Perfumes & Car Perfumes"
-                description="Long-lasting modern perfumes and premium car fragrances for every journey."
-                products={sec.products}
-                viewAllUrl="/collections?category=PERFUMES"
-                defaultType="perfume"
-              />
-            </div>
-          );
-        }
-
-        if (sec.section === 'CAR_PERFUMES_INCENSE') {
-          return (
-            <div key="car" className="bg-white">
-              <ProductCarousel
-                eyebrow="TRADITIONAL AROMAS"
-                heading="Bakhoor & Incense Sticks"
-                description="Elevate your home with our premium bakhoor and pure incense sticks."
-                products={sec.products}
-                viewAllUrl="/collections?category=BAKHOOR"
-                defaultType="bakhoor"
-              />
-            </div>
-          );
-        }
-
-        return null;
-      })}
 
       {isSectionVisible('promo_banners') && data.promoBanners?.length > 0 && (
         <div className="bg-white">
