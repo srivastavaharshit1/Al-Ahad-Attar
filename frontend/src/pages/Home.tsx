@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { homepageService } from '../services/homepageService';
 import type { HomepageDataResponse } from '../types/homepage';
 import { ProductCard } from '../components/product/ProductCard';
+import { ProductCarousel } from '../components/product/ProductCarousel';
 import { getImageUrl } from '../utils/getImageUrl';
 import { SEO } from '../components/seo/SEO';
 
@@ -108,6 +109,57 @@ export const Home: React.FC = () => {
           <FeaturedProductsSection products={data.featuredProducts} section={getSection('featured_products')} />
         </div>
       )}
+
+      {/* ── Curated Product Carousels ── */}
+      {data.productSections?.map(sec => {
+        if (!sec.products || sec.products.length === 0) return null;
+
+        if (sec.section === 'ATTARS') {
+          return (
+            <div key="attars" className="bg-white">
+              <ProductCarousel
+                eyebrow="THE ESSENCE"
+                heading="Explore Our Attars"
+                description="Pure, alcohol-free traditional attars crafted from the world's finest ingredients."
+                products={sec.products}
+                viewAllUrl="/collections?category=ATTARS"
+                defaultType="attar"
+              />
+            </div>
+          );
+        }
+
+        if (sec.section === 'PERFUMES_BAKHOOR') {
+          return (
+            <div key="perfumes" className="bg-[#faf9f8]">
+              <ProductCarousel
+                eyebrow="FINE FRAGRANCES"
+                heading="Perfumes & Bakhoor"
+                description="Long-lasting modern perfumes and richly aromatic bakhoor for your home."
+                products={sec.products}
+                viewAllUrl="/collections?category=PERFUMES"
+                defaultType="perfume"
+              />
+            </div>
+          );
+        }
+
+        if (sec.section === 'CAR_PERFUMES_INCENSE') {
+          return (
+            <div key="car" className="bg-white">
+              <ProductCarousel
+                eyebrow="ON THE GO"
+                heading="Car Perfumes & Incense"
+                description="Elevate every journey with our premium car fragrances and incense sticks."
+                products={sec.products}
+                viewAllUrl="/collections?subcategory=Car+Perfumes"
+              />
+            </div>
+          );
+        }
+
+        return null;
+      })}
 
       {isSectionVisible('promo_banners') && data.promoBanners?.length > 0 && (
         <div className="bg-white">

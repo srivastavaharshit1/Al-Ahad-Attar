@@ -199,5 +199,34 @@ export const homepageService = {
   reorderWhyChooseUsItems: async (requests: ReorderRequest[]): Promise<void> => {
     await apiClient.patch(`${ADMIN_API}/why-choose-us/reorder`, requests);
     apiCache.clear();
+  },
+
+  // --- Admin Homepage Product Slots (Curated Carousels) ---
+  getProductSlots: async (section: string): Promise<import('../types/homepage').HomepageProductSlotResponse[]> => {
+    const response = await apiClient.get(`${ADMIN_API}/product-slots/${section}`);
+    return response.data.data;
+  },
+
+  addProductSlot: async (section: string, request: import('../types/homepage').HomepageProductSlotRequest): Promise<import('../types/homepage').HomepageProductSlotResponse> => {
+    const response = await apiClient.post(`${ADMIN_API}/product-slots/${section}`, request);
+    apiCache.clear();
+    return response.data.data;
+  },
+
+  removeProductSlot: async (slotId: number): Promise<void> => {
+    await apiClient.delete(`${ADMIN_API}/product-slots/${slotId}`);
+    apiCache.clear();
+  },
+
+  setSlotEnabled: async (slotId: number, enabled: boolean): Promise<import('../types/homepage').HomepageProductSlotResponse> => {
+    const response = await apiClient.patch(`${ADMIN_API}/product-slots/${slotId}/enabled`, { enabled });
+    apiCache.clear();
+    return response.data.data;
+  },
+
+  reorderProductSlots: async (section: string, order: import('../types/homepage').ReorderSlotEntry[]): Promise<void> => {
+    await apiClient.patch(`${ADMIN_API}/product-slots/${section}/reorder`, order);
+    apiCache.clear();
   }
 };
+

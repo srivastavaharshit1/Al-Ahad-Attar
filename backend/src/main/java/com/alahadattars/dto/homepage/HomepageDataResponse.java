@@ -22,4 +22,6 @@ public class HomepageDataResponse {
     private List<TestimonialResponse> testimonials;
     private List<WhyChooseUsItemResponse> whyChooseUsItems;
     private NewsletterConfigResponse newsletterConfig;
+    /** Three curated product carousel sections (Attars, Perfumes/Bakhoor, Car Perfumes/Incense). */
+    private List<HomepageProductSectionResponse> productSections;
 }

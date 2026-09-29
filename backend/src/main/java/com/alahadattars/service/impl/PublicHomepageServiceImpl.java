@@ -6,6 +6,7 @@ import com.alahadattars.dto.product.ProductSummaryResponse;
 import com.alahadattars.entity.*;
 import com.alahadattars.mapper.CategoryMapper;
 import com.alahadattars.repository.*;
+import com.alahadattars.service.HomepageProductSlotService;
 import com.alahadattars.service.ProductService;
 import com.alahadattars.service.PublicHomepageService;
 import com.alahadattars.service.StorageService;
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class PublicHomepageServiceImpl implements PublicHomepageService {
 
     private final HomepageSectionRepository sectionRepository;
@@ -38,6 +40,7 @@ public class PublicHomepageServiceImpl implements PublicHomepageService {
     private final ProductService productService;
     private final StorageService storageService;
     private final com.alahadattars.mapper.HomepageMapper homepageMapper;
+    private final HomepageProductSlotService slotService;
 
     // Two Executor beans exist (this one and emailTaskExecutor, see AsyncConfig) — disambiguated
     // by Spring's by-name fallback since the field name matches the @Bean name exactly. A
@@ -97,8 +100,17 @@ public class PublicHomepageServiceImpl implements PublicHomepageService {
                         .stream().map(this::mapWhyChoose).collect(Collectors.toList()), homepageTaskExecutor)
                 : CompletableFuture.completedFuture(new ArrayList<>());
 
+        // Product carousel sections are always loaded regardless of HomepageSection visibility
+        // (they have their own admin management, not gated by the section CMS toggle).
+        CompletableFuture<List<HomepageProductSectionResponse>> productSectionsFuture =
+                CompletableFuture.supplyAsync(() -> slotService.getAllSectionsForCustomer(), homepageTaskExecutor)
+                .exceptionally(ex -> {
+                    log.error("Failed to fetch homepage product carousels", ex);
+                    return new ArrayList<>();
+                });
+
         CompletableFuture.allOf(heroesFuture, promoBannersFuture, categoriesFuture,
-                featuredProductsFuture, testimonialsFuture, whyChooseUsFuture).join();
+                featuredProductsFuture, testimonialsFuture, whyChooseUsFuture, productSectionsFuture).join();
 
         response.setHeroes(heroesFuture.join());
         response.setPromoBanners(promoBannersFuture.join());
@@ -106,6 +118,7 @@ public class PublicHomepageServiceImpl implements PublicHomepageService {
         response.setFeaturedProducts(featuredProductsFuture.join());
         response.setTestimonials(testimonialsFuture.join());
         response.setWhyChooseUsItems(whyChooseUsFuture.join());
+        response.setProductSections(productSectionsFuture.join());
 
         if (sectionMap.containsKey("newsletter")) {
             HomepageSection nl = sectionMap.get("newsletter");

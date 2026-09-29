@@ -5,10 +5,11 @@ import { PromoTab } from './homepage/PromoTab';
 import { TestimonialsTab } from './homepage/TestimonialsTab';
 import { WhyChooseUsTab } from './homepage/WhyChooseUsTab';
 import { CategoriesTab } from './homepage/CategoriesTab';
+import { ProductSectionsTab } from './homepage/ProductSectionsTab';
 import { AdminAboutUs } from './AdminAboutUs';
 
 export const Homepage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'sections' | 'hero' | 'categories' | 'promo' | 'testimonials' | 'why_choose' | 'about_us'>('sections');
+  const [activeTab, setActiveTab] = useState<'sections' | 'hero' | 'categories' | 'promo' | 'testimonials' | 'why_choose' | 'product_sections' | 'about_us'>('sections');
 
   const renderTabs = () => (
     <div className="flex gap-1 border-b border-outline-variant mb-6 overflow-x-auto">
@@ -16,6 +17,7 @@ export const Homepage: React.FC = () => {
         { id: 'sections', label: 'Layout & Sections' },
         { id: 'hero', label: 'Hero Banners' },
         { id: 'categories', label: 'Categories' },
+        { id: 'product_sections', label: 'Product Carousels' },
         { id: 'promo', label: 'Promo Banners' },
         { id: 'testimonials', label: 'Testimonials' },
         { id: 'why_choose', label: 'Why Choose Us' },
@@ -52,6 +54,7 @@ export const Homepage: React.FC = () => {
         {activeTab === 'sections' && <SectionsTab />}
         {activeTab === 'hero' && <HeroTab />}
         {activeTab === 'categories' && <CategoriesTab />}
+        {activeTab === 'product_sections' && <ProductSectionsTab />}
         {activeTab === 'promo' && <PromoTab />}
         {activeTab === 'testimonials' && <TestimonialsTab />}
         {activeTab === 'why_choose' && <WhyChooseUsTab />}

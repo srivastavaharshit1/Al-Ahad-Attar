@@ -125,4 +125,37 @@ export interface HomepageDataResponse {
   testimonials: TestimonialResponse[];
   whyChooseUsItems: WhyChooseUsItemResponse[];
   newsletterConfig: NewsletterConfigResponse;
+  productSections: HomepageProductSectionData[];
 }
+
+// ── Homepage Product Carousels ─────────────────────────────────────────────
+
+export type HomepageProductSectionKey =
+  | 'ATTARS'
+  | 'PERFUMES_BAKHOOR'
+  | 'CAR_PERFUMES_INCENSE';
+
+export interface HomepageProductSectionData {
+  section: HomepageProductSectionKey;
+  products: ProductSummary[];
+}
+
+export interface HomepageProductSlotResponse {
+  id: number;
+  section: HomepageProductSectionKey;
+  displayOrder: number;
+  enabled: boolean;
+  product: ProductSummary;
+}
+
+export interface HomepageProductSlotRequest {
+  productId: number;
+  displayOrder?: number;
+  enabled?: boolean;
+}
+
+export interface ReorderSlotEntry {
+  slotId: number;
+  displayOrder: number;
+}
+

@@ -2,7 +2,9 @@ package com.alahadattars.controller;
 
 import com.alahadattars.response.ApiResponse;
 import com.alahadattars.dto.homepage.*;
+import com.alahadattars.enums.HomepageProductSection;
 import com.alahadattars.service.HomepageService;
+import com.alahadattars.service.HomepageProductSlotService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import org.springframework.cache.annotation.CacheEvict;
 
 @RestController
@@ -20,6 +23,7 @@ import org.springframework.cache.annotation.CacheEvict;
 public class AdminHomepageController {
 
     private final HomepageService homepageService;
+    private final HomepageProductSlotService slotService;
 
     // --- Sections ---
 
@@ -211,5 +215,45 @@ public class AdminHomepageController {
     public ResponseEntity<ApiResponse<Void>> reorderWhyChooseUsItems(@RequestBody List<ReorderRequest> requests) {
         homepageService.reorderWhyChooseUsItems(requests);
         return ResponseEntity.ok(ApiResponse.success(null, "Items reordered"));
+    }
+
+    // --- Homepage Product Slots (Curated Carousels) ---
+
+    @GetMapping("/product-slots/{section}")
+    public ResponseEntity<ApiResponse<List<HomepageProductSlotResponse>>> getProductSlots(
+            @PathVariable HomepageProductSection section) {
+        return ResponseEntity.ok(ApiResponse.success(slotService.getSlotsForSection(section)));
+    }
+
+    @PostMapping("/product-slots/{section}")
+    @CacheEvict(value = "homepage", allEntries = true)
+    public ResponseEntity<ApiResponse<HomepageProductSlotResponse>> addProductSlot(
+            @PathVariable HomepageProductSection section,
+            @Valid @RequestBody HomepageProductSlotRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(slotService.addSlot(section, request)));
+    }
+
+    @DeleteMapping("/product-slots/{slotId}")
+    @CacheEvict(value = "homepage", allEntries = true)
+    public ResponseEntity<ApiResponse<Void>> removeProductSlot(@PathVariable Long slotId) {
+        slotService.removeSlot(slotId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Slot removed"));
+    }
+
+    @PatchMapping("/product-slots/{slotId}/enabled")
+    @CacheEvict(value = "homepage", allEntries = true)
+    public ResponseEntity<ApiResponse<HomepageProductSlotResponse>> setSlotEnabled(
+            @PathVariable Long slotId, @RequestBody Map<String, Boolean> body) {
+        boolean enabled = Boolean.TRUE.equals(body.get("enabled"));
+        return ResponseEntity.ok(ApiResponse.success(slotService.setEnabled(slotId, enabled)));
+    }
+
+    @PatchMapping("/product-slots/{section}/reorder")
+    @CacheEvict(value = "homepage", allEntries = true)
+    public ResponseEntity<ApiResponse<Void>> reorderProductSlots(
+            @PathVariable HomepageProductSection section,
+            @RequestBody List<HomepageProductSlotService.ReorderSlotEntry> order) {
+        slotService.reorder(section, order);
+        return ResponseEntity.ok(ApiResponse.success(null, "Slots reordered"));
     }
 }

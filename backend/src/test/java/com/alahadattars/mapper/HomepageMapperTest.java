@@ -19,6 +19,7 @@ import com.alahadattars.repository.TestimonialRepository;
 import com.alahadattars.repository.WhyChooseUsItemRepository;
 import com.alahadattars.service.ProductService;
 import com.alahadattars.service.StorageService;
+import com.alahadattars.service.HomepageProductSlotService;
 import com.alahadattars.service.impl.HomepageServiceImpl;
 import com.alahadattars.service.impl.PublicHomepageServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,6 +53,7 @@ public class HomepageMapperTest {
     @Mock private CategoryRepository categoryRepository;
     @Mock private CategoryMapper categoryMapper;
     @Mock private ProductService productService;
+    @Mock private HomepageProductSlotService slotService;
 
     private HomepageMapper mapper;
     private HomepageServiceImpl adminService;
@@ -64,7 +66,7 @@ public class HomepageMapperTest {
         publicService = new PublicHomepageServiceImpl(
                 sectionRepository, heroRepository, promoRepository, testimonialRepository,
                 whyChooseUsRepository, categoryRepository, categoryMapper, productService,
-                storageService, mapper, Runnable::run);
+                storageService, mapper, slotService, Runnable::run);
 
         adminService = new HomepageServiceImpl(
                 sectionRepository, heroRepository, promoRepository, testimonialRepository,

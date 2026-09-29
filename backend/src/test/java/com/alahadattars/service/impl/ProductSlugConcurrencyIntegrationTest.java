@@ -46,11 +46,8 @@ public class ProductSlugConcurrencyIntegrationTest {
 
     @BeforeEach
     public void setup() {
-        productRepository.deleteAll();
-        categoryRepository.deleteAll();
-
         Category category = new Category();
-        category.setName("Test Category");
+        category.setName("Test Category " + System.currentTimeMillis());
         category.setDescription("Test category description");
         category.setImage("test-image.jpg");
         category.setType(com.alahadattars.enums.CategoryType.ATTARS);
@@ -61,8 +58,7 @@ public class ProductSlugConcurrencyIntegrationTest {
 
     @AfterEach
     public void cleanup() {
-        productRepository.deleteAll();
-        categoryRepository.deleteAll();
+        // Removed global deleteAll() as it breaks other tests' seeded data (e.g. OrderItem -> ProductVariant)
     }
 
     private ProductRequest createRequest(String name, String customSlug) {
@@ -87,20 +83,24 @@ public class ProductSlugConcurrencyIntegrationTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     public void testSequentialSlugGeneration() {
-        // 1. First product name "Car Perfume" -> car-perfume
-        ProductRequest r1 = createRequest("Car Perfume", null);
+        long timestamp = System.currentTimeMillis();
+        String name = "Seq Perfume " + timestamp;
+        String baseSlug = "seq-perfume-" + timestamp;
+
+        // 1. First product name -> baseSlug
+        ProductRequest r1 = createRequest(name, null);
         ProductResponse p1 = productController.createProduct(r1).getBody().getData();
-        assertThat(p1.getSlug()).isEqualTo("car-perfume");
+        assertThat(p1.getSlug()).isEqualTo(baseSlug);
 
-        // 2. Second product with same name -> car-perfume-2
-        ProductRequest r2 = createRequest("Car Perfume", null);
+        // 2. Second product with same name -> baseSlug-2
+        ProductRequest r2 = createRequest(name, null);
         ProductResponse p2 = productController.createProduct(r2).getBody().getData();
-        assertThat(p2.getSlug()).isEqualTo("car-perfume-2");
+        assertThat(p2.getSlug()).isEqualTo(baseSlug + "-2");
 
-        // 3. Third product -> car-perfume-3
-        ProductRequest r3 = createRequest("Car Perfume", null);
+        // 3. Third product -> baseSlug-3
+        ProductRequest r3 = createRequest(name, null);
         ProductResponse p3 = productController.createProduct(r3).getBody().getData();
-        assertThat(p3.getSlug()).isEqualTo("car-perfume-3");
+        assertThat(p3.getSlug()).isEqualTo(baseSlug + "-3");
     }
 
     @Test
@@ -109,12 +109,16 @@ public class ProductSlugConcurrencyIntegrationTest {
         ExecutorService executor = Executors.newFixedThreadPool(4);
         List<Callable<ResponseEntity<ApiResponse<ProductResponse>>>> tasks = new ArrayList<>();
         SecurityContext context = SecurityContextHolder.getContext();
+        
+        long timestamp = System.currentTimeMillis();
+        String name = "Concurrent Perfume " + timestamp;
+        String baseSlug = "concurrent-perfume-" + timestamp;
 
         for (int i = 0; i < 4; i++) {
             tasks.add(() -> {
                 SecurityContextHolder.setContext(context);
                 try {
-                    ProductRequest req = createRequest("Concurrent Perfume", "");
+                    ProductRequest req = createRequest(name, "");
                     return productController.createProduct(req);
                 } finally {
                     SecurityContextHolder.clearContext();
@@ -131,16 +135,17 @@ public class ProductSlugConcurrencyIntegrationTest {
         }
 
         assertThat(generatedSlugs).hasSize(4);
-        assertThat(generatedSlugs).contains("concurrent-perfume", "concurrent-perfume-2", "concurrent-perfume-3", "concurrent-perfume-4");
+        assertThat(generatedSlugs).contains(baseSlug, baseSlug + "-2", baseSlug + "-3", baseSlug + "-4");
     }
 
     @Test
     @WithMockUser(roles = "ADMIN")
     public void testDuplicateCustomSlugReturns409AndSpecificMessage() {
-        ProductRequest r1 = createRequest("First Product", "my-custom-slug");
+        String customSlug = "my-custom-slug-" + System.currentTimeMillis();
+        ProductRequest r1 = createRequest("First Product", customSlug);
         productController.createProduct(r1);
 
-        ProductRequest r2 = createRequest("Second Product", "my-custom-slug");
+        ProductRequest r2 = createRequest("Second Product", customSlug);
         
         try {
             productController.createProduct(r2);
