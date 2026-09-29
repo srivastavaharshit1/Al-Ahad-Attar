@@ -370,8 +370,16 @@ export const ProductSectionsTab: React.FC = () => {
                       <span className="material-symbols-outlined text-on-surface-variant text-lg">image</span>
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-body-md text-sm text-on-surface truncate">{product.name}</p>
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <div className="flex items-center gap-2">
+                      <p className="font-body-md text-sm text-on-surface truncate">{product.name}</p>
+                      {activeSection === 'ATTARS' && (product as any).availableVariantTypes?.includes('ATTAR') && (
+                        <span className="bg-primary/10 text-primary text-[10px] px-1.5 py-0.5 rounded font-medium">Attar</span>
+                      )}
+                      {activeSection === 'PERFUMES_BAKHOOR' && (product as any).availableVariantTypes?.includes('PERFUME') && (
+                        <span className="bg-accent/10 text-accent text-[10px] px-1.5 py-0.5 rounded font-medium">Perfume</span>
+                      )}
+                    </div>
                     <p className="font-body-sm text-xs text-on-surface-variant">
                       {product.category?.name || '—'}
                       {(product as any).subcategory ? ` · ${(product as any).subcategory}` : ''}
@@ -445,8 +453,16 @@ export const ProductSectionsTab: React.FC = () => {
                 )}
 
                 {/* Product info */}
-                <div className="flex-1 min-w-0">
-                  <p className="font-body-md text-sm text-on-surface truncate">{slot.product.name}</p>
+                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                  <div className="flex items-center gap-2">
+                    <p className="font-body-md text-sm text-on-surface truncate">{slot.product.name}</p>
+                    {activeSection === 'ATTARS' && (slot.product as any).availableVariantTypes?.includes('ATTAR') && (
+                      <span className="bg-primary/10 text-primary text-[10px] px-1.5 py-0.5 rounded font-medium">Attar</span>
+                    )}
+                    {activeSection === 'PERFUMES_BAKHOOR' && (slot.product as any).availableVariantTypes?.includes('PERFUME') && (
+                      <span className="bg-accent/10 text-accent text-[10px] px-1.5 py-0.5 rounded font-medium">Perfume</span>
+                    )}
+                  </div>
                   <p className="font-body-sm text-xs text-on-surface-variant">
                     {slot.product.categoryName || '—'}
                     {(slot.product as any).subcategory ? ` · ${(slot.product as any).subcategory}` : ''}
