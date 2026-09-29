@@ -12,17 +12,23 @@ export const Home: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadHomepageData = async () => {
+  const loadHomepageData = async (currentRetryCount = 0) => {
     try {
-      setLoading(true);
+      if (currentRetryCount === 0) {
+        setLoading(data === null);
+      }
       setError(null);
       const response = await homepageService.getHomepageData();
       setData(response);
+      setLoading(false);
     } catch (err) {
       console.error("Failed to load homepage data", err);
-      setError("Failed to load homepage content.");
-    } finally {
-      setLoading(false);
+      if (currentRetryCount < 3) {
+        setTimeout(() => loadHomepageData(currentRetryCount + 1), 2000);
+      } else {
+        setError("Something went wrong while loading content. Please try again in a moment.");
+        setLoading(false);
+      }
     }
   };
 
@@ -30,26 +36,7 @@ export const Home: React.FC = () => {
     loadHomepageData();
   }, []);
 
-  if (loading) {
-    return <HomeSkeleton />;
-  }
-
-  if (error || !data) {
-    return (
-      <div className="flex flex-col justify-center items-center min-h-[60vh] bg-[#fcfaf8]">
-        <div className="w-16 h-16 border border-[#d4af37] rounded-full flex items-center justify-center mb-6">
-          <span className="material-symbols-outlined text-[#d4af37] text-2xl">error_outline</span>
-        </div>
-        <h2 className="font-headline-md text-on-surface mb-2 tracking-widest uppercase">Connection Error</h2>
-        <p className="font-body-md text-on-surface-variant mb-8 font-light">{error || "Could not load data."}</p>
-        <button onClick={loadHomepageData} className="px-8 py-3 bg-[#121c2a] text-white text-[10px] uppercase tracking-[0.2em] hover:bg-[#d4af37] transition-colors">
-          Retry Connection
-        </button>
-      </div>
-    );
-  }
-
-  const sortedSections = [...(data.sections || [])].sort((a, b) => a.displayOrder - b.displayOrder);
+  const sortedSections = [...(data?.sections || [])].sort((a, b) => a.displayOrder - b.displayOrder);
   const getSection = (key: string) => {
     return sortedSections.find(s => s.sectionKey === key || s.sectionKey.startsWith(key.replace('_banners', '')));
   };
@@ -79,7 +66,7 @@ export const Home: React.FC = () => {
   };
 
   return (
-    <div className="w-full flex flex-col font-light">
+    <div className="w-full flex flex-col font-light relative">
       <SEO 
         title="Al Ahad Attars"
         description="Discover Al Ahad Attars, your premier destination for luxury Arabic perfumery. Shop our exquisite collection of premium attars, rich ouds, and fine fragrances."
@@ -89,6 +76,26 @@ export const Home: React.FC = () => {
           "@graph": [websiteSchema, organizationSchema]
         }}
       />
+
+      {error && (
+        <div className="w-full bg-[#f5f2eb] border-b border-[#121c2a]/10 py-3 px-4 flex justify-center items-center gap-4 z-50">
+          <span className="material-symbols-outlined text-[#121c2a] text-lg">info</span>
+          <p className="font-body-sm text-[#121c2a]">{error}</p>
+          <button 
+            onClick={() => loadHomepageData(0)} 
+            className="text-[10px] uppercase tracking-wider font-semibold text-[#d4af37] hover:text-[#121c2a] transition-colors ml-2"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+
+      {loading && !data ? (
+        <HomeSkeleton />
+      ) : !data ? (
+        <div className="min-h-[40vh]" />
+      ) : (
+        <>
 
       {isSectionVisible('hero') && data.heroes?.length > 0 && <HeroSection heroes={data.heroes} section={getSection('hero')} />}
       
@@ -179,6 +186,8 @@ export const Home: React.FC = () => {
         <div className="bg-[#f5f2eb]">
           <TestimonialsSection testimonials={data.testimonials} section={getSection('testimonials')} />
         </div>
+      )}
+        </>
       )}
     </div>
   );
