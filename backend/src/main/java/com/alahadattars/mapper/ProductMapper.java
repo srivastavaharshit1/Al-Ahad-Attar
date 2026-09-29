@@ -138,7 +138,11 @@ public class ProductMapper {
                 .map(ProductVariant::getSize)
                 .collect(Collectors.toList());
 
-        List<String> availableTypesList = preferredVariants.stream()
+        List<ProductVariant> allActiveVariants = product.getVariants() != null ? 
+                product.getVariants().stream().filter(ProductVariant::isActive).collect(Collectors.toList()) : 
+                java.util.Collections.emptyList();
+
+        List<String> availableTypesList = allActiveVariants.stream()
                 .filter(v -> v.getProductType() != null)
                 .map(v -> v.getProductType().name())
                 .distinct()
