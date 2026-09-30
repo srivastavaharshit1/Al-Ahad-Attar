@@ -51,8 +51,8 @@ export const ProductCarousel: React.FC<ProductCarouselProps> = ({
     <section className="py-20 md:py-28 overflow-hidden">
       {/* Header row */}
       <div className="px-4 md:px-8 max-w-7xl mx-auto mb-10">
-        <div className="flex flex-col items-center sm:flex-row sm:items-end justify-between gap-4 text-center sm:text-left">
-          <div className="flex flex-col items-center sm:items-start">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
             <span className="text-[#d4af37] text-[10px] font-label-md uppercase tracking-[0.35em] mb-3 block">
               {eyebrow}
             </span>
@@ -66,7 +66,7 @@ export const ProductCarousel: React.FC<ProductCarouselProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-4 shrink-0 mt-2 sm:mt-0">
+          <div className="flex items-center gap-4 shrink-0">
             {/* Desktop arrow buttons */}
             <div className="hidden md:flex gap-2">
               <button
