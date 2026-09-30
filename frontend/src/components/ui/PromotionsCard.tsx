@@ -345,12 +345,16 @@ export const State01Default = ({ couponInput, setCouponInput, handleApply, isApp
           </div>
           <span className="text-[11px]" style={{ color: C.navyLight }}>Festive Sale Live</span>
         </div>
-        <div className={`flex items-center rounded-full overflow-hidden transition-all duration-300 mb-4 shadow-[0_2px_15px_rgba(0,0,0,0.03)] ${localError ? 'ring-2 ring-[#c0392b]' : 'ring-1 ring-transparent focus-within:ring-2 focus-within:ring-[#C9A227]'}`} style={{ backgroundColor: '#ffffff' }}>
-          <span className="pl-5 material-symbols-outlined text-[18px]" style={{ color: C.muted }}>local_offer</span>
-          <input type="text" value={couponInput} onChange={e => setCouponInput(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && handleApply()} placeholder="ENTER DISCOUNT CODE" className="flex-grow px-4 py-3.5 text-[12px] font-semibold tracking-wider uppercase outline-none bg-transparent border-none focus:ring-0 focus:border-transparent focus:outline-none" style={{ color: C.navy }} disabled={isApplying} />
-          <button onClick={() => handleApply()} disabled={!couponInput.trim() || isApplying} className="mr-2 px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest rounded-full transition-all hover:brightness-110 disabled:opacity-40" style={{ color: C.navy, backgroundColor: C.border }}>
-            {isApplying ? '...' : applySuccess ? '✓' : 'Apply'}
-          </button>
+        <div className={`flex flex-col sm:flex-row sm:items-center rounded-2xl sm:rounded-full overflow-hidden transition-all duration-300 mb-4 shadow-[0_2px_15px_rgba(0,0,0,0.03)] ${localError ? 'ring-2 ring-[#c0392b]' : 'ring-1 ring-transparent focus-within:ring-2 focus-within:ring-[#C9A227]'}`} style={{ backgroundColor: '#ffffff' }}>
+          <div className="flex items-center flex-grow min-w-0 border-b sm:border-b-0 border-[#10243A]/10">
+            <span className="pl-4 sm:pl-5 material-symbols-outlined text-[18px]" style={{ color: C.muted }}>local_offer</span>
+            <input type="text" value={couponInput} onChange={e => setCouponInput(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && handleApply()} placeholder="ENTER DISCOUNT CODE" className="flex-grow min-w-0 w-full px-3 sm:px-4 py-3.5 text-[12px] font-semibold tracking-wider uppercase outline-none bg-transparent border-none focus:ring-0 focus:border-transparent focus:outline-none" style={{ color: C.navy }} disabled={isApplying} />
+          </div>
+          <div className="p-2 sm:p-0 sm:pr-2 shrink-0">
+            <button onClick={() => handleApply()} disabled={!couponInput.trim() || isApplying} className="w-full sm:w-auto shrink-0 px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest rounded-xl sm:rounded-full transition-all hover:brightness-110 disabled:opacity-40" style={{ color: C.navy, backgroundColor: C.border }}>
+              {isApplying ? '...' : applySuccess ? '✓' : 'Apply'}
+            </button>
+          </div>
         </div>
         {localError && <p className="text-[11px] mt-1 mb-3 pl-1" style={{ color: '#c0392b' }}>{localError}</p>}
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl mb-4" style={{ backgroundColor: C.cream }}>
@@ -385,12 +389,12 @@ export const State02Success = ({ appliedPromo, handleRemove, savedAmount }: any)
           </div>
           <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full" style={{ color: C.success, backgroundColor: C.successBg, border: `1px solid ${C.successBorder}` }}>Active Discount</span>
         </div>
-        <div className="flex items-center justify-between px-5 py-3.5 rounded-full mb-4" style={{ border: `1px solid ${C.border}`, backgroundColor: C.inputBg }}>
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[18px]" style={{ color: C.success }}>check_circle</span>
-            <span className="font-mono text-[13px] font-bold uppercase tracking-wider" style={{ color: C.navy }}>{appliedPromo?.code || appliedPromo?.name || 'OFFER'}</span>
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 rounded-full mb-4 gap-2" style={{ border: `1px solid ${C.border}`, backgroundColor: C.inputBg }}>
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <span className="material-symbols-outlined text-[18px] shrink-0" style={{ color: C.success }}>check_circle</span>
+            <span className="font-mono text-[12px] sm:text-[13px] font-bold uppercase tracking-wider truncate" style={{ color: C.navy }}>{appliedPromo?.code || appliedPromo?.name || 'OFFER'}</span>
           </div>
-          <button onClick={handleRemove} className="text-[10px] font-bold uppercase tracking-widest transition-opacity hover:opacity-70" style={{ color: C.burgundy }}>Remove</button>
+          <button onClick={handleRemove} className="shrink-0 text-[10px] font-bold uppercase tracking-widest transition-opacity hover:opacity-70" style={{ color: C.burgundy }}>Remove</button>
         </div>
         <div className="px-5 py-4 rounded-xl mb-4" style={{ backgroundColor: C.goldBg, border: `1px solid ${C.goldBorder}` }}>
           <div className="flex items-center gap-3 mb-1.5">
@@ -427,12 +431,16 @@ export const State03Progress = ({ spendMoreMsg, couponInput, setCouponInput, han
           </div>
           <span className="text-[11px]" style={{ color: C.navyLight }}>Special Offer</span>
         </div>
-        <div className="flex items-center rounded-full overflow-hidden transition-all duration-300 mb-4 shadow-[0_2px_15px_rgba(0,0,0,0.03)] ring-1 ring-transparent focus-within:ring-2 focus-within:ring-[#C9A227]" style={{ backgroundColor: '#ffffff' }}>
-          <span className="pl-5 material-symbols-outlined text-[18px]" style={{ color: C.muted }}>local_offer</span>
-          <input type="text" value={couponInput} onChange={e => setCouponInput(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && handleApply()} placeholder="ENTER DISCOUNT CODE" className="flex-grow px-4 py-3.5 text-[12px] font-semibold tracking-wider uppercase outline-none bg-transparent border-none focus:ring-0 focus:border-transparent focus:outline-none" style={{ color: C.navy }} disabled={isApplying} />
-          <button onClick={() => handleApply()} disabled={!couponInput.trim() || isApplying} className="mr-2 px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest rounded-full transition-all hover:brightness-110 disabled:opacity-40" style={{ color: '#fff', backgroundColor: C.goldDark }}>
-            {isApplying ? '...' : 'Apply'}
-          </button>
+        <div className="flex flex-col sm:flex-row sm:items-center rounded-2xl sm:rounded-full overflow-hidden transition-all duration-300 mb-4 shadow-[0_2px_15px_rgba(0,0,0,0.03)] ring-1 ring-transparent focus-within:ring-2 focus-within:ring-[#C9A227]" style={{ backgroundColor: '#ffffff' }}>
+          <div className="flex items-center flex-grow min-w-0 border-b sm:border-b-0 border-[#10243A]/10">
+            <span className="pl-4 sm:pl-5 material-symbols-outlined text-[18px]" style={{ color: C.muted }}>local_offer</span>
+            <input type="text" value={couponInput} onChange={e => setCouponInput(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && handleApply()} placeholder="ENTER DISCOUNT CODE" className="flex-grow min-w-0 w-full px-3 sm:px-4 py-3.5 text-[12px] font-semibold tracking-wider uppercase outline-none bg-transparent border-none focus:ring-0 focus:border-transparent focus:outline-none" style={{ color: C.navy }} disabled={isApplying} />
+          </div>
+          <div className="p-2 sm:p-0 sm:pr-2 shrink-0">
+            <button onClick={() => handleApply()} disabled={!couponInput.trim() || isApplying} className="w-full sm:w-auto shrink-0 px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest rounded-xl sm:rounded-full transition-all hover:brightness-110 disabled:opacity-40" style={{ color: '#fff', backgroundColor: C.goldDark }}>
+              {isApplying ? '...' : 'Apply'}
+            </button>
+          </div>
         </div>
         <div className="mb-4 pt-2">
           <div className="flex items-center justify-between mb-3 px-1">
@@ -472,12 +480,12 @@ export const State04Guidance = ({ couponCode, couponInput, handleApply, isApplyi
           </div>
           <span className="text-[11px]" style={{ color: C.burgundy }}>Requires Attention</span>
         </div>
-        <div className="flex items-center justify-between px-5 py-3.5 rounded-full mb-4" style={{ border: `1px solid ${C.burgundyBorder}`, backgroundColor: C.inputBg }}>
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[18px]" style={{ color: C.burgundy }}>info</span>
-            <span className="font-mono text-[13px] font-bold uppercase tracking-wider" style={{ color: C.navy }}>{couponCode || couponInput || 'INVALID CODE'}</span>
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 rounded-full mb-4 gap-2" style={{ border: `1px solid ${C.burgundyBorder}`, backgroundColor: C.inputBg }}>
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <span className="material-symbols-outlined text-[18px] shrink-0" style={{ color: C.burgundy }}>info</span>
+            <span className="font-mono text-[12px] sm:text-[13px] font-bold uppercase tracking-wider truncate" style={{ color: C.navy }}>{couponCode || couponInput || 'INVALID CODE'}</span>
           </div>
-          <button onClick={() => handleApply()} disabled={isApplying} className="px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest rounded-full transition-opacity hover:opacity-70" style={{ color: '#fff', backgroundColor: C.goldDark }}>Apply</button>
+          <button onClick={() => handleApply()} disabled={isApplying} className="shrink-0 px-4 sm:px-6 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest rounded-full transition-opacity hover:opacity-70" style={{ color: '#fff', backgroundColor: C.goldDark }}>Apply</button>
         </div>
         <div className="px-5 py-4 rounded-xl mb-4 flex gap-3 items-start" style={{ backgroundColor: C.cream, border: `1px solid ${C.border}` }}>
           <span className="material-symbols-outlined text-[18px] mt-0.5" style={{ color: C.burgundy }}>warning</span>

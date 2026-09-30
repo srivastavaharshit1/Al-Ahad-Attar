@@ -51,8 +51,8 @@ export const ProductCarousel: React.FC<ProductCarouselProps> = ({
     <section className="py-20 md:py-28 overflow-hidden">
       {/* Header row */}
       <div className="px-4 md:px-8 max-w-7xl mx-auto mb-10">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div>
+        <div className="flex flex-col items-center sm:flex-row sm:items-end justify-between gap-4 text-center sm:text-left">
+          <div className="flex flex-col items-center sm:items-start">
             <span className="text-[#d4af37] text-[10px] font-label-md uppercase tracking-[0.35em] mb-3 block">
               {eyebrow}
             </span>
@@ -66,7 +66,7 @@ export const ProductCarousel: React.FC<ProductCarouselProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-4 shrink-0 mt-2 sm:mt-0">
             {/* Desktop arrow buttons */}
             <div className="hidden md:flex gap-2">
               <button
@@ -107,15 +107,15 @@ export const ProductCarousel: React.FC<ProductCarouselProps> = ({
         */}
         <div
           ref={trackRef}
-          className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory pb-4 hide-scrollbar"
-          style={{ WebkitOverflowScrolling: 'touch' }}
+          className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory pb-4 hide-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0"
+          style={{ WebkitOverflowScrolling: 'touch', scrollPaddingLeft: '1rem' }}
           role="list"
           aria-label={heading}
         >
           {products.map((product) => (
             <div
               key={product.id}
-              className="snap-start shrink-0 w-[calc(85vw-2rem)] sm:w-[calc(45vw-2rem)] lg:w-[calc(22%)] min-w-[240px] max-w-[320px]"
+              className="snap-center sm:snap-start shrink-0 w-[calc(100vw-3rem)] sm:w-[calc(45vw-2rem)] lg:w-[calc(22%)] min-w-[260px] max-w-[320px]"
               role="listitem"
             >
               <ProductCard product={product as any} defaultType={defaultType} />

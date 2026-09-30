@@ -415,17 +415,19 @@ const FeaturedProductsSection = ({ products, section }: { products: any[], secti
 
   return (
     <section className="py-32 px-4 md:px-8 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row justify-between items-end mb-16 border-b border-[#121c2a]/10 pb-6 gap-6">
-        <div>
+      <div className="flex flex-col items-center md:flex-row md:items-end text-center md:text-left mb-16 border-b border-[#121c2a]/10 pb-6 gap-6">
+        <div className="flex flex-col items-center md:items-start w-full">
           <span className="text-[#d4af37] text-[10px] font-label-md uppercase tracking-[0.3em] mb-4 block">{section?.subtitle || 'SIGNATURE SCENTS'}</span>
           <h2 className="font-headline-lg text-4xl md:text-5xl text-[#121c2a] font-normal tracking-wide">{section?.title || 'Featured Products'}</h2>
           {section?.description && <p className="mt-4 font-body-md text-on-surface-variant max-w-xl">{section.description}</p>}
         </div>
       </div>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 justify-items-center sm:justify-items-stretch">
         {displayProducts.map(product => (
-          <ProductCard key={product.id} product={product} />
+          <div key={product.id} className="w-full max-w-[320px] sm:max-w-none">
+            <ProductCard product={product} />
+          </div>
         ))}
       </div>
       
