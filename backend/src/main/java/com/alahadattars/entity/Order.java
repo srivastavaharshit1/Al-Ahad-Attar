@@ -36,7 +36,12 @@ import java.util.List;
         @Index(name = "idx_order_number", columnList = "order_number", unique = true),
         // Database-level backstop against a single payment backing multiple orders.
         // MySQL permits repeated NULLs, so orders without a transaction id are unaffected.
-        @Index(name = "idx_order_transaction_id", columnList = "transaction_id", unique = true)
+        @Index(name = "idx_order_transaction_id", columnList = "transaction_id", unique = true),
+        @Index(name = "idx_order_status", columnList = "status"),
+        @Index(name = "idx_order_payment_status", columnList = "payment_status"),
+        @Index(name = "idx_order_refund_status", columnList = "refund_status"),
+        @Index(name = "idx_order_created_at", columnList = "created_at"),
+        @Index(name = "idx_order_shipping_address", columnList = "shipping_address_id")
     }
 )
 @Getter

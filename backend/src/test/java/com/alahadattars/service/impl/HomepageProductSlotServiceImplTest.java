@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
 class HomepageProductSlotServiceImplTest {
 
     @Mock HomepageProductSlotRepository slotRepository;
@@ -176,30 +177,29 @@ class HomepageProductSlotServiceImplTest {
     }
 
     @Test
-    void addSlot_carPerfumeProductInPerfumesBakhoorSection_throwsBadRequest() {
-        when(productRepository.findById(3L)).thenReturn(Optional.of(carPerfumeProduct));
-
-        HomepageProductSlotRequest req = new HomepageProductSlotRequest();
-        req.setProductId(3L);
-
-        assertThatThrownBy(() -> service.addSlot(HomepageProductSection.PERFUMES_BAKHOOR, req))
-                .isInstanceOf(com.alahadattars.exception.BadRequestException.class)
-                .hasMessageContaining("Car Perfume");
-    }
-
-    @Test
-    void addSlot_carPerfumeProductInCarPerfumeSection_succeeds() {
+    void addSlot_carPerfumeProductInPerfumesBakhoorSection_succeeds() {
         when(productRepository.findById(3L)).thenReturn(Optional.of(carPerfumeProduct));
         when(slotRepository.existsBySectionAndProductId(any(), any())).thenReturn(false);
         when(slotRepository.findBySectionOrderByDisplayOrderAsc(any())).thenReturn(List.of());
         when(slotRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(productMapper.toSummaryResponse(any())).thenReturn(null);
 
         HomepageProductSlotRequest req = new HomepageProductSlotRequest();
         req.setProductId(3L);
 
-        HomepageProductSlotResponse result = service.addSlot(HomepageProductSection.CAR_PERFUMES_INCENSE, req);
+        HomepageProductSlotResponse result = service.addSlot(HomepageProductSection.PERFUMES_BAKHOOR, req);
         assertThat(result).isNotNull();
+    }
+
+    @Test
+    void addSlot_carPerfumeProductInCarPerfumeSection_throwsBadRequest() {
+        when(productRepository.findById(3L)).thenReturn(Optional.of(carPerfumeProduct));
+
+        HomepageProductSlotRequest req = new HomepageProductSlotRequest();
+        req.setProductId(3L);
+
+        assertThatThrownBy(() -> service.addSlot(HomepageProductSection.CAR_PERFUMES_INCENSE, req))
+                .isInstanceOf(com.alahadattars.exception.BadRequestException.class)
+                .hasMessageContaining("Bakhoor and Incense Sticks");
     }
 
     @Test

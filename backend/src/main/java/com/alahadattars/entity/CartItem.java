@@ -3,6 +3,7 @@ package com.alahadattars.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -16,7 +17,13 @@ import lombok.ToString;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "cart_item")
+@Table(
+    name = "cart_item",
+    indexes = {
+        @Index(name = "idx_cart_item_cart_id", columnList = "cart_id"),
+        @Index(name = "idx_cart_item_variant_id", columnList = "variant_id")
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor

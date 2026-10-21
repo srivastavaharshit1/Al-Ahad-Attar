@@ -1,6 +1,8 @@
 package com.alahadattars.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.alahadattars.response.ApiResponse;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -16,7 +18,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -52,7 +54,12 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     private Set<String> trustedProxies = Set.of();
 
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
-    private final Map<String, Window> windows = new ConcurrentHashMap<>();
+    // Expired rate-limit windows no longer need to occupy memory. The hard size bound also
+    // protects this single-instance limiter from unbounded growth caused by many unique IPs.
+    private final Cache<String, Window> windows = Caffeine.newBuilder()
+            .expireAfterAccess(5, TimeUnit.MINUTES)
+            .maximumSize(10_000)
+            .build();
 
     private record Window(AtomicInteger count, long windowStartMillis) {
     }
@@ -83,7 +90,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         String key = request.getRequestURI() + "|" + clientIp(request);
         long now = System.currentTimeMillis();
 
-        Window window = windows.compute(key, (k, existing) -> {
+        Window window = windows.asMap().compute(key, (k, existing) -> {
             if (existing == null || now - existing.windowStartMillis() >= windowMillis) {
                 return new Window(new AtomicInteger(1), now);
             }

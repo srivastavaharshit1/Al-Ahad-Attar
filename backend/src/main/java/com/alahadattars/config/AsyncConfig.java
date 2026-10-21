@@ -27,8 +27,11 @@ public class AsyncConfig implements AsyncConfigurer {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(2);
         executor.setMaxPoolSize(5);
-        executor.setQueueCapacity(100);
+        executor.setQueueCapacity(500);
         executor.setThreadNamePrefix("EmailAsync-");
+        executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
         executor.initialize();
         return executor;
     }
@@ -47,6 +50,8 @@ public class AsyncConfig implements AsyncConfigurer {
         executor.setMaxPoolSize(4);
         executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("HomepageAsync-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(15);
         executor.initialize();
         return executor;
     }

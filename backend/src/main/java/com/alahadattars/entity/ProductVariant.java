@@ -39,7 +39,8 @@ import java.util.List;
         @Index(name = "idx_variant_sku", columnList = "sku"),
         @Index(name = "idx_variant_product_id", columnList = "product_id"),
         @Index(name = "idx_variant_product_type", columnList = "product_type"),
-        @Index(name = "idx_variant_active", columnList = "active")
+        @Index(name = "idx_variant_active", columnList = "active"),
+        @Index(name = "idx_variant_product_active", columnList = "product_id, active")
     }
 )
 @Getter

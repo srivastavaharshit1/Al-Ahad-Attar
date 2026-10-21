@@ -34,6 +34,12 @@ public class CacheConfig {
     @Value("${cache.homepage.max-size:50}")
     private long homepageMaxSize;
 
+    @Value("${cache.settings.ttl:60}")
+    private long settingsTtl;
+
+    @Value("${cache.settings.max-size:10}")
+    private long settingsMaxSize;
+
     @Bean
     public CacheManager cacheManager() {
         SimpleCacheManager cacheManager = new SimpleCacheManager();
@@ -41,7 +47,8 @@ public class CacheConfig {
         cacheManager.setCaches(Arrays.asList(
             buildCache("products", productsTtl, TimeUnit.MINUTES, productsMaxSize),
             buildCache("categories", categoriesTtl, TimeUnit.MINUTES, categoriesMaxSize),
-            buildCache("homepage", homepageTtl, TimeUnit.MINUTES, homepageMaxSize)
+            buildCache("homepage", homepageTtl, TimeUnit.MINUTES, homepageMaxSize),
+            buildCache("settings", settingsTtl, TimeUnit.MINUTES, settingsMaxSize)
         ));
         
         return cacheManager;

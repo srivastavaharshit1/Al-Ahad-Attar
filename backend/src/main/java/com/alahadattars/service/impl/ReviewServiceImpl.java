@@ -119,6 +119,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<ReviewResponse> getProductReviews(Long productId, Integer rating, String email, Pageable pageable) {
         User currentUser = email != null ? userRepository.findByEmail(email).orElse(null) : null;
 
@@ -144,24 +145,46 @@ public class ReviewServiceImpl implements ReviewService {
             reviews = reviewRepository.findByProductIdAndIsHiddenFalse(productId, pageable);
         }
 
-        return reviews.map(review -> mapToResponse(review, currentUser));
+        // Batch pre-fetch helpful vote counts and user-voted status across the whole page in 2 queries
+        List<Long> reviewIds = reviews.getContent().stream().map(Review::getId).toList();
+        Map<Long, Long> voteCountMap = new HashMap<>();
+        java.util.Set<Long> userVotedSet = new java.util.HashSet<>();
+
+        if (!reviewIds.isEmpty()) {
+            List<Object[]> voteCounts = helpfulVoteRepository.countByReviewIds(reviewIds);
+            for (Object[] row : voteCounts) {
+                voteCountMap.put((Long) row[0], ((Number) row[1]).longValue());
+            }
+            if (currentUser != null) {
+                userVotedSet = helpfulVoteRepository.findVotedReviewIds(reviewIds, currentUser.getId());
+            }
+        }
+
+        final Map<Long, Long> finalVoteCountMap = voteCountMap;
+        final java.util.Set<Long> finalUserVotedSet = userVotedSet;
+
+        return reviews.map(review -> mapToResponse(review, currentUser,
+                finalVoteCountMap.getOrDefault(review.getId(), 0L),
+                finalUserVotedSet.contains(review.getId())));
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ReviewSummaryResponse getProductReviewSummary(Long productId) {
         Product product = getProductById(productId);
         
-        // Fetch all non-hidden reviews to calculate distribution
-        // For larger scales, this could be optimized into a native group-by query.
-        List<Review> reviews = product.getReviews().stream().filter(r -> !r.isHidden()).toList();
+        // Single aggregated SQL group-by query — avoids loading full Review entity graphs into memory
+        List<Object[]> distributionRows = reviewRepository.getRatingDistributionByProductId(productId);
         
         Map<Integer, Long> distribution = new HashMap<>();
         for (int i = 1; i <= 5; i++) {
             distribution.put(i, 0L);
         }
         
-        for (Review r : reviews) {
-            distribution.put(r.getRating(), distribution.getOrDefault(r.getRating(), 0L) + 1);
+        for (Object[] row : distributionRows) {
+            Integer rating = ((Number) row[0]).intValue();
+            Long count = ((Number) row[1]).longValue();
+            distribution.put(rating, count);
         }
         
         return ReviewSummaryResponse.builder()
@@ -302,11 +325,13 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     private ReviewResponse mapToResponse(Review review, User currentUser) {
-        // Always query the DB directly for vote status — never rely on the in-memory
-        // helpfulVotes collection which may be stale (e.g. after toggle within the same transaction).
+        long helpfulCount = helpfulVoteRepository.countByReviewId(review.getId());
         boolean currentUserVoted = currentUser != null
                 && helpfulVoteRepository.existsByReviewIdAndUserId(review.getId(), currentUser.getId());
+        return mapToResponse(review, currentUser, helpfulCount, currentUserVoted);
+    }
 
+    private ReviewResponse mapToResponse(Review review, User currentUser, long helpfulCount, boolean currentUserVoted) {
         List<String> images = review.getImages() != null ?
                 review.getImages().stream()
                     .map(img -> storageService.resolveUrl(img.getImageUrl(), "/api/reviews/images/" + img.getId() + "/file"))
@@ -326,7 +351,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .isHidden(review.isHidden())
                 .adminReply(review.getAdminReply())
                 .imageUrls(images)
-                .helpfulVotesCount(helpfulVoteRepository.countByReviewId(review.getId()))
+                .helpfulVotesCount(helpfulCount)
                 .currentUserVotedHelpful(currentUserVoted)
                 .createdAt(review.getCreatedAt())
                 .updatedAt(review.getUpdatedAt())

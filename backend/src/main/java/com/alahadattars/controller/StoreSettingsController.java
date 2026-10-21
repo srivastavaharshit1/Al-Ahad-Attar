@@ -9,6 +9,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
@@ -34,6 +36,7 @@ public class StoreSettingsController {
 
     @Operation(summary = "Get current store settings (Public)")
     @GetMapping
+    @Cacheable(value = "settings", sync = true)
     public ResponseEntity<ApiResponse<StoreSettingsResponse>> getSettings() {
         return ResponseEntity.ok(ApiResponse.<StoreSettingsResponse>builder()
                 .success(true)
@@ -44,6 +47,7 @@ public class StoreSettingsController {
     @Operation(summary = "Update store settings (ADMIN)")
     @PutMapping
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(value = "settings", allEntries = true)
     public ResponseEntity<ApiResponse<StoreSettingsResponse>> updateSettings(@RequestBody StoreSettingsRequest request) {
         return ResponseEntity.ok(ApiResponse.<StoreSettingsResponse>builder()
                 .success(true)
@@ -55,6 +59,7 @@ public class StoreSettingsController {
     @Operation(summary = "Upload brand logo (ADMIN)")
     @PostMapping(value = "/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(value = "settings", allEntries = true)
     public ResponseEntity<ApiResponse<String>> uploadLogo(@RequestParam("file") MultipartFile file) {
         String logoUrl = storeSettingsService.uploadLogo(file);
         return ResponseEntity.ok(ApiResponse.<String>builder()
@@ -74,6 +79,7 @@ public class StoreSettingsController {
     @Operation(summary = "Upload navbar logo (ADMIN)")
     @PostMapping(value = "/logo/navbar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(value = "settings", allEntries = true)
     public ResponseEntity<ApiResponse<String>> uploadNavbarLogo(@RequestParam("file") MultipartFile file) {
         String logoUrl = storeSettingsService.uploadNavbarLogo(file);
         return ResponseEntity.ok(ApiResponse.<String>builder()

@@ -35,6 +35,8 @@ import com.alahadattars.service.ProductImageResolver;
 import com.alahadattars.service.StoreSettingsService;
 import com.alahadattars.service.EmailService;
 import com.alahadattars.service.notification.NotificationService;
+import com.alahadattars.event.OrderCreatedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import com.alahadattars.dto.email.AdminNewOrderEmailData;
 import com.alahadattars.dto.email.AdminOrderCancelledEmailData;
 import com.alahadattars.dto.email.AdminRefundFailedEmailData;
@@ -58,6 +60,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.alahadattars.service.PaymentService;
+import com.alahadattars.service.GuestCheckoutLockService;
 import com.alahadattars.dto.payment.PaymentVerificationRequest;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -92,7 +95,8 @@ public class OrderServiceImpl implements OrderService {
     private final com.alahadattars.service.StorageService storageService;
     private final ProductImageResolver productImageResolver;
     private final WebhookEventRepository webhookEventRepository;
-    private final com.alahadattars.service.GuestCheckoutLockService guestCheckoutLockService;
+    private final GuestCheckoutLockService guestCheckoutLockService;
+    private final ApplicationEventPublisher eventPublisher;
 
     private static final DateTimeFormatter EMAIL_DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
 
@@ -214,9 +218,11 @@ public class OrderServiceImpl implements OrderService {
             if (req.getBottleId() != null) bottleIds.add(req.getBottleId());
         }
 
-        java.util.Map<Long, ProductVariant> variantMap = variantRepository.findAllById(variantIds).stream()
+        java.util.Map<Long, ProductVariant> variantMap = variantIds.isEmpty() ? java.util.Collections.emptyMap() :
+                variantRepository.findAllById(variantIds).stream()
                 .collect(Collectors.toMap(ProductVariant::getId, v -> v));
-        java.util.Map<Long, com.alahadattars.entity.Bottle> bottleMap = bottleRepository.findAllById(bottleIds).stream()
+        java.util.Map<Long, com.alahadattars.entity.Bottle> bottleMap = bottleIds.isEmpty() ? java.util.Collections.emptyMap() :
+                bottleRepository.findAllById(bottleIds).stream()
                 .collect(Collectors.toMap(com.alahadattars.entity.Bottle::getId, b -> b));
 
         // First pass: Add all paid items to the cart
@@ -493,9 +499,6 @@ public class OrderServiceImpl implements OrderService {
             promotionRedemptionRepository.saveAll(redemptions);
         }
 
-        // Trigger notification after payment verification and inventory updates are successful
-        notificationService.sendOrderNotification(savedOrder);
-
         List<EmailOrderItem> emailItems = toEmailItems(savedOrder.getItems());
         EmailAddress emailAddress = toEmailAddress(savedOrder.getShippingAddress());
 
@@ -503,7 +506,7 @@ public class OrderServiceImpl implements OrderService {
         String customerEmail = user != null ? user.getEmail() : savedOrder.getGuestEmail();
         String customerPhone = user != null ? user.getPhone() : savedOrder.getGuestPhone();
 
-        emailService.sendOrderConfirmedEmail(new OrderConfirmationEmailData(
+        OrderConfirmationEmailData confirmationData = new OrderConfirmationEmailData(
                 customerEmail,
                 customerName,
                 savedOrder.getOrderNumber(),
@@ -512,15 +515,26 @@ public class OrderServiceImpl implements OrderService {
                 emailAddress,
                 savedOrder.getTotalAmount(),
                 savedOrder.getPaymentMethod()
-        ));
+        );
 
-        emailService.sendAdminNewOrderEmail(new AdminNewOrderEmailData(
+        AdminNewOrderEmailData adminData = new AdminNewOrderEmailData(
                 savedOrder.getOrderNumber(),
                 customerName,
                 customerPhone,
                 emailAddress,
                 emailItems,
                 savedOrder.getTotalAmount()
+        );
+
+        // Decouple external notifications/emails from the database transaction.
+        // Dispatched in TransactionPhase.AFTER_COMMIT by OrderNotificationListener so that
+        // potential CallerRunsPolicy backpressure never executes SMTP I/O while holding a DB connection.
+        eventPublisher.publishEvent(new OrderCreatedEvent(
+                savedOrder.getId(),
+                savedOrder.getOrderNumber(),
+                confirmationData,
+                adminData,
+                savedOrder
         ));
 
         return mapToResponse(savedOrder);

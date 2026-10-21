@@ -1,5 +1,6 @@
 package com.alahadattars.security;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -9,6 +10,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -160,5 +162,23 @@ class AuthRateLimitFilterTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
         filter.doFilterInternal(differentClaimedClient, response, chain);
         assertEquals(429, response.getStatus());
+    }
+
+    @Test
+    void boundsStoredClientWindows() throws Exception {
+        FilterChain chain = mock(FilterChain.class);
+
+        // More unique clients than the configured Caffeine maximum must not grow the limiter
+        // state without bound.
+        for (int i = 0; i < 10_500; i++) {
+            String ip = "192.0." + (i / 256) + "." + (i % 256);
+            filter.doFilterInternal(loginRequest(ip), new MockHttpServletResponse(), chain);
+        }
+
+        @SuppressWarnings("unchecked")
+        Cache<String, ?> windows = (Cache<String, ?>) ReflectionTestUtils.getField(filter, "windows");
+        windows.cleanUp();
+
+        assertTrue(windows.estimatedSize() <= 10_000);
     }
 }

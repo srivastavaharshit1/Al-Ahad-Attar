@@ -15,6 +15,22 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     boolean existsBySku(String sku);
     List<ProductVariant> findByActiveTrue();
 
+    @Override
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"product", "product.category"})
+    List<ProductVariant> findAllById(Iterable<Long> ids);
+
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT v FROM ProductVariant v
+            JOIN FETCH v.product p
+            LEFT JOIN FETCH p.category c
+            WHERE v.id IN :ids
+            """)
+    List<ProductVariant> findAllByIdWithProductAndCategory(@org.springframework.data.repository.query.Param("ids") java.util.Collection<Long> ids);
+
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("UPDATE ProductVariant v SET v.active = false WHERE v.product = :product")
+    int deactivateByProduct(@org.springframework.data.repository.query.Param("product") Product product);
+
     @org.springframework.data.jpa.repository.Query("""
             SELECT v FROM ProductVariant v
             JOIN FETCH v.product p

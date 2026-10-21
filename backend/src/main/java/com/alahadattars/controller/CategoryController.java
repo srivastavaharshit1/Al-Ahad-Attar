@@ -85,7 +85,7 @@ public class CategoryController {
 
     @Operation(summary = "Get all active categories")
     @GetMapping("/active")
-    @Cacheable("categories")
+    @Cacheable(value = "categories", sync = true)
     public ResponseEntity<ApiResponse<List<CategoryResponse>>> getActiveCategories() {
         log.info("Fetching all active categories");
         List<CategoryResponse> response = categoryService.getActiveCategories();

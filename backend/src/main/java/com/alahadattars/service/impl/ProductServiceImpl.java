@@ -149,12 +149,8 @@ public class ProductServiceImpl implements ProductService {
         productRepository.save(product);
         log.info("Product Deleted (Deactivated): ID={}", id);
 
-        List<ProductVariant> variants = productVariantRepository.findByProduct(product);
-        for (ProductVariant variant : variants) {
-            variant.setActive(false);
-            productVariantRepository.save(variant);
-            log.info("Variant Deleted (Deactivated): ID={} cascading from Product", variant.getId());
-        }
+        productVariantRepository.deactivateByProduct(product);
+        log.info("Variants deactivated cascading from Product ID={}", id);
     }
 
     @Override
@@ -430,13 +426,13 @@ public class ProductServiceImpl implements ProductService {
         org.springframework.data.domain.PageRequest limit = org.springframework.data.domain.PageRequest.of(0, targetCount);
 
         // 1. Same Category
-        List<Product> byCategory = productRepository.findByCategoryAndIdNotAndActiveTrue(product.getCategory(), id, limit).getContent();
+        List<Product> byCategory = productRepository.findByCategoryAndIdNotAndActiveTrue(product.getCategory(), id, limit);
         relatedProducts.addAll(byCategory);
 
         // 2. Similar Fragrance Family
         if (relatedProducts.size() < targetCount && product.getFragranceFamily() != null) {
             limit = org.springframework.data.domain.PageRequest.of(0, targetCount - relatedProducts.size());
-            List<Product> byFamily = productRepository.findByFragranceFamilyAndIdNotAndActiveTrue(product.getFragranceFamily(), id, limit).getContent();
+            List<Product> byFamily = productRepository.findByFragranceFamilyAndIdNotAndActiveTrue(product.getFragranceFamily(), id, limit);
             for (Product p : byFamily) {
                 if (!relatedProducts.contains(p)) {
                     relatedProducts.add(p);
@@ -447,7 +443,7 @@ public class ProductServiceImpl implements ProductService {
         // 3. Top Rated / Fallback
         if (relatedProducts.size() < targetCount) {
             limit = org.springframework.data.domain.PageRequest.of(0, targetCount); // fetch more in case of overlap
-            List<Product> topRated = productRepository.findTopRatedProducts(id, limit).getContent();
+            List<Product> topRated = productRepository.findTopRatedProducts(id, limit);
             for (Product p : topRated) {
                 if (relatedProducts.size() >= targetCount) break;
                 if (!relatedProducts.contains(p)) {

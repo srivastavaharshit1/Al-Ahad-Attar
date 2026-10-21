@@ -1,5 +1,9 @@
 server:
   port: 8080
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json,application/xml
+    min-response-size: 1024
 
 spring:
   application:
@@ -47,7 +51,9 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    # Keep SQL output opt-in: logging every statement adds synchronous formatting/I/O to
+    # database hot paths. application-local.yml enables it for local query debugging.
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
@@ -131,7 +137,7 @@ logging:
     root: INFO
     com.alahadattars: DEBUG
     org.springframework.web: INFO
-    org.hibernate.SQL: DEBUG
+    org.hibernate.SQL: WARN
     # TRACE here logs every bound parameter value for every query — the single biggest source of
     # dev-mode slowness (reflection + string formatting + synchronous log I/O on every JDBC call).
     # Keep SQL text visible via org.hibernate.SQL above; only bump this back to TRACE temporarily
@@ -166,3 +172,6 @@ cache:
   homepage:
     ttl: 30
     max-size: 50
+  settings:
+    ttl: 60
+    max-size: 10

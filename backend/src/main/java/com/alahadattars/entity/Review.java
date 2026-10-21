@@ -9,13 +9,15 @@ import java.util.List;
 @Entity
 @Table(name = "review", indexes = {
     @Index(name = "idx_review_product_id", columnList = "product_id"),
-    @Index(name = "idx_review_user_id", columnList = "user_id")
+    @Index(name = "idx_review_user_id", columnList = "user_id"),
+    @Index(name = "idx_review_product_hidden", columnList = "product_id, is_hidden")
 })
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@org.hibernate.annotations.BatchSize(size = 32)
 public class Review extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -48,6 +50,7 @@ public class Review extends BaseEntity {
 
     @Builder.Default
     @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 32)
     private List<ReviewImage> images = new ArrayList<>();
 
     @Builder.Default

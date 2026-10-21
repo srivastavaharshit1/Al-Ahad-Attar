@@ -63,8 +63,7 @@ public class OrderServiceImplBatchingTest {
     @Mock private com.alahadattars.service.EmailService emailService;
     @Mock private com.alahadattars.mapper.ProductVariantMapper variantMapper;
     @Mock private com.alahadattars.service.ProductImageResolver productImageResolver;
-    
-    
+    @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -179,6 +178,7 @@ public class OrderServiceImplBatchingTest {
         // Verify batch queries executed EXACTLY ONCE
         verify(variantRepository, times(1)).findAllById(Set.of(10L, 20L));
         verify(bottleRepository, times(1)).findAllById(Set.of(50L));
+        verify(eventPublisher, times(1)).publishEvent(any(com.alahadattars.event.OrderCreatedEvent.class));
     }
 
     @Test

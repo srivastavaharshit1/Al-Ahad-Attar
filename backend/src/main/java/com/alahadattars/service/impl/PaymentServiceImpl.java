@@ -118,11 +118,20 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new IllegalStateException("Cart is empty");
             }
 
-            // CRITICAL: Prevent initializing payment for out-of-stock items
+            // CRITICAL: Prevent initializing payment for out-of-stock items (Batch query to eliminate N+1)
+            java.util.Set<Long> variantIds = cart.getItems().stream()
+                    .map(com.alahadattars.dto.cart.CartItemResponse::getVariantId)
+                    .filter(java.util.Objects::nonNull)
+                    .collect(java.util.stream.Collectors.toSet());
+            java.util.Map<Long, ProductVariant> variantMap = variantIds.isEmpty() ? java.util.Collections.emptyMap() :
+                    productVariantRepository.findAllById(variantIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(ProductVariant::getId, v -> v));
+
             for (com.alahadattars.dto.cart.CartItemResponse item : cart.getItems()) {
-                ProductVariant variant = productVariantRepository.findById(item.getVariantId()).orElse(null);
+                ProductVariant variant = variantMap.get(item.getVariantId());
                 if (variant != null && variant.getStock() < item.getQuantity()) {
-                    throw new IllegalStateException("Insufficient stock for " + variant.getProduct().getName() + ". Available: " + variant.getStock());
+                    String productName = variant.getProduct() != null ? variant.getProduct().getName() : "Item";
+                    throw new IllegalStateException("Insufficient stock for " + productName + ". Available: " + variant.getStock());
                 }
             }
             

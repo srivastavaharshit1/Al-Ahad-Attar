@@ -102,7 +102,7 @@ public class CategoryServiceImpl implements CategoryService {
                     return new ResourceNotFoundException(AppConstants.CATEGORY_NOT_FOUND_MSG + id);
                 });
 
-        if (!productRepository.findByCategory(category).isEmpty()) {
+        if (productRepository.existsByCategory(category)) {
             log.warn("Category delete failed: Contains products. ID={}", id);
             throw new ConflictException("Cannot delete Category because it contains products.");
         }
@@ -113,6 +113,7 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CategoryResponse getCategoryById(Long id) {
         log.debug("Fetching category with ID: {}", id);
         Category category = categoryRepository.findById(id)
@@ -124,6 +125,7 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public org.springframework.data.domain.Page<CategoryResponse> getAllCategories(org.springframework.data.domain.Pageable pageable) {
         log.debug("Fetching all categories with pagination");
         return categoryRepository.findAll(pageable)
@@ -131,6 +133,7 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<CategoryResponse> getActiveCategories() {
         log.debug("Fetching active categories");
         return categoryRepository.findByActiveTrue().stream()

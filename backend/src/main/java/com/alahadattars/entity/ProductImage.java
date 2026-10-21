@@ -21,7 +21,8 @@ import lombok.ToString;
     name = "product_image",
     indexes = {
         @Index(name = "idx_product_image_product_id", columnList = "product_id"),
-        @Index(name = "idx_product_image_primary", columnList = "is_primary")
+        @Index(name = "idx_product_image_primary", columnList = "is_primary"),
+        @Index(name = "idx_product_image_product_active", columnList = "product_id, active")
     }
 )
 @Getter

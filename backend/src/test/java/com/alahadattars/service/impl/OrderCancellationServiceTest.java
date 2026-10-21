@@ -72,6 +72,7 @@ class OrderCancellationServiceTest {
     @Mock private PromotionRedemptionRepository promotionRedemptionRepository;
     @Mock private EmailService emailService;
     @Mock private RefundTransactionSupport refundTransactionSupport;
+    @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private OrderServiceImpl orderService;
