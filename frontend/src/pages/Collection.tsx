@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { Breadcrumb } from '../components/ui/Breadcrumb';
 import { ProductCard } from '../components/product/ProductCard';
@@ -10,6 +10,7 @@ import { productService } from '../services/productService';
 import type { Product } from '../types';
 import { useInView } from '../hooks/useInView';
 import { SEO } from '../components/seo/SEO';
+import { SortDropdown, normalizeSortOption, getBackendSortParam } from '../components/ui/SortDropdown';
 
 // Maps each sidebar filter to the top-level nav collection it belongs to.
 // This is the single source of truth for parent-collection resolution.
@@ -50,7 +51,8 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
   const selectedSubcategory = searchParams.get('subcategory') || '';
   const selectedGender = searchParams.get('gender') || '';
   const selectedBrand = searchParams.get('brand') || '';
-  const sortBy = searchParams.get('sort') || 'name,asc';
+  const rawSortBy = searchParams.get('sort');
+  const sortBy = normalizeSortOption(rawSortBy);
   const searchQuery = searchParams.get('search') || '';
 
   const updateParam = (key: string, value: string) => {
@@ -64,7 +66,18 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
   const setSelectedSubcategory = (val: string) => updateParam('subcategory', val);
   const setSelectedGender = (val: string) => updateParam('gender', val);
   const setSelectedBrand = (val: string) => updateParam('brand', val);
-  const setSortBy = (val: string) => updateParam('sort', val);
+  const handleSortChange = (newSort: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (newSort) {
+        next.set('sort', newSort);
+      } else {
+        next.delete('sort');
+      }
+      next.delete('page');
+      return next;
+    });
+  };
   const setSearchQuery = (val: string) => updateParam('search', val);
 
   const { ref: gridRef, inView: gridInView } = useInView(0);
@@ -131,13 +144,13 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
     setIsLoading(true);
     setError(null);
     try {
-      const [sortField, sortDir] = sortBy.split(',');
+      const backendSort = getBackendSortParam(sortBy);
       const params: Record<string, any> = {
         // /api/products has no active-only default (the admin product list reuses the same
         // endpoint and needs to see inactive/deleted products too) — the public collection page
         // has to ask for active=true explicitly, or deactivated products show up in browsing.
         active: true,
-        sort: `${sortField},${sortDir}`,
+        sort: backendSort,
         size: 24,
         page: currentPage
       };
@@ -173,6 +186,39 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
       if (fetchIdRef.current === requestId) setIsLoading(false);
     }
   };
+
+  // Memoized, non-mutating sorted products for consistent client-side display safety
+  const displayProducts = useMemo(() => {
+    if (!products || products.length === 0) return [];
+    const copy = [...products];
+    switch (sortBy) {
+      case 'name,asc':
+        return copy.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' }));
+      case 'name,desc':
+        return copy.sort((a, b) => (b.name || '').localeCompare(a.name || '', undefined, { numeric: true, sensitivity: 'base' }));
+      case 'price,asc':
+        return copy.sort((a, b) => {
+          const pa = a.minimumPrice != null ? Number(a.minimumPrice) : Infinity;
+          const pb = b.minimumPrice != null ? Number(b.minimumPrice) : Infinity;
+          return pa - pb;
+        });
+      case 'price,desc':
+        return copy.sort((a, b) => {
+          const pa = a.minimumPrice != null ? Number(a.minimumPrice) : -Infinity;
+          const pb = b.minimumPrice != null ? Number(b.minimumPrice) : -Infinity;
+          return pb - pa;
+        });
+      case 'createdAt,desc':
+        return copy.sort((a, b) => {
+          const da = (a as any).createdAt ? new Date((a as any).createdAt).getTime() : 0;
+          const db = (b as any).createdAt ? new Date((b as any).createdAt).getTime() : 0;
+          if (da && db) return db - da;
+          return 0; // retain backend order
+        });
+      default:
+        return copy;
+    }
+  }, [products, sortBy]);
 
   // Changing a filter invalidates the current page (e.g. being on page 3 of an
   // unfiltered list, then filtering down to 1 page, would otherwise request a
@@ -367,16 +413,11 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
           </div>
           <div className="flex items-center gap-4 shrink-0">
             <span className="font-label-md text-label-md text-on-surface-variant uppercase">Sort By</span>
-            <select
+            <SortDropdown
               value={sortBy}
-              onChange={(e) => { setSortBy(e.target.value); resetPage(); }}
-              className="bg-surface-container-lowest border border-outline-variant text-on-surface font-body-md text-body-md rounded-DEFAULT py-2 pl-4 pr-10 transition-colors hover:border-accent focus:border-accent focus:ring-2 focus:ring-accent/20 focus:outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30"
-            >
-              <option value="createdAt,desc">Newest</option>
-              <option value="minPrice,asc">Price: Low to High</option>
-              <option value="maxPrice,desc">Price: High to Low</option>
-              <option value="name,asc">Name: A–Z</option>
-            </select>
+              onChange={handleSortChange}
+              id="desktop-sort-dropdown"
+            />
           </div>
         </div>
       </header>
@@ -551,7 +592,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
                 ref={gridRef}
                 className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8 reveal ${gridInView ? 'in-view' : ''}`}
               >
-                {products.map(product => {
+                {displayProducts.map(product => {
                   // For Car Perfumes, do not impose a type context on the card.
                   // The card should display the product's own label and image (not "PERFUMES").
                   let cardDefaultType: string | undefined;
