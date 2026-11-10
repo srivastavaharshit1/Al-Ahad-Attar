@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,6 +52,8 @@ class PaymentServiceWebhookTest {
     @Mock private OrderRepository orderRepository;
     @Mock private WebhookEventRepository webhookEventRepository;
     @Mock private com.alahadattars.service.EmailService emailService;
+    @Mock private com.alahadattars.repository.GiftSetRepository giftSetRepository;
+    @Mock private com.alahadattars.service.GiftSetService giftSetService;
 
     private RefundTransactionSupport refundTransactionSupport;
     private PaymentServiceImpl paymentService;
@@ -82,7 +85,7 @@ class PaymentServiceWebhookTest {
         webhookFailedEventType = null;
         webhookCapturedThrowable = null;
 
-        refundTransactionSupport = new RefundTransactionSupport(null, null, null, null) {
+        refundTransactionSupport = new RefundTransactionSupport(null, null, null, null, null, null) {
             @Override
             public void reconcileRefundFromWebhook(String razorpayRefundId, String paymentId, String razorpayStatus) {
                 refundReconciled = true;
@@ -112,7 +115,7 @@ class PaymentServiceWebhookTest {
                 cartService, storeSettingsService, productVariantRepository,
                 paymentIntentRepository, userRepository, orderRepository,
                 webhookEventRepository, refundTransactionSupport, emailService,
-                webhookTransactionSupport
+                webhookTransactionSupport, giftSetRepository, giftSetService
         );
         ReflectionTestUtils.setField(paymentService, "webhookSecret", WEBHOOK_SECRET);
     }
@@ -272,5 +275,69 @@ class PaymentServiceWebhookTest {
         // The lock ensures that the first webhook proceeds, saves, and commits.
         // The second webhook acquires the lock, then checks existsById and returns true.
         // Handled by duplicateWebhook_handledGracefullyWithoutRethrowing and the lock verification.
+    }
+
+    @Test
+    void testWebhookRouting_orderExists_routesToRefundTransactionSupport() throws Exception {
+        com.alahadattars.service.PaymentReconciliationService mockReconService = org.mockito.Mockito.mock(com.alahadattars.service.PaymentReconciliationService.class);
+        org.springframework.beans.factory.ObjectProvider<com.alahadattars.service.PaymentReconciliationService> mockProvider = org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class);
+        ReflectionTestUtils.setField(paymentService, "paymentReconciliationServiceProvider", mockProvider);
+
+        when(orderRepository.findByRefundId("rfnd_order_1")).thenReturn(Optional.of(new com.alahadattars.entity.Order()));
+
+        String payload = """
+                {"id":"evt_order_refund","event":"refund.processed","payload":{"refund":{"entity":{"id":"rfnd_order_1","payment_id":"pay_order_1","status":"processed"}}}}""";
+        String signature = sign(payload, WEBHOOK_SECRET);
+
+        boolean accepted = paymentService.handleWebhookEvent(payload, signature);
+
+        assertTrue(accepted);
+        assertTrue(refundReconciled, "Should route to refundTransactionSupport");
+        assertEquals("rfnd_order_1", lastRefundId);
+        org.mockito.Mockito.verify(mockReconService, never()).reconcileRefundFromWebhook(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void testWebhookRouting_orphanIntentExists_routesToPaymentReconciliationService() throws Exception {
+        com.alahadattars.service.PaymentReconciliationService mockReconService = org.mockito.Mockito.mock(com.alahadattars.service.PaymentReconciliationService.class);
+        org.springframework.beans.factory.ObjectProvider<com.alahadattars.service.PaymentReconciliationService> mockProvider = org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            java.util.function.Consumer<com.alahadattars.service.PaymentReconciliationService> consumer = invocation.getArgument(0);
+            consumer.accept(mockReconService);
+            return null;
+        }).when(mockProvider).ifAvailable(any());
+        ReflectionTestUtils.setField(paymentService, "paymentReconciliationServiceProvider", mockProvider);
+
+        when(orderRepository.findByRefundId("rfnd_orphan_1")).thenReturn(Optional.empty());
+        when(orderRepository.findByTransactionId("pay_orphan_1")).thenReturn(Optional.empty());
+        when(orderRepository.existsByTransactionId("pay_orphan_1")).thenReturn(false);
+
+        PaymentIntent orphanIntent = PaymentIntent.builder().razorpayPaymentId("pay_orphan_1").build();
+        when(paymentIntentRepository.findByRazorpayPaymentId("pay_orphan_1")).thenReturn(Optional.of(orphanIntent));
+
+        String payload = """
+                {"id":"evt_orphan_refund","event":"refund.processed","payload":{"refund":{"entity":{"id":"rfnd_orphan_1","payment_id":"pay_orphan_1","status":"processed"}}}}""";
+        String signature = sign(payload, WEBHOOK_SECRET);
+
+        boolean accepted = paymentService.handleWebhookEvent(payload, signature);
+
+        assertTrue(accepted);
+        assertFalse(refundReconciled, "Should NOT route to refundTransactionSupport");
+        org.mockito.Mockito.verify(mockReconService).reconcileRefundFromWebhook("rfnd_orphan_1", "pay_orphan_1", "processed");
+    }
+
+    @Test
+    void testDuplicateRefundWebhook_ignoredIdempotently() throws Exception {
+        when(webhookEventRepository.existsById("evt_dup_refund")).thenReturn(true);
+
+        String payload = """
+                {"id":"evt_dup_refund","event":"refund.processed","payload":{"refund":{"entity":{"id":"rfnd_dup","payment_id":"pay_dup","status":"processed"}}}}""";
+        String signature = sign(payload, WEBHOOK_SECRET);
+
+        boolean accepted = paymentService.handleWebhookEvent(payload, signature);
+
+        assertTrue(accepted);
+        assertFalse(refundReconciled, "Duplicate event must be ignored");
+        verify(webhookEventRepository, never()).saveAndFlush(any());
     }
 }

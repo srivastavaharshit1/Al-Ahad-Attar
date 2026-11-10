@@ -55,11 +55,14 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
   const sortBy = normalizeSortOption(rawSortBy);
   const searchQuery = searchParams.get('search') || '';
 
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+
   const updateParam = (key: string, value: string) => {
     setSearchParams(prev => {
-      if (value) prev.set(key, value);
-      else prev.delete(key);
-      return prev;
+      const next = new URLSearchParams(prev);
+      if (value) next.set(key, value);
+      else next.delete(key);
+      return next;
     });
   };
 
@@ -394,53 +397,56 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
         schema={breadcrumbSchema}
       />
 
-      <header className="mb-12 md:mb-16">
+      <header className="mb-10 md:mb-14">
         <Breadcrumb
           items={[
             { label: 'Home', href: '/' },
             { label: activeCategory ? activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1) : 'Collection' }
           ]}
         />
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pt-2">
           <div>
-            <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.3em] mb-3 block">Signature Fragrances</span>
-            <h1 className="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-on-surface">
+            <span className="text-accent text-[11px] font-semibold uppercase tracking-[0.3em] mb-2.5 block">
+              Signature Fragrances
+            </span>
+            <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl text-ink font-normal tracking-tight">
               {pageTitle}
             </h1>
-            <p className="font-body-lg text-body-lg text-on-surface-variant mt-4 max-w-2xl leading-relaxed">
-              Discover our curated selection of artisanal fragrances, masterfully blended following centuries-old traditions.
+            <p className="font-body-md text-sm sm:text-base text-ink/70 mt-3 max-w-2xl leading-relaxed font-light">
+              Discover our curated selection of artisanal fragrances, masterfully blended following centuries-old Arabian traditions.
             </p>
           </div>
-          <div className="flex items-center gap-4 shrink-0">
-            <span className="font-label-md text-label-md text-on-surface-variant uppercase">Sort By</span>
+          <div className="hidden md:flex items-center shrink-0">
             <SortDropdown
               value={sortBy}
               onChange={handleSortChange}
               id="desktop-sort-dropdown"
+              showLabel={true}
             />
           </div>
         </div>
       </header>
 
+      {/* Subcategory Pills for Bakhoor */}
       {selectedCategoryId !== '' && selectedCategoryId !== null && selectedCatName === 'bakhoor' && (
-        <div className="flex justify-center mb-12 flex-wrap gap-2">
-          <div className="inline-flex flex-wrap justify-center bg-surface-container-lowest border border-outline-variant/30 rounded-full p-1 max-w-full">
+        <div className="flex justify-center mb-10 flex-wrap gap-2">
+          <div className="inline-flex flex-wrap justify-center bg-surface-container-lowest border border-[#e4dcc8] rounded-full p-1 max-w-full shadow-xs">
             <button
               onClick={() => setSearchParams(prev => { prev.delete('subcategory'); prev.delete('page'); return prev; })}
-              className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+              className={`px-5 py-1.5 rounded-full text-xs uppercase tracking-wider font-medium transition-all ${
                 selectedSubcategory === ''
-                  ? 'bg-accent-soft text-accent-hover'
-                  : 'text-on-surface-variant hover:text-accent'
+                  ? 'bg-ink text-surface shadow-xs'
+                  : 'text-ink/70 hover:text-ink'
               }`}
             >
               Bakhoor
             </button>
             <button
               onClick={() => setSearchParams(prev => { prev.set('subcategory', 'Incense Sticks'); prev.delete('page'); return prev; })}
-              className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+              className={`px-5 py-1.5 rounded-full text-xs uppercase tracking-wider font-medium transition-all ${
                 selectedSubcategory === 'Incense Sticks'
-                  ? 'bg-accent-soft text-accent-hover'
-                  : 'text-on-surface-variant hover:text-accent'
+                  ? 'bg-ink text-surface shadow-xs'
+                  : 'text-ink/70 hover:text-ink'
               }`}
             >
               Incense Sticks
@@ -448,25 +454,27 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
           </div>
         </div>
       )}
+
+      {/* Subcategory Pills for Perfumes */}
       {selectedCategoryId !== '' && selectedCategoryId !== null && selectedCatName === 'perfumes' && (
-        <div className="flex justify-center mb-12 flex-wrap gap-2">
-          <div className="inline-flex flex-wrap justify-center bg-surface-container-lowest border border-outline-variant/30 rounded-full p-1 max-w-full">
+        <div className="flex justify-center mb-10 flex-wrap gap-2">
+          <div className="inline-flex flex-wrap justify-center bg-surface-container-lowest border border-[#e4dcc8] rounded-full p-1 max-w-full shadow-xs">
             <button
               onClick={() => setSearchParams(prev => { prev.delete('subcategory'); prev.delete('page'); return prev; })}
-              className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+              className={`px-5 py-1.5 rounded-full text-xs uppercase tracking-wider font-medium transition-all ${
                 selectedSubcategory === ''
-                  ? 'bg-accent-soft text-accent-hover'
-                  : 'text-on-surface-variant hover:text-accent'
+                  ? 'bg-ink text-surface shadow-xs'
+                  : 'text-ink/70 hover:text-ink'
               }`}
             >
               Perfumes
             </button>
             <button
               onClick={() => setSearchParams(prev => { prev.set('subcategory', 'Car Perfumes'); prev.delete('page'); return prev; })}
-              className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+              className={`px-5 py-1.5 rounded-full text-xs uppercase tracking-wider font-medium transition-all ${
                 selectedSubcategory === 'Car Perfumes'
-                  ? 'bg-accent-soft text-accent-hover'
-                  : 'text-on-surface-variant hover:text-accent'
+                  ? 'bg-ink text-surface shadow-xs'
+                  : 'text-ink/70 hover:text-ink'
               }`}
             >
               Car Perfumes
@@ -475,16 +483,171 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start">
-        {/* Sidebar Filters */}
-        <aside className="hidden lg:block lg:col-span-3 sticky top-32 space-y-10 pr-8 border-r border-outline-variant/30">
+      {/* Mobile Filter & Sort Bar (Visible on mobile/tablet) */}
+      <div className="flex md:hidden items-center justify-between gap-3 mb-6 pb-4 border-b border-[#e4dcc8]">
+        <button
+          onClick={() => setIsMobileFilterOpen(true)}
+          className="flex items-center gap-2 px-3.5 py-2 rounded-sm bg-surface-container-lowest border border-[#e4dcc8] text-ink font-medium text-xs uppercase tracking-wider hover:border-accent transition-all shadow-xs"
+        >
+          <span className="material-symbols-outlined text-[18px] text-accent">tune</span>
+          <span>Filters</span>
+          {hasActiveFilters && (
+            <span className="w-5 h-5 rounded-full bg-ink text-surface text-[10px] font-bold flex items-center justify-center">
+              {[
+                activeSidebarFilter !== 'all' ? 1 : 0,
+                selectedGender ? 1 : 0,
+                selectedBrand ? 1 : 0,
+                searchQuery ? 1 : 0
+              ].reduce((a, b) => a + b, 0)}
+            </span>
+          )}
+        </button>
+
+        <SortDropdown
+          value={sortBy}
+          onChange={handleSortChange}
+          id="mobile-sort-dropdown"
+          showLabel={false}
+        />
+      </div>
+
+      {/* Mobile Filter Drawer */}
+      {isMobileFilterOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-ink/60 backdrop-blur-xs transition-opacity duration-300 md:hidden">
+          <div
+            className="w-full max-w-xs h-full bg-[#fbf9f5] flex flex-col shadow-2xl overflow-hidden animate-slide-left"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[#e4dcc8] bg-surface">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-accent text-[20px]">tune</span>
+                <span className="font-serif text-lg text-ink font-medium">Filter Fragrances</span>
+              </div>
+              <button
+                onClick={() => setIsMobileFilterOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-ink/60 hover:text-ink hover:bg-ink/5 transition-colors"
+                aria-label="Close filters"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            {/* Drawer Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+              {/* Category Filter */}
+              <div>
+                <h4 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent mb-4 border-b border-[#e4dcc8] pb-2">
+                  Category
+                </h4>
+                <div className="space-y-3">
+                  {[
+                    { id: 'all', name: 'All Collections' },
+                    { id: 'attars', name: 'Attars' },
+                    { id: 'bakhoor', name: 'Bakhoor' },
+                    { id: 'incense-sticks', name: 'Incense Sticks' },
+                    { id: 'perfumes', name: 'Perfumes' },
+                    { id: 'car-perfumes', name: 'Car Perfumes' }
+                  ].map(cat => {
+                    const isChecked = activeSidebarFilter === cat.id;
+                    return (
+                      <label key={cat.id} className="flex items-center group cursor-pointer py-1">
+                        <input
+                          type="radio"
+                          name="mobile_category"
+                          checked={isChecked}
+                          onChange={() => {
+                            handleSidebarFilter(cat.id);
+                            setIsMobileFilterOpen(false);
+                          }}
+                          className="sr-only"
+                        />
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                          isChecked ? 'border-accent bg-accent/20' : 'border-[#d0c6b0] group-hover:border-accent'
+                        }`}>
+                          <div className={`w-2 h-2 rounded-full bg-accent transition-transform duration-200 ${isChecked ? 'scale-100' : 'scale-0'}`} />
+                        </div>
+                        <span className={`ml-3 text-sm transition-colors ${isChecked ? 'text-ink font-semibold' : 'text-ink/70 group-hover:text-ink'}`}>
+                          {cat.name}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Gender Filter */}
+              <div>
+                <h4 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent mb-4 border-b border-[#e4dcc8] pb-2">
+                  Gender
+                </h4>
+                <div className="space-y-3">
+                  {['', 'UNISEX', 'MALE', 'FEMALE'].map(g => {
+                    const isChecked = selectedGender === g;
+                    return (
+                      <label key={g} className="flex items-center group cursor-pointer py-1">
+                        <input
+                          type="radio"
+                          name="mobile_gender"
+                          checked={isChecked}
+                          onChange={() => {
+                            setSelectedGender(g);
+                            resetPage();
+                            setIsMobileFilterOpen(false);
+                          }}
+                          className="sr-only"
+                        />
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                          isChecked ? 'border-accent bg-accent/20' : 'border-[#d0c6b0] group-hover:border-accent'
+                        }`}>
+                          <div className={`w-2 h-2 rounded-full bg-accent transition-transform duration-200 ${isChecked ? 'scale-100' : 'scale-0'}`} />
+                        </div>
+                        <span className={`ml-3 text-sm transition-colors ${isChecked ? 'text-ink font-semibold' : 'text-ink/70 group-hover:text-ink'}`}>
+                          {g === '' ? 'All' : g.charAt(0) + g.slice(1).toLowerCase()}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Drawer Footer */}
+            <div className="p-4 border-t border-[#e4dcc8] bg-surface flex gap-3">
+              {hasActiveFilters && (
+                <button
+                  onClick={() => {
+                    clearFilters();
+                    setIsMobileFilterOpen(false);
+                  }}
+                  className="flex-1 py-3 text-xs uppercase tracking-wider font-semibold text-ink/70 border border-[#e4dcc8] rounded-sm hover:bg-ink/5 transition-colors"
+                >
+                  Clear All
+                </button>
+              )}
+              <button
+                onClick={() => setIsMobileFilterOpen(false)}
+                className="flex-1 py-3 text-xs uppercase tracking-wider font-semibold text-surface bg-ink rounded-sm hover:bg-ink/90 transition-colors"
+              >
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+        {/* Desktop Sidebar Filters */}
+        <aside className="hidden lg:block lg:col-span-3 sticky top-32 space-y-9 pr-6 border-r border-[#e4dcc8]">
 
           {/* Category Filter */}
           <div>
-            <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-6 border-b border-outline-variant/30 pb-2">Category</h3>
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent mb-5 border-b border-[#e4dcc8] pb-2.5">
+              Category
+            </h3>
             <div className="space-y-3">
               {[
-                { id: 'all', name: 'All' },
+                { id: 'all', name: 'All Collections' },
                 { id: 'attars', name: 'Attars' },
                 { id: 'bakhoor', name: 'Bakhoor' },
                 { id: 'incense-sticks', name: 'Incense Sticks' },
@@ -494,15 +657,22 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
                 const isChecked = activeSidebarFilter === cat.id;
 
                 return (
-                  <label key={cat.id} className="flex items-center group cursor-pointer">
+                  <label key={cat.id} className="flex items-center group cursor-pointer py-0.5">
                     <input
                       type="radio"
                       name="category"
                       checked={isChecked}
                       onChange={() => handleSidebarFilter(cat.id)}
-                      className="w-4 h-4 border-outline-variant text-accent focus:ring-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 cursor-pointer"
+                      className="sr-only"
                     />
-                    <span className="ml-3 font-body-md text-body-md text-on-surface-variant group-hover:text-accent transition-colors">{cat.name}</span>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                      isChecked ? 'border-accent bg-accent/20' : 'border-[#d0c6b0] group-hover:border-accent'
+                    }`}>
+                      <div className={`w-2 h-2 rounded-full bg-accent transition-transform duration-200 ${isChecked ? 'scale-100' : 'scale-0'}`} />
+                    </div>
+                    <span className={`ml-3 text-sm transition-colors ${isChecked ? 'text-ink font-semibold' : 'text-ink/70 group-hover:text-ink'}`}>
+                      {cat.name}
+                    </span>
                   </label>
                 );
               })}
@@ -511,22 +681,32 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
 
           {/* Gender Filter */}
           <div>
-            <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-6 border-b border-outline-variant/30 pb-2">Gender</h3>
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent mb-5 border-b border-[#e4dcc8] pb-2.5">
+              Gender
+            </h3>
             <div className="space-y-3">
-              {['', 'UNISEX', 'MALE', 'FEMALE'].map(g => (
-                <label key={g} className="flex items-center group cursor-pointer">
-                  <input
-                    type="radio"
-                    name="gender"
-                    checked={selectedGender === g}
-                    onChange={() => { setSelectedGender(g); resetPage(); }}
-                    className="w-4 h-4 border-outline-variant text-accent focus:ring-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 cursor-pointer"
-                  />
-                  <span className="ml-3 font-body-md text-body-md text-on-surface-variant group-hover:text-accent transition-colors">
-                    {g === '' ? 'All' : g.charAt(0) + g.slice(1).toLowerCase()}
-                  </span>
-                </label>
-              ))}
+              {['', 'UNISEX', 'MALE', 'FEMALE'].map(g => {
+                const isChecked = selectedGender === g;
+                return (
+                  <label key={g} className="flex items-center group cursor-pointer py-0.5">
+                    <input
+                      type="radio"
+                      name="gender"
+                      checked={isChecked}
+                      onChange={() => { setSelectedGender(g); resetPage(); }}
+                      className="sr-only"
+                    />
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                      isChecked ? 'border-accent bg-accent/20' : 'border-[#d0c6b0] group-hover:border-accent'
+                    }`}>
+                      <div className={`w-2 h-2 rounded-full bg-accent transition-transform duration-200 ${isChecked ? 'scale-100' : 'scale-0'}`} />
+                    </div>
+                    <span className={`ml-3 text-sm transition-colors ${isChecked ? 'text-ink font-semibold' : 'text-ink/70 group-hover:text-ink'}`}>
+                      {g === '' ? 'All' : g.charAt(0) + g.slice(1).toLowerCase()}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           </div>
 
@@ -534,15 +714,55 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="w-full text-center font-label-sm text-label-sm text-error border border-error rounded-DEFAULT py-2 transition-colors hover:bg-error-container/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2"
+              className="w-full text-center text-xs font-semibold uppercase tracking-wider text-ink/70 border border-[#e4dcc8] rounded-sm py-2.5 transition-all hover:bg-ink/5 hover:text-ink hover:border-ink/30"
             >
               Clear All Filters
             </button>
           )}
         </aside>
 
-        {/* Product Grid */}
+        {/* Product Grid Area */}
         <div className="col-span-1 lg:col-span-9">
+          {/* Active Filter Chips */}
+          {(activeSidebarFilter !== 'all' || selectedGender || searchQuery) && (
+            <div className="flex flex-wrap items-center gap-2 mb-6">
+              <span className="text-[11px] uppercase tracking-wider text-ink/50 font-medium mr-1">Active:</span>
+              {activeSidebarFilter !== 'all' && (
+                <button
+                  onClick={() => handleSidebarFilter('all')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs bg-accent/10 border border-accent/30 text-ink hover:bg-accent/20 transition-colors"
+                >
+                  <span>{pageTitleMap[activeSidebarFilter] || activeSidebarFilter}</span>
+                  <span className="material-symbols-outlined text-[14px]">close</span>
+                </button>
+              )}
+              {selectedGender && (
+                <button
+                  onClick={() => { setSelectedGender(''); resetPage(); }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs bg-accent/10 border border-accent/30 text-ink hover:bg-accent/20 transition-colors"
+                >
+                  <span>Gender: {selectedGender.charAt(0) + selectedGender.slice(1).toLowerCase()}</span>
+                  <span className="material-symbols-outlined text-[14px]">close</span>
+                </button>
+              )}
+              {searchQuery && (
+                <button
+                  onClick={() => { setSearchQuery(''); resetPage(); }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs bg-accent/10 border border-accent/30 text-ink hover:bg-accent/20 transition-colors"
+                >
+                  <span>Search: "{searchQuery}"</span>
+                  <span className="material-symbols-outlined text-[14px]">close</span>
+                </button>
+              )}
+              <button
+                onClick={clearFilters}
+                className="text-[11px] font-medium text-accent hover:underline uppercase tracking-wider ml-1"
+              >
+                Clear All
+              </button>
+            </div>
+          )}
+
           {isLoading ? (
             <Loader />
           ) : error ? (
@@ -550,8 +770,8 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
               <div className="w-16 h-16 border border-accent rounded-full flex items-center justify-center mb-6">
                 <span className="material-symbols-outlined text-accent text-2xl">error_outline</span>
               </div>
-              <h3 className="font-headline-md text-on-surface mb-2 tracking-widest uppercase text-lg">Something went wrong</h3>
-              <p className="font-body-md text-on-surface-variant mb-8 max-w-sm leading-relaxed">
+              <h3 className="font-serif text-2xl text-ink mb-2">Something went wrong</h3>
+              <p className="font-body-md text-sm text-ink/70 mb-8 max-w-sm leading-relaxed">
                 We’re having trouble loading the collection right now. Please try again in a moment.
               </p>
               <button onClick={fetchProducts} className="btn btn-primary">TRY AGAIN</button>
@@ -565,36 +785,41 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
                   <span className="material-symbols-outlined text-accent text-2xl">hourglass_empty</span>
                 )}
               </div>
-              <h3 className="font-headline-md font-bold text-on-surface mb-2 tracking-widest uppercase text-lg">
-                {hasUserFilters ? "No Products Found" : "Coming Soon"}
+              <h3 className="font-serif text-2xl text-ink mb-2">
+                {hasUserFilters ? "No Fragrances Found" : "Collection Coming Soon"}
               </h3>
-              <p className="font-body-md text-on-surface-variant mb-8 max-w-sm leading-relaxed">
+              <p className="font-body-md text-sm text-ink/70 mb-8 max-w-sm leading-relaxed">
                 {hasUserFilters
-                  ? "No products matched your filters. Try adjusting your search criteria."
-                  : "We are currently working on bringing you exclusive products in this collection. Please check back later."}
+                  ? "No products matched your selected filters. Try adjusting your search criteria."
+                  : "We are currently curating exclusive artisanal blends for this collection. Please check back shortly."}
               </p>
               {hasUserFilters && (
-                <button onClick={() => {
-                  // Only clear user filters, keep category
-                  setSelectedGender('');
-                  setSelectedBrand('');
-                  setSearchQuery('');
-                  resetPage();
-                }} className="btn btn-primary">
+                <button
+                  onClick={() => {
+                    setSelectedGender('');
+                    setSelectedBrand('');
+                    setSearchQuery('');
+                    resetPage();
+                  }}
+                  className="btn btn-primary"
+                >
                   Clear Filters
                 </button>
               )}
             </div>
           ) : (
             <>
-              <p className="font-label-sm text-on-surface-variant mb-6">{totalElements} products found</p>
+              <div className="flex items-center justify-between mb-6">
+                <p className="text-xs text-ink/60 font-medium tracking-wide">
+                  Showing <span className="text-ink font-semibold">{displayProducts.length}</span> of <span className="text-ink font-semibold">{totalElements}</span> handcrafted fragrances
+                </p>
+              </div>
+
               <div
                 ref={gridRef}
-                className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8 reveal ${gridInView ? 'in-view' : ''}`}
+                className={`grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6 lg:gap-7 reveal ${gridInView ? 'in-view' : ''}`}
               >
                 {displayProducts.map(product => {
-                  // For Car Perfumes, do not impose a type context on the card.
-                  // The card should display the product's own label and image (not "PERFUMES").
                   let cardDefaultType: string | undefined;
                   if (isCarPerfumesTab) {
                     cardDefaultType = 'car perfume';

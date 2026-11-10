@@ -38,12 +38,12 @@ public class CartItem extends BaseEntity {
     private Cart cart;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
+    @JoinColumn(name = "product_id")
     @ToString.Exclude
     private Product product;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "variant_id", nullable = false)
+    @JoinColumn(name = "variant_id")
     @ToString.Exclude
     private ProductVariant variant;
 
@@ -51,6 +51,15 @@ public class CartItem extends BaseEntity {
     @JoinColumn(name = "bottle_id")
     @ToString.Exclude
     private Bottle bottle;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "gift_set_id")
+    @ToString.Exclude
+    private GiftSet giftSet;
+
+    @Column(name = "is_gift_set", nullable = false)
+    @Builder.Default
+    private boolean isGiftSet = false;
 
     @Column(nullable = false)
     private Integer quantity;
@@ -72,4 +81,20 @@ public class CartItem extends BaseEntity {
      */
     @Column(name = "free_promotion_id")
     private Long freePromotionId;
+
+    public boolean isGiftSet() {
+        return isGiftSet;
+    }
+
+    public void setIsGiftSet(boolean isGiftSet) {
+        this.isGiftSet = isGiftSet;
+    }
+
+    public GiftSet getGiftSet() {
+        return giftSet;
+    }
+
+    public void setGiftSet(GiftSet giftSet) {
+        this.giftSet = giftSet;
+    }
 }

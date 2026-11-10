@@ -4,12 +4,24 @@ export type OrderStatus = 'CONFIRMED' | 'PACKED' | 'SHIPPED' | 'DELIVERED' | 'CA
 // Razorpay call — cancelling never auto-refunds). REFUNDED: Razorpay confirmed completion.
 export type RefundStatus = 'NOT_REQUIRED' | 'REFUND_REQUIRED' | 'PROCESSING' | 'REFUNDED' | 'FAILED';
 
+export interface OrderItemGiftSetComponent {
+  id?: number;
+  giftSetId?: number;
+  productId?: number;
+  productName?: string;
+  variantId?: number;
+  variantSize?: string;
+  sku?: string;
+  quantityPerSet?: number;
+  totalDeductedQuantity?: number;
+}
+
 export interface OrderItem {
   id: number;
-  variantId: number;
+  variantId?: number | null;
   productName: string;
-  variantSize: string;
-  productImage: string;
+  variantSize?: string | null;
+  productImage?: string | null;
 
   originalPrice: number;
   discountAmount: number;
@@ -20,6 +32,12 @@ export interface OrderItem {
   bottleId?: number | null;
   bottleName?: string | null;
   bottlePrice?: number | null;
+
+  isGiftSet?: boolean;
+  giftSetId?: number | null;
+  giftSetName?: string | null;
+  giftSetSnapshot?: string | null;
+  giftSetComponents?: OrderItemGiftSetComponent[] | null;
 }
 
 export interface Order {

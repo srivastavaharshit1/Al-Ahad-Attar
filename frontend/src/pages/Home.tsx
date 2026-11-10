@@ -1,14 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ShieldCheck, Truck, Gift, Headphones, Sparkles, Star } from 'lucide-react';
 import { homepageService } from '../services/homepageService';
 import type { HomepageDataResponse } from '../types/homepage';
 import { ProductCard } from '../components/product/ProductCard';
 import { ProductCarousel } from '../components/product/ProductCarousel';
+import { GiftSetCard } from '../components/giftset/GiftSetCard';
+import { giftSetService } from '../services/giftSetService';
+import type { GiftSet } from '../types/giftSet';
 import { getImageUrl } from '../utils/getImageUrl';
+import { sanitizeText } from '../utils/textUtils';
 import { SEO } from '../components/seo/SEO';
 
 export const Home: React.FC = () => {
   const [data, setData] = useState<HomepageDataResponse | null>(null);
+  const [giftSets, setGiftSets] = useState<GiftSet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,6 +40,19 @@ export const Home: React.FC = () => {
 
   useEffect(() => {
     loadHomepageData();
+
+    const loadGiftSets = async () => {
+      try {
+        let sets = await giftSetService.getFeaturedGiftSets();
+        if (!sets || sets.length === 0) {
+          sets = await giftSetService.getAllGiftSets();
+        }
+        setGiftSets(sets || []);
+      } catch (err) {
+        console.error("Failed to load gift sets for homepage", err);
+      }
+    };
+    loadGiftSets();
   }, []);
 
   const sortedSections = [...(data?.sections || [])].sort((a, b) => a.displayOrder - b.displayOrder);
@@ -141,7 +160,7 @@ export const Home: React.FC = () => {
       })()}
 
       {(!getSection('brand_story') || getSection('brand_story')?.visible) && (
-        <div className="bg-[#faf9f8]">
+        <div className="bg-[#fbf9f5] border-t border-b border-[#e4dcc8]/40">
           <BrandStorySection section={getSection('brand_story')} />
         </div>
       )}
@@ -151,7 +170,7 @@ export const Home: React.FC = () => {
         const bakhoorSection = data.productSections?.find(sec => sec.section === 'CAR_PERFUMES_INCENSE' && sec.products && sec.products.length > 0);
         if (!bakhoorSection) return null;
         return (
-          <div key="car" className="bg-white">
+          <div key="car" className="bg-white border-b border-[#e4dcc8]/40">
             <ProductCarousel
               eyebrow="TRADITIONAL AROMAS"
               heading="Bakhoor & Incense Sticks"
@@ -165,25 +184,31 @@ export const Home: React.FC = () => {
       })()}
 
       {isSectionVisible('featured_products') && data.featuredProducts?.length > 0 && (
-        <div className="bg-[#f5f2eb]">
+        <div className="bg-white border-b border-[#e4dcc8]/40">
           <FeaturedProductsSection products={data.featuredProducts} section={getSection('featured_products')} />
         </div>
       )}
 
+      {giftSets.length > 0 && (
+        <div className="bg-[#faf9f8] border-b border-[#e4dcc8]/40">
+          <CuratedGiftSetsSection giftSets={giftSets} />
+        </div>
+      )}
+
       {isSectionVisible('promo_banners') && data.promoBanners?.length > 0 && (
-        <div className="bg-white">
+        <div className="bg-[#fbf9f5] border-b border-[#e4dcc8]/40">
           <PromoBannerSection banners={data.promoBanners} />
         </div>
       )}
 
       {isSectionVisible('why_choose_us') && data.whyChooseUsItems?.length > 0 && (
-        <div className="bg-[#faf9f8]">
+        <div className="bg-white border-b border-[#e4dcc8]/40">
           <WhyChooseUsSection items={data.whyChooseUsItems} section={getSection('why_choose_us')} />
         </div>
       )}
 
       {isSectionVisible('testimonials') && data.testimonials?.length > 0 && (
-        <div className="bg-[#f5f2eb]">
+        <div className="bg-[#fbf9f5]">
           <TestimonialsSection testimonials={data.testimonials} section={getSection('testimonials')} />
         </div>
       )}
@@ -275,7 +300,8 @@ const HeroSection = ({ heroes, section }: { heroes: any[], section?: any }) => {
   const heroData = heroes[0];
 
   return (
-    <section className="relative h-[90vh] min-h-[700px] w-full flex items-center justify-center text-center overflow-hidden">
+    <section className="relative min-h-[540px] xs:min-h-[580px] sm:min-h-[640px] md:min-h-[700px] lg:h-[90vh] w-full flex items-center justify-center text-center overflow-hidden bg-black">
+      {/* Background Image & Scrim */}
       <div className="absolute inset-0 z-0">
         <picture>
           {heroData.mobileImageUrl && <source media="(max-width: 768px)" srcSet={getImageUrl(heroData.mobileImageUrl)} />}
@@ -283,39 +309,56 @@ const HeroSection = ({ heroes, section }: { heroes: any[], section?: any }) => {
             src={getImageUrl(heroData.imageUrl)} 
             alt={heroData.title}
             fetchPriority="high"
-            className="w-full h-full object-cover transition-transform duration-[20000ms] scale-110 animate-subtle-zoom" 
+            className="w-full h-full object-cover object-[75%_center] md:object-center transition-transform duration-[20000ms] scale-105 hero-zoom" 
           />
         </picture>
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"></div>
+        {/* Pure neutral black overlays — zero blue/navy tint, preserving original natural golden/warm black lighting */}
+        <div className="absolute inset-0 bg-black/40"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30"></div>
       </div>
       
-      <div className="relative z-10 px-6 max-w-4xl mx-auto flex flex-col items-center pt-20 animate-fade-up">
-        <span className="text-[#d4af37] text-[10px] md:text-[11px] font-label-md uppercase tracking-[0.4em] mb-6 block">
-          {heroData.badge || 'L U X U R Y  F R A G R A N C E'}
-        </span>
-        <h1 className="font-headline-lg text-5xl md:text-7xl lg:text-8xl text-white mb-8 leading-[1.1] font-normal tracking-tight">
-          {heroData.title}
+      {/* Hero Content */}
+      <div className="relative z-10 px-4 sm:px-6 md:px-8 max-w-4xl mx-auto flex flex-col items-center py-14 sm:py-16 md:py-24 animate-fade-up">
+        {/* Eyebrow */}
+        <div className="inline-flex items-center gap-2.5 sm:gap-3 mb-4 sm:mb-5">
+          <span className="w-5 sm:w-8 h-px bg-accent/70" aria-hidden="true" />
+          <span className="text-accent text-[10px] sm:text-[11px] font-label-md uppercase tracking-[0.3em] sm:tracking-[0.35em] font-medium">
+            {sanitizeText(heroData.badge || 'LUXURY ARABIC FRAGRANCE')}
+          </span>
+          <span className="w-5 sm:w-8 h-px bg-accent/70" aria-hidden="true" />
+        </div>
+
+        {/* Main Headline */}
+        <h1 className="font-headline-lg text-3xl xs:text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-white mb-4 sm:mb-6 leading-[1.12] font-normal tracking-tight [text-shadow:_0_3px_20px_rgba(0,0,0,0.5)]">
+          {sanitizeText(heroData.title)}
         </h1>
-        <p className="font-body-md text-lg text-white/80 mb-12 max-w-2xl font-light leading-relaxed">
-          {heroData.subtitle}
+
+        {/* Subtitle */}
+        <p className="font-body-md text-sm sm:text-base md:text-lg text-white/90 mb-3 sm:mb-4 max-w-2xl font-light leading-relaxed">
+          {sanitizeText(heroData.subtitle)}
         </p>
+
+        {/* Description (desktop) */}
         {heroData.description && (
-          <p className="font-body-md text-sm text-white/60 mb-10 max-w-xl font-light leading-relaxed hidden md:block">
-            {heroData.description}
+          <p className="font-body-md text-xs sm:text-sm text-white/70 mb-6 sm:mb-8 max-w-xl font-light leading-relaxed hidden sm:block">
+            {sanitizeText(heroData.description)}
           </p>
         )}
-        <div className="flex flex-col sm:flex-row gap-6 items-center">
-          {heroData.buttonUrl && (
-            <Link to={heroData.buttonUrl} className="bg-white text-[#121c2a] px-12 py-4 text-[10px] font-label-md uppercase tracking-[0.25em] hover:bg-[#d4af37] hover:text-white transition-all duration-500">
-              {heroData.buttonText || "DISCOVER COLLECTION"}
-            </Link>
-          )}
-          {section?.subtitle && (
-            <Link to="/about" className="text-white px-12 py-4 text-[10px] font-label-md uppercase tracking-[0.25em] border border-white/30 hover:border-white hover:bg-white/10 transition-all duration-500">
-              {section.subtitle}
-            </Link>
-          )}
+
+        {/* CTA Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 items-center w-full sm:w-auto mt-2">
+          <Link 
+            to={heroData.buttonUrl || "/collections"} 
+            className="w-full sm:w-auto bg-white text-[#121c2a] px-8 sm:px-12 py-3.5 sm:py-4 text-[10.5px] sm:text-[11px] font-label-md uppercase tracking-[0.2em] font-semibold hover:bg-accent hover:text-white hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 text-center rounded-[2px]"
+          >
+            {sanitizeText(heroData.buttonText || "DISCOVER COLLECTION")}
+          </Link>
+          <Link 
+            to="/about" 
+            className="w-full sm:w-auto text-white px-8 sm:px-12 py-3.5 sm:py-4 text-[10.5px] sm:text-[11px] font-label-md uppercase tracking-[0.2em] border border-white/60 bg-white/10 hover:border-white hover:bg-white/20 transition-all duration-300 text-center rounded-[2px] backdrop-blur-2xs"
+          >
+            {sanitizeText(section?.subtitle || "OUR HERITAGE")}
+          </Link>
         </div>
       </div>
     </section>
@@ -325,21 +368,36 @@ const HeroSection = ({ heroes, section }: { heroes: any[], section?: any }) => {
 const CategoriesSection = ({ categories, section }: { categories: any[], section?: any }) => {
   if (!categories || categories.length === 0) return null;
   
-  // Prompt: Exactly 3 premium cards or CMS controlled
   const displayCategories = categories.slice(0, section?.maxItems || 3);
 
   return (
-    <section className="py-32 px-4 md:px-8 max-w-7xl mx-auto">
-      <div className="text-center mb-20">
-        <span className="text-[#d4af37] text-[10px] font-label-md uppercase tracking-[0.3em] mb-4 block">{section?.subtitle || 'THE COLLECTIONS'}</span>
-        <h2 className="font-headline-lg text-4xl md:text-5xl text-[#121c2a] font-normal tracking-wide">{section?.title || 'Featured Blends'}</h2>
-        {section?.description && <p className="mt-6 font-body-md text-on-surface-variant max-w-2xl mx-auto">{section.description}</p>}
+    <section className="py-16 md:py-24 px-4 md:px-8 max-w-7xl mx-auto">
+      <div className="text-center mb-14 md:mb-18">
+        <div className="inline-flex items-center gap-3 mb-3">
+          <span className="w-5 h-px bg-accent/60" aria-hidden="true" />
+          <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.35em] block">
+            {section?.subtitle || 'THE COLLECTIONS'}
+          </span>
+          <span className="w-5 h-px bg-accent/60" aria-hidden="true" />
+        </div>
+        <h2 className="font-headline-lg text-3xl sm:text-4xl md:text-5xl text-ink font-normal tracking-wide">
+          {section?.title || 'Featured Categories'}
+        </h2>
+        {section?.description && (
+          <p className="mt-4 font-body-md text-on-surface-variant max-w-2xl mx-auto text-sm sm:text-base leading-relaxed">
+            {section.description}
+          </p>
+        )}
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
         {displayCategories.map((cat) => (
-          <Link key={cat.id} to={cat.homepageButtonUrl || `/category/${cat.type.toLowerCase()}`} className="group relative aspect-[3/4] overflow-hidden flex flex-col justify-end">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1a2332] to-[#0d141e]">
+          <Link 
+            key={cat.id} 
+            to={cat.homepageButtonUrl || `/category/${cat.type.toLowerCase()}`} 
+            className="group relative aspect-[3/4] overflow-hidden rounded-[2px] border border-[#e4dcc8]/60 hover:border-accent/40 flex flex-col justify-end transition-all duration-500 shadow-sm hover:shadow-[0_16px_40px_rgba(18,28,42,0.12)]"
+          >
+            <div className="absolute inset-0 bg-black">
               <picture>
                 {cat.mobileImageUrl && <source media="(max-width: 768px)" srcSet={getImageUrl(cat.mobileImageUrl)} />}
                 {cat.desktopImageUrl ? (
@@ -347,30 +405,36 @@ const CategoriesSection = ({ categories, section }: { categories: any[], section
                     src={getImageUrl(cat.desktopImageUrl)} 
                     alt={cat.homepageTitle || cat.name} 
                     loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-[1500ms] group-hover:scale-110"
+                    className="w-full h-full object-cover transition-transform duration-[1400ms] cubic-bezier(0.16,1,0.3,1) group-hover:scale-108"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center opacity-30">
-                    <span className="material-symbols-outlined text-6xl text-white mb-4">diamond</span>
+                  <div className="w-full h-full flex flex-col items-center justify-center opacity-40">
+                    <Sparkles className="w-16 h-16 text-white mb-4 stroke-[1.2]" />
                   </div>
                 )}
               </picture>
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-80 group-hover:opacity-90 transition-opacity duration-500"></div>
             </div>
             
-            <div className="relative z-10 p-10 text-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
-              <h3 className="font-headline-md text-3xl text-white mb-3 font-normal tracking-wide">
+            <div className="relative z-10 p-6 md:p-8 text-center flex flex-col items-center">
+              <span className="text-[9px] text-accent uppercase tracking-[0.25em] font-medium mb-2">
+                COLLECTION
+              </span>
+              <h3 className="font-headline-md text-2xl md:text-3xl text-white mb-2 font-normal tracking-wide group-hover:text-accent transition-colors duration-300">
                 {cat.homepageTitle || (cat.name.toLowerCase() === 'bakhoor' ? 'Bakhoor & Incense Stick' : cat.name.toLowerCase() === 'perfumes' ? 'Perfumes & Car Perfumes' : cat.name)}
               </h3>
               {cat.homepageSubtitle && (
-                <p className="text-white/80 font-body-sm mb-4 italic leading-relaxed max-w-[90%] mx-auto">{cat.homepageSubtitle}</p>
+                <p className="text-white/80 font-body-sm text-xs sm:text-sm mb-4 italic leading-relaxed max-w-[90%] mx-auto">
+                  {cat.homepageSubtitle}
+                </p>
               )}
-              <p className="text-[10px] text-[#d4af37] uppercase tracking-[0.2em] opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">
-                {cat.homepageButtonText || 'Explore Collection'}
-              </p>
+              <span className="inline-flex items-center gap-2 text-[10px] text-accent uppercase tracking-[0.2em] font-semibold border-b border-accent/40 pb-0.5 group-hover:border-accent group-hover:gap-3 transition-all duration-300">
+                {cat.homepageButtonText || 'EXPLORE COLLECTION'}
+                <span className="text-xs transition-transform duration-300 group-hover:translate-x-1">→</span>
+              </span>
             </div>
           </Link>
         ))}
@@ -381,24 +445,39 @@ const CategoriesSection = ({ categories, section }: { categories: any[], section
 
 const BrandStorySection = ({ section }: { section?: any }) => {
   return (
-    <section className="py-32 px-4 md:px-8 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row gap-12 lg:gap-24 items-center">
-        <div className="w-full md:w-1/2 relative aspect-[4/5] md:aspect-[3/4] overflow-hidden rounded-sm">
+    <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-center">
+        {/* Left: Framed Brand Image */}
+        <div className="lg:col-span-6 relative aspect-[4/5] sm:aspect-[4/3] lg:aspect-[3/4] overflow-hidden rounded-[2px] shadow-[0_16px_40px_rgba(18,28,42,0.08)] border border-[#e4dcc8] group bg-[#f5f1e8]">
           <div 
-            className="absolute inset-0 bg-cover bg-center" 
+            className="absolute inset-0 bg-cover bg-center transition-transform duration-[1200ms] group-hover:scale-105" 
             style={{ backgroundImage: `url('${section?.imageUrl ? getImageUrl(section.imageUrl) : 'https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=1887&auto=format&fit=crop'}')` }}
           ></div>
+          <div className="absolute inset-0 border border-accent/20 m-2.5 sm:m-3 pointer-events-none rounded-[1px]"></div>
         </div>
-        <div className="w-full md:w-1/2 flex flex-col justify-center">
-          <div className="max-w-md">
-            <span className="text-[#d4af37] text-[10px] font-label-md uppercase tracking-[0.3em] mb-6 block">{section?.subtitle || 'OUR HERITAGE'}</span>
-            <h2 className="font-headline-lg text-4xl md:text-5xl text-[#121c2a] mb-8 leading-tight font-normal whitespace-pre-line">{section?.title || 'The Art of Fine \nPerfumery'}</h2>
-            <p className="font-body-md text-on-surface-variant font-light leading-relaxed mb-12 whitespace-pre-line">
-              {section?.description || 'Born from a passion for the rarest ingredients and the most exquisite olfactory experiences, Al Ahad Attars represents the pinnacle of luxury Arabic perfumery.\n\nEvery drop is a testament to generations of masterful craftsmanship, blending rich oud, pure musk, and delicate floral essences into timeless signatures that linger long after you leave the room.'}
+
+        {/* Right: Editorial Story */}
+        <div className="lg:col-span-6 flex flex-col justify-center">
+          <div className="max-w-xl">
+            <div className="inline-flex items-center gap-2.5 sm:gap-3 mb-3 sm:mb-4">
+              <span className="w-5 sm:w-6 h-px bg-accent/60" aria-hidden="true" />
+              <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.3em] sm:tracking-[0.35em] block font-medium">
+                {sanitizeText(section?.subtitle || 'OUR HERITAGE')}
+              </span>
+              <span className="w-5 sm:w-6 h-px bg-accent/60" aria-hidden="true" />
+            </div>
+            <h2 className="font-serif text-2xl xs:text-3xl sm:text-4xl md:text-5xl text-ink mb-4 sm:mb-6 leading-[1.18] font-normal whitespace-pre-line tracking-tight">
+              {sanitizeText(section?.title || 'The Art of Fine \nPerfumery')}
+            </h2>
+            <p className="font-body-md text-on-surface-variant font-light leading-relaxed mb-6 sm:mb-8 whitespace-pre-line text-xs sm:text-sm md:text-base">
+              {sanitizeText(section?.description || 'Born from a passion for the rarest ingredients and the most exquisite olfactory experiences, Al Ahad Attars represents the pinnacle of luxury Arabic perfumery.\n\nEvery drop is a testament to generations of masterful craftsmanship, blending rich oud, pure musk, and delicate floral essences into timeless signatures that linger long after you leave the room.')}
             </p>
-            <Link to="/about" className="inline-flex items-center gap-4 text-[10px] text-[#121c2a] font-label-md uppercase tracking-[0.2em] border-b border-[#d4af37] pb-1 hover:text-[#d4af37] transition-colors group">
-              LEARN MORE 
-              <span className="transform group-hover:translate-x-2 transition-transform duration-300">→</span>
+            <Link 
+              to="/about" 
+              className="inline-flex items-center gap-2.5 sm:gap-3 text-[10.5px] sm:text-[11px] text-ink font-label-md uppercase tracking-[0.2em] border-b border-accent pb-1 hover:text-accent group transition-colors"
+            >
+              <span>LEARN MORE ABOUT US</span>
+              <span className="transform group-hover:translate-x-1.5 transition-transform duration-300 text-accent">→</span>
             </Link>
           </div>
         </div>
@@ -410,30 +489,103 @@ const BrandStorySection = ({ section }: { section?: any }) => {
 const FeaturedProductsSection = ({ products, section }: { products: any[], section?: any }) => {
   if (!products || products.length === 0) return null;
   
-  // Prompt: Exactly four products, single row, or CMS controlled
-  const displayProducts = products.slice(0, section?.maxItems || 4);
+  const displayProducts = products.slice(0, section?.maxItems || 8);
 
   return (
-    <section className="py-32 px-4 md:px-8 max-w-7xl mx-auto">
-      <div className="flex flex-col items-center md:flex-row md:items-end text-center md:text-left mb-16 border-b border-[#121c2a]/10 pb-6 gap-6">
-        <div className="flex flex-col items-center md:items-start w-full">
-          <span className="text-[#d4af37] text-[10px] font-label-md uppercase tracking-[0.3em] mb-4 block">{section?.subtitle || 'SIGNATURE SCENTS'}</span>
-          <h2 className="font-headline-lg text-4xl md:text-5xl text-[#121c2a] font-normal tracking-wide">{section?.title || 'Featured Products'}</h2>
-          {section?.description && <p className="mt-4 font-body-md text-on-surface-variant max-w-xl">{section.description}</p>}
+    <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8 sm:mb-12 border-b border-[#121c2a]/10 pb-5 sm:pb-6">
+        <div>
+          <div className="inline-flex items-center gap-2.5 sm:gap-3 mb-2 sm:mb-3">
+            <span className="w-5 sm:w-6 h-px bg-accent/60" aria-hidden="true" />
+            <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.3em] block font-medium">
+              {sanitizeText(section?.subtitle || 'SIGNATURE SCENTS')}
+            </span>
+            <span className="w-5 sm:w-6 h-px bg-accent/60" aria-hidden="true" />
+          </div>
+          <h2 className="font-serif text-2xl sm:text-3xl md:text-4xl text-ink font-normal tracking-wide">
+            {sanitizeText(section?.title || 'Featured Products')}
+          </h2>
+          {section?.description && (
+            <p className="mt-2 font-body-md text-on-surface-variant text-xs sm:text-sm max-w-xl leading-relaxed font-light">
+              {sanitizeText(section.description)}
+            </p>
+          )}
         </div>
+        <Link 
+          to="/collections" 
+          className="inline-flex items-center gap-1.5 sm:gap-2 text-[10.5px] sm:text-[11px] font-label-md uppercase tracking-[0.2em] text-ink border-b border-accent pb-0.5 hover:text-accent transition-colors group self-start sm:self-auto whitespace-nowrap"
+        >
+          <span>View Full Catalog</span>
+          <span className="transform group-hover:translate-x-1 transition-transform duration-300 text-accent">→</span>
+        </Link>
       </div>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 justify-items-center sm:justify-items-stretch">
+      {/* 2-Column Mobile Grid / 4-Column Desktop Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 md:gap-8">
         {displayProducts.map(product => (
-          <div key={product.id} className="w-full max-w-[320px] sm:max-w-none">
+          <div key={product.id} className="w-full">
             <ProductCard product={product} />
           </div>
         ))}
       </div>
       
-      <div className="mt-16 flex justify-center">
-        <Link to="/collections" className="bg-[#121c2a] text-white px-12 py-4 text-[10px] font-label-md uppercase tracking-[0.25em] hover:bg-[#d4af37] transition-colors">
+      <div className="mt-10 sm:mt-14 flex justify-center">
+        <Link 
+          to="/collections" 
+          className="bg-ink text-white px-10 sm:px-12 py-3.5 sm:py-4 text-[10.5px] sm:text-[11px] font-label-md uppercase tracking-[0.2em] font-medium hover:bg-accent hover:text-ink transition-all duration-300 shadow-xs rounded-[2px]"
+        >
           VIEW ALL PRODUCTS
+        </Link>
+      </div>
+    </section>
+  );
+};
+
+const CuratedGiftSetsSection = ({ giftSets }: { giftSets: GiftSet[] }) => {
+  if (!giftSets || giftSets.length === 0) return null;
+
+  return (
+    <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8 sm:mb-12 border-b border-[#121c2a]/10 pb-5 sm:pb-6">
+        <div>
+          <div className="inline-flex items-center gap-2.5 sm:gap-3 mb-2 sm:mb-3">
+            <span className="w-5 sm:w-6 h-px bg-accent/60" aria-hidden="true" />
+            <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.3em] block font-medium">
+              BESPOKE PRESENTATION
+            </span>
+            <span className="w-5 sm:w-6 h-px bg-accent/60" aria-hidden="true" />
+          </div>
+          <h2 className="font-serif text-2xl sm:text-3xl md:text-4xl text-ink font-normal tracking-wide">
+            Curated Gift Sets
+          </h2>
+          <p className="mt-2 font-body-md text-on-surface-variant text-xs sm:text-sm max-w-xl leading-relaxed font-light">
+            Exquisite fragrance selections presented in handcrafted luxury packaging, designed for unforgettable gifting.
+          </p>
+        </div>
+        <Link 
+          to="/gift-sets" 
+          className="inline-flex items-center gap-1.5 sm:gap-2 text-[10.5px] sm:text-[11px] font-label-md uppercase tracking-[0.2em] text-ink border-b border-accent pb-0.5 hover:text-accent transition-colors group self-start sm:self-auto whitespace-nowrap"
+        >
+          <span>Explore All Sets</span>
+          <span className="transform group-hover:translate-x-1 transition-transform duration-300 text-accent">→</span>
+        </Link>
+      </div>
+
+      {/* Responsive Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
+        {giftSets.slice(0, 4).map(gs => (
+          <div key={gs.id} className="w-full">
+            <GiftSetCard giftSet={gs} />
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-10 sm:mt-14 flex justify-center">
+        <Link 
+          to="/gift-sets" 
+          className="bg-ink text-white px-10 sm:px-12 py-3.5 sm:py-4 text-[10.5px] sm:text-[11px] font-label-md uppercase tracking-[0.2em] font-medium hover:bg-accent hover:text-ink transition-all duration-300 shadow-xs rounded-[2px]"
+        >
+          VIEW ALL GIFT SETS
         </Link>
       </div>
     </section>
@@ -442,34 +594,39 @@ const FeaturedProductsSection = ({ products, section }: { products: any[], secti
 
 const PromoBannerSection = ({ banners }: { banners: any[] }) => {
   if (!banners || banners.length === 0) return null;
-  // Prompt: One full-width elegant banner
   const banner = banners[0];
 
   return (
-    <section className="py-32 px-4 md:px-8 max-w-7xl mx-auto">
-      <div className="relative h-[600px] w-full overflow-hidden flex items-center justify-center text-center">
+    <section className="py-10 sm:py-16 md:py-20 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto">
+      <div className="relative h-[420px] xs:h-[460px] sm:h-[520px] md:h-[580px] w-full overflow-hidden flex items-center justify-center text-center rounded-[2px] shadow-[0_16px_40px_rgba(18,28,42,0.1)]">
         <div className="absolute inset-0 z-0">
-          <div className="w-full h-full bg-cover bg-center transition-transform duration-[15000ms] scale-105 hover:scale-110" style={{backgroundImage: `url('${getImageUrl(banner.imageUrl)}')`}}></div>
-          {/* Base cinematic overlay */}
-          <div className="absolute inset-0 bg-[#121c2a]/20"></div>
-          {/* Central darkening for typography contrast */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(25,15,5,0.45)_0%,_rgba(25,15,5,0.1)_45%,_transparent_75%)]"></div>
-          {/* Subtle bottom gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#121c2a]/30 to-transparent"></div>
+          <div 
+            className="w-full h-full bg-cover bg-center transition-transform duration-[15000ms] scale-105 hover:scale-110" 
+            style={{backgroundImage: `url('${getImageUrl(banner.imageUrl)}')`}}
+          ></div>
+          <div className="absolute inset-0 bg-black/35"></div>
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(25,15,5,0.45)_0%,_rgba(25,15,5,0.15)_45%,_transparent_75%)]"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/25"></div>
         </div>
         
-        <div className="relative z-10 px-6 w-full max-w-[1000px] flex flex-col items-center">
-          <div className="flex flex-col items-center mb-8 text-center" style={{ textShadow: '0 3px 18px rgba(0,0,0,0.45)' }}>
-            <h2 className="font-['Playfair_Display'] text-2xl md:text-[30px] lg:text-[34px] text-[#e0c990] mb-3 font-light tracking-wide leading-tight">
-              What Are You Waiting For?
+        <div className="relative z-10 px-4 sm:px-6 w-full max-w-[850px] flex flex-col items-center">
+          <div className="flex flex-col items-center mb-6 sm:mb-8 text-center" style={{ textShadow: '0 2px 18px rgba(0,0,0,0.6)' }}>
+            <span className="text-accent text-[10px] sm:text-xs font-label-md uppercase tracking-[0.3em] sm:tracking-[0.35em] mb-3 sm:mb-4 font-medium">
+              EXCLUSIVE CREATIONS
+            </span>
+            <h2 className="font-serif text-xl xs:text-2xl sm:text-3xl md:text-4xl text-[#e0c990] mb-2 sm:mb-3 font-normal tracking-wide leading-tight">
+              {sanitizeText(banner.title || 'What Are You Waiting For?')}
             </h2>
-            <p className="font-['Playfair_Display'] text-4xl md:text-[48px] lg:text-[54px] text-[#fdf7ea] leading-[1.1] font-medium tracking-tight">
-              Discover Your Signature Fragrance Today
+            <p className="font-serif text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-[#fdf7ea] leading-[1.12] font-normal tracking-tight max-w-2xl">
+              {sanitizeText(banner.subtitle || 'Discover Your Signature Fragrance')}
             </p>
           </div>
           {banner.buttonUrl && (
-            <Link to={banner.buttonUrl} className="bg-[#cda64b] text-[#0a1118] px-7 py-2.5 text-[10px] font-medium uppercase tracking-[0.15em] hover:bg-[#b8913d] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
-              {banner.buttonText || 'EXPLORE PRODUCTS'}
+            <Link 
+              to={banner.buttonUrl} 
+              className="bg-[#cda64b] text-[#0a1118] px-8 sm:px-10 py-3 sm:py-3.5 text-[10.5px] sm:text-[11px] font-semibold uppercase tracking-[0.2em] hover:bg-[#b8913d] hover:scale-[1.02] shadow-[0_4px_20px_rgba(205,166,75,0.3)] transition-all duration-300 rounded-[2px]"
+            >
+              {sanitizeText(banner.buttonText || 'EXPLORE PRODUCTS')}
             </Link>
           )}
         </div>
@@ -480,17 +637,48 @@ const PromoBannerSection = ({ banners }: { banners: any[] }) => {
 
 const WhyChooseUsSection = ({ items, section }: { items: any[], section?: any }) => {
   if (!items || items.length === 0) return null;
-  // Prompt: Four icon cards, simple premium layout
   const displayItems = items.slice(0, section?.maxItems || 4);
 
+  const getWhyIcon = (iconName: string, title: string) => {
+    const key = ((iconName || '') + ' ' + (title || '')).toLowerCase();
+    if (key.includes('auth') || key.includes('verify')) return <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />;
+    if (key.includes('ship') || key.includes('deliver')) return <Truck className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />;
+    if (key.includes('gift') || key.includes('pack')) return <Gift className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />;
+    if (key.includes('concierge') || key.includes('support') || key.includes('agent')) return <Headphones className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />;
+    return <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />;
+  };
+
   return (
-    <section className="py-24 px-4 md:px-8 max-w-7xl mx-auto border-t border-b border-[#121c2a]/5 my-12">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 text-center divide-y sm:divide-y-0 sm:divide-x divide-[#121c2a]/5">
-        {displayItems.map((item, index) => (
-          <div key={item.id} className={`flex flex-col items-center px-6 ${index !== 0 ? 'pt-12 sm:pt-0' : ''}`}>
-            <span className="material-symbols-outlined text-3xl text-[#d4af37] mb-6 font-light">{item.icon || 'star'}</span>
-            <h4 className="font-headline-md text-lg text-[#121c2a] mb-4 font-normal tracking-wide uppercase text-[13px]">{item.title}</h4>
-            <p className="font-body-md text-sm text-on-surface-variant font-light leading-relaxed max-w-[200px]">{item.description}</p>
+    <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto">
+      <div className="text-center mb-10 sm:mb-12">
+        <div className="inline-flex items-center gap-2.5 sm:gap-3 mb-2.5 sm:mb-3">
+          <span className="w-5 sm:w-6 h-px bg-accent/60" aria-hidden="true" />
+          <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.3em] block font-medium">
+            {sanitizeText(section?.subtitle || 'THE AL AHAD PROMISE')}
+          </span>
+          <span className="w-5 sm:w-6 h-px bg-accent/60" aria-hidden="true" />
+        </div>
+        <h2 className="font-serif text-2xl sm:text-3xl md:text-4xl text-ink font-normal tracking-wide">
+          {sanitizeText(section?.title || 'Why Choose Al Ahad Attars')}
+        </h2>
+      </div>
+
+      {/* Balanced 2x2 Mobile Grid / 4-Column Desktop Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-6 lg:gap-8 text-center">
+        {displayItems.map((item) => (
+          <div
+            key={item.id}
+            className="flex flex-col items-center p-4 sm:p-6 bg-white rounded-[2px] border border-[#e4dcc8]/70 shadow-xs hover:border-accent/40 hover:shadow-sm transition-all duration-300"
+          >
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-accent/10 border border-accent/25 flex items-center justify-center mb-3 sm:mb-4 shrink-0">
+              {getWhyIcon(item.icon, item.title)}
+            </div>
+            <h4 className="font-serif text-[11px] sm:text-xs md:text-sm text-ink mb-1.5 sm:mb-2 font-normal tracking-wider uppercase">
+              {sanitizeText(item.title)}
+            </h4>
+            <p className="font-body-md text-[10.5px] sm:text-xs text-on-surface-variant font-light leading-relaxed max-w-[200px]">
+              {sanitizeText(item.description)}
+            </p>
           </div>
         ))}
       </div>
@@ -502,38 +690,72 @@ const TestimonialsSection = ({ testimonials, section }: { testimonials: any[], s
   if (!testimonials || testimonials.length === 0) return null;
 
   return (
-    <section className="py-32 px-4 overflow-hidden relative">
-      <div className="text-center mb-20 max-w-7xl mx-auto">
-        <span className="text-[#d4af37] text-[10px] font-label-md uppercase tracking-[0.3em] mb-4 block">{section?.subtitle || 'TESTIMONIALS'}</span>
-        <h2 className="font-headline-lg text-4xl md:text-5xl text-[#121c2a] font-normal tracking-wide">{section?.title || 'Client Experiences'}</h2>
-        {section?.description && <p className="mt-6 font-body-md text-[#121c2a]/70 max-w-2xl mx-auto">{section.description}</p>}
+    <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto overflow-hidden relative">
+      <div className="text-center mb-10 sm:mb-14">
+        <div className="inline-flex items-center gap-2.5 sm:gap-3 mb-2.5 sm:mb-3">
+          <span className="w-5 sm:w-6 h-px bg-accent/60" aria-hidden="true" />
+          <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.3em] block font-medium">
+            {sanitizeText(section?.subtitle || 'TESTIMONIALS')}
+          </span>
+          <span className="w-5 sm:w-6 h-px bg-accent/60" aria-hidden="true" />
+        </div>
+        <h2 className="font-serif text-2xl sm:text-3xl md:text-4xl text-ink font-normal tracking-wide">
+          {sanitizeText(section?.title || 'Client Experiences')}
+        </h2>
+        {section?.description && (
+          <p className="mt-3 font-body-md text-on-surface-variant max-w-2xl mx-auto text-xs sm:text-sm leading-relaxed font-light">
+            {sanitizeText(section.description)}
+          </p>
+        )}
       </div>
       
-      {/* Luxury CSS Scroll Snap Carousel */}
-      <div className="flex overflow-x-auto snap-x snap-mandatory gap-8 pb-12 hide-scrollbar px-4 md:px-[calc((100vw-1280px)/2+2rem)]">
+      {/* Luxury Scroll Snap Carousel */}
+      <div
+        className="flex overflow-x-auto snap-x snap-mandatory gap-4 sm:gap-6 md:gap-8 pb-8 hide-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {testimonials.map(test => (
-          <div key={test.id} className="snap-center shrink-0 w-[85vw] md:w-[450px] bg-white p-8 md:p-10 flex flex-col items-center text-center shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)]">
-            <div className="flex gap-2 text-[#d4af37] mb-8">
+          <div 
+            key={test.id} 
+            className="snap-start shrink-0 w-[80vw] xs:w-[320px] sm:w-[360px] md:w-[390px] bg-white p-6 sm:p-8 rounded-[2px] border border-[#e4dcc8] flex flex-col items-center text-center shadow-[0_6px_24px_rgba(18,28,42,0.03)] hover:shadow-[0_12px_36px_rgba(18,28,42,0.07)] transition-all duration-300"
+          >
+            <div className="flex gap-1 text-accent mb-4 sm:mb-5">
               {[...Array(5)].map((_, i) => (
-                <span key={i} className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: i < test.rating ? "'FILL' 1" : "'FILL' 0" }}>star</span>
+                <Star
+                  key={i}
+                  className={`w-3.5 h-3.5 ${
+                    i < test.rating ? 'text-accent fill-accent' : 'text-[#e4dcc8]'
+                  }`}
+                />
               ))}
             </div>
-            <p className="font-headline-md text-lg md:text-xl text-[#121c2a] mb-10 italic font-light leading-relaxed">
-              "{test.review}"
+            <p className="font-serif text-sm sm:text-base text-ink mb-6 italic font-light leading-relaxed">
+              "{sanitizeText(test.review)}"
             </p>
-            <div className="flex flex-col items-center gap-4 mt-auto">
+            <div className="flex flex-col items-center gap-2.5 mt-auto">
               {test.photoUrl ? (
-                <img src={getImageUrl(test.photoUrl)} alt="" loading="lazy" className="w-16 h-16 rounded-full object-cover border border-[#d4af37]/30 p-1" />
+                <img
+                  src={getImageUrl(test.photoUrl)}
+                  alt={test.customerName}
+                  loading="lazy"
+                  className="w-12 h-12 rounded-full object-cover border border-accent/40 p-0.5"
+                />
               ) : (
-                <div className="w-16 h-16 rounded-full border border-[#d4af37]/30 p-1 flex items-center justify-center">
-                  <div className="w-full h-full bg-[#f5f2eb] rounded-full flex items-center justify-center text-[#d4af37] font-headline-md text-xl">
+                <div className="w-11 h-11 rounded-full border border-accent/40 p-0.5 flex items-center justify-center">
+                  <div className="w-full h-full bg-[#f5f1e8] rounded-full flex items-center justify-center text-accent font-serif text-base font-normal">
                     {test.customerName.charAt(0)}
                   </div>
                 </div>
               )}
               <div>
-                <h4 className="font-body-md text-sm text-[#121c2a] tracking-wider uppercase">{test.customerName}</h4>
-                <p className="text-[9px] text-on-surface-variant uppercase tracking-[0.2em] mt-1">Verified Buyer</p>
+                <h4 className="font-body-md text-xs sm:text-sm text-ink tracking-wider uppercase font-semibold">
+                  {test.customerName}
+                </h4>
+                {(test.isVerifiedPurchase === true || test.verifiedPurchase === true || test.verified === true) && (
+                  <p className="text-[9px] text-accent uppercase tracking-[0.2em] mt-0.5 font-medium">
+                    Verified Buyer
+                  </p>
+                )}
               </div>
             </div>
           </div>

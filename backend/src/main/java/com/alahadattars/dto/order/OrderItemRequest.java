@@ -13,8 +13,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class OrderItemRequest {
 
-    @NotNull
     private Long variantId;
+
+    private Long giftSetId;
+
+    @Builder.Default
+    private boolean isGiftSet = false;
 
     @NotNull
     @Positive
@@ -34,4 +38,12 @@ public class OrderItemRequest {
      * Used to re-validate eligibility at checkout.
      */
     private Long freePromotionId;
+
+    public boolean isGiftSet() {
+        return isGiftSet;
+    }
+
+    public void setGiftSet(boolean isGiftSet) {
+        this.isGiftSet = isGiftSet;
+    }
 }

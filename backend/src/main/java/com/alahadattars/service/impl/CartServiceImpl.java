@@ -4,15 +4,18 @@ import com.alahadattars.dto.cart.CartItemRequest;
 import com.alahadattars.dto.cart.CartResponse;
 import com.alahadattars.entity.Cart;
 import com.alahadattars.entity.CartItem;
+import com.alahadattars.entity.GiftSet;
 import com.alahadattars.entity.ProductVariant;
 import com.alahadattars.entity.User;
 import com.alahadattars.exception.BadRequestException;
 import com.alahadattars.exception.ResourceNotFoundException;
 import com.alahadattars.repository.CartRepository;
+import com.alahadattars.repository.GiftSetRepository;
 import com.alahadattars.repository.ProductVariantRepository;
 import com.alahadattars.repository.UserRepository;
 import com.alahadattars.service.CartService;
 import com.alahadattars.service.BottleService;
+import com.alahadattars.service.GiftSetService;
 import com.alahadattars.entity.Bottle;
 import com.alahadattars.service.PromotionEngineService;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +35,8 @@ public class CartServiceImpl implements CartService {
     private final ProductVariantRepository productVariantRepository;
     private final PromotionEngineService promotionEngineService;
     private final BottleService bottleService;
+    private final GiftSetRepository giftSetRepository;
+    private final GiftSetService giftSetService;
 
     // ─── Guest Cart Evaluation ────────────────────────────────────────────────
 
@@ -46,10 +51,19 @@ public class CartServiceImpl implements CartService {
             // --- Phase 4B N+1 Batching ---
             java.util.Set<Long> variantIds = new java.util.HashSet<>();
             java.util.Set<Long> bottleIds = new java.util.HashSet<>();
+            java.util.Set<Long> giftSetIds = new java.util.HashSet<>();
             for (com.alahadattars.dto.cart.GuestCartRequest.GuestCartItemRequest req : request.getItems()) {
-                if (req.getVariantId() != null) variantIds.add(req.getVariantId());
-                if (req.getBottleId() != null) bottleIds.add(req.getBottleId());
+                if (req.getGiftSetId() != null || req.isGiftSet()) {
+                    if (req.getGiftSetId() != null) giftSetIds.add(req.getGiftSetId());
+                } else {
+                    if (req.getVariantId() != null) variantIds.add(req.getVariantId());
+                    if (req.getBottleId() != null) bottleIds.add(req.getBottleId());
+                }
             }
+
+            java.util.Map<Long, GiftSet> giftSetMap = giftSetIds.isEmpty() ? java.util.Collections.emptyMap() :
+                    giftSetRepository.findAllByIdWithItemsEager(giftSetIds).stream()
+                    .collect(java.util.stream.Collectors.toMap(GiftSet::getId, g -> g));
 
             java.util.Map<Long, ProductVariant> variantMap = variantIds.isEmpty() ? java.util.Collections.emptyMap() :
                     productVariantRepository.findAllById(variantIds).stream()
@@ -60,48 +74,75 @@ public class CartServiceImpl implements CartService {
                     .collect(java.util.stream.Collectors.toMap(com.alahadattars.entity.Bottle::getId, b -> b));
 
             for (com.alahadattars.dto.cart.GuestCartRequest.GuestCartItemRequest itemReq : request.getItems()) {
-                ProductVariant variant = variantMap.get(itemReq.getVariantId());
-                if (variant != null) {
-                    BigDecimal finalPrice = variant.getPrice();
-                    com.alahadattars.entity.Bottle bottle = null;
+                if (itemReq.getGiftSetId() != null || itemReq.isGiftSet()) {
+                    GiftSet giftSet = giftSetMap.get(itemReq.getGiftSetId());
+                    if (giftSet == null) {
+                        throw new ResourceNotFoundException("Gift set not found with id: " + itemReq.getGiftSetId());
+                    }
+                    if (!giftSet.isActive()) {
+                        throw new BadRequestException("Gift set " + giftSet.getName() + " is not available");
+                    }
                     if (itemReq.getBottleId() != null) {
-                        bottle = java.util.Optional.ofNullable(bottleMap.get(itemReq.getBottleId()))
-                                .orElseThrow(() -> new com.alahadattars.exception.ResourceNotFoundException("Bottle not found with id: " + itemReq.getBottleId()));
-                        if (!bottle.isActive()) {
-                            throw new com.alahadattars.exception.BadRequestException("Selected bottle is not available");
-                        }
-
-                        if (bottle.getApplicability() != com.alahadattars.enums.BottleApplicability.BOTH) {
-                            if (variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR && bottle.getApplicability() != com.alahadattars.enums.BottleApplicability.ATTAR) {
-                                throw new com.alahadattars.exception.BadRequestException("This bottle is not applicable for Attars.");
-                            }
-                            if (variant.getProductType() == com.alahadattars.enums.ProductType.PERFUME && bottle.getApplicability() != com.alahadattars.enums.BottleApplicability.PERFUME) {
-                                throw new com.alahadattars.exception.BadRequestException("This bottle is not applicable for Perfumes.");
-                            }
-                        }
-
-                        finalPrice = finalPrice.add(bottle.getPrice());
+                        throw new BadRequestException("Bottle selection is not allowed for Gift Sets.");
                     }
-
-                    boolean isBakhoor = variant.getProduct().getCategory() != null &&
-                                        (variant.getProduct().getCategory().getType() == com.alahadattars.enums.CategoryType.BAKHOOR ||
-                                         "Bakhoor".equalsIgnoreCase(variant.getProduct().getCategory().getName()));
-
-                    if (!itemReq.isFreeItem() && (variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR || variant.getProductType() == com.alahadattars.enums.ProductType.PERFUME) && !isBakhoor && bottle == null) {
-                        throw new com.alahadattars.exception.BadRequestException("A bottle must be selected for this fragrance.");
-                    }
-
+                    BigDecimal price = giftSet.getSalePrice() != null ? giftSet.getSalePrice() : giftSet.getPrice();
                     CartItem item = CartItem.builder()
                             .cart(cart)
-                            .product(variant.getProduct())
-                            .variant(variant)
-                            .bottle(bottle)
+                            .isGiftSet(true)
+                            .giftSet(giftSet)
+                            .product(null)
+                            .variant(null)
+                            .bottle(null)
                             .quantity(itemReq.getQuantity())
-                            .price(finalPrice)
-                            .freeItem(itemReq.isFreeItem())
-                            .freePromotionId(itemReq.getFreePromotionId())
+                            .price(price)
+                            .freeItem(false)
                             .build();
                     cart.addItem(item);
+                } else {
+                    ProductVariant variant = variantMap.get(itemReq.getVariantId());
+                    if (variant != null) {
+                        BigDecimal finalPrice = variant.getPrice();
+                        com.alahadattars.entity.Bottle bottle = null;
+                        if (itemReq.getBottleId() != null) {
+                            bottle = java.util.Optional.ofNullable(bottleMap.get(itemReq.getBottleId()))
+                                    .orElseThrow(() -> new com.alahadattars.exception.ResourceNotFoundException("Bottle not found with id: " + itemReq.getBottleId()));
+                            if (!bottle.isActive()) {
+                                throw new com.alahadattars.exception.BadRequestException("Selected bottle is not available");
+                            }
+
+                            if (bottle.getApplicability() != com.alahadattars.enums.BottleApplicability.BOTH) {
+                                if (variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR && bottle.getApplicability() != com.alahadattars.enums.BottleApplicability.ATTAR) {
+                                    throw new com.alahadattars.exception.BadRequestException("This bottle is not applicable for Attars.");
+                                }
+                                if (variant.getProductType() == com.alahadattars.enums.ProductType.PERFUME && bottle.getApplicability() != com.alahadattars.enums.BottleApplicability.PERFUME) {
+                                    throw new com.alahadattars.exception.BadRequestException("This bottle is not applicable for Perfumes.");
+                                }
+                            }
+
+                            finalPrice = finalPrice.add(bottle.getPrice());
+                        }
+
+                        boolean isBakhoor = variant.getProduct().getCategory() != null &&
+                                            (variant.getProduct().getCategory().getType() == com.alahadattars.enums.CategoryType.BAKHOOR ||
+                                             "Bakhoor".equalsIgnoreCase(variant.getProduct().getCategory().getName()));
+
+                        if (!itemReq.isFreeItem() && (variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR || variant.getProductType() == com.alahadattars.enums.ProductType.PERFUME) && !isBakhoor && bottle == null) {
+                            throw new com.alahadattars.exception.BadRequestException("A bottle must be selected for this fragrance.");
+                        }
+
+                        CartItem item = CartItem.builder()
+                                .cart(cart)
+                                .isGiftSet(false)
+                                .product(variant.getProduct())
+                                .variant(variant)
+                                .bottle(bottle)
+                                .quantity(itemReq.getQuantity())
+                                .price(finalPrice)
+                                .freeItem(itemReq.isFreeItem())
+                                .freePromotionId(itemReq.getFreePromotionId())
+                                .build();
+                        cart.addItem(item);
+                    }
                 }
             }
         }
@@ -133,6 +174,63 @@ public class CartServiceImpl implements CartService {
     @Transactional
     public CartResponse addToCart(String email, CartItemRequest request) {
         Cart cart = getOrCreateCart(email);
+
+        if (request.getGiftSetId() != null) {
+            if (request.getVariantId() != null) {
+                throw new BadRequestException("Cannot specify both variantId and giftSetId.");
+            }
+            if (request.getBottleId() != null) {
+                throw new BadRequestException("Bottle selection is not allowed for Gift Sets.");
+            }
+            GiftSet giftSet = giftSetRepository.findByIdWithItemsEager(request.getGiftSetId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Gift Set not found with id: " + request.getGiftSetId()));
+
+            if (!giftSet.isActive()) {
+                throw new BadRequestException("Gift Set is not available");
+            }
+
+            int availableStock = giftSetService.calculateAvailableStock(giftSet);
+            if (availableStock < request.getQuantity()) {
+                throw new BadRequestException("Insufficient stock for " + giftSet.getName() + ". Available: " + availableStock);
+            }
+
+            CartItem existing = cart.getItems().stream()
+                    .filter(CartItem::isGiftSet)
+                    .filter(item -> item.getGiftSet() != null && item.getGiftSet().getId().equals(giftSet.getId()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (existing != null) {
+                int newQuantity = existing.getQuantity() + request.getQuantity();
+                if (newQuantity > availableStock) {
+                    throw new BadRequestException("Insufficient stock for " + giftSet.getName() + ". Available: " + availableStock);
+                }
+                existing.setQuantity(newQuantity);
+            } else {
+                BigDecimal livePrice = giftSet.getSalePrice() != null ? giftSet.getSalePrice() : giftSet.getPrice();
+                CartItem newItem = CartItem.builder()
+                        .cart(cart)
+                        .isGiftSet(true)
+                        .giftSet(giftSet)
+                        .product(null)
+                        .variant(null)
+                        .bottle(null)
+                        .quantity(request.getQuantity())
+                        .price(livePrice)
+                        .freeItem(false)
+                        .build();
+                cart.addItem(newItem);
+            }
+
+            pruneStaleFreeItems(cart);
+            Cart saved = cartRepository.save(cart);
+            return promotionEngineService.evaluateCart(saved, saved.getCouponCode());
+        }
+
+        if (request.getVariantId() == null) {
+            throw new BadRequestException("Variant ID is required for standard items.");
+        }
+
         ProductVariant variant = productVariantRepository.findById(request.getVariantId())
                 .orElseThrow(() -> new ResourceNotFoundException("Product Variant not found"));
 
@@ -174,8 +272,8 @@ public class CartServiceImpl implements CartService {
         // Don't merge with free items of same variant — they must stay separate
         final Long compareBottleId = bottleId;
         CartItem existing = cart.getItems().stream()
-                .filter(item -> !item.isFreeItem())
-                .filter(item -> item.getVariant().getId().equals(variant.getId()))
+                .filter(item -> !item.isGiftSet() && !item.isFreeItem())
+                .filter(item -> item.getVariant() != null && item.getVariant().getId().equals(variant.getId()))
                 .filter(item -> (item.getBottle() == null && compareBottleId == null) ||
                                 (item.getBottle() != null && item.getBottle().getId().equals(compareBottleId)))
                 .findFirst()
@@ -186,6 +284,7 @@ public class CartServiceImpl implements CartService {
         } else {
             CartItem newItem = CartItem.builder()
                     .cart(cart)
+                    .isGiftSet(false)
                     .product(variant.getProduct())
                     .variant(variant)
                     .bottle(bottle)
@@ -216,12 +315,22 @@ public class CartServiceImpl implements CartService {
         if (quantity <= 0) {
             cart.removeItem(item);
         } else {
-            if (item.getVariant().getStock() < quantity)
-                throw new BadRequestException("Insufficient stock. Available: " + item.getVariant().getStock());
-            if (item.getBottle() != null && item.getBottle().getStockQuantity() < quantity) {
-                throw new BadRequestException("Insufficient stock for bottle " + item.getBottle().getName() + ". Available: " + item.getBottle().getStockQuantity());
+            if (item.isGiftSet()) {
+                GiftSet gs = giftSetRepository.findByIdWithItemsEager(item.getGiftSet().getId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Gift Set not found"));
+                int availableStock = giftSetService.calculateAvailableStock(gs);
+                if (availableStock < quantity) {
+                    throw new BadRequestException("Insufficient stock for " + gs.getName() + ". Available: " + availableStock);
+                }
+                item.setQuantity(quantity);
+            } else {
+                if (item.getVariant().getStock() < quantity)
+                    throw new BadRequestException("Insufficient stock. Available: " + item.getVariant().getStock());
+                if (item.getBottle() != null && item.getBottle().getStockQuantity() < quantity) {
+                    throw new BadRequestException("Insufficient stock for bottle " + item.getBottle().getName() + ". Available: " + item.getBottle().getStockQuantity());
+                }
+                item.setQuantity(quantity);
             }
-            item.setQuantity(quantity);
         }
 
         pruneStaleFreeItems(cart);

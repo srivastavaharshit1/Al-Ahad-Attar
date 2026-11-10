@@ -71,6 +71,11 @@ public class PaymentServiceImpl implements PaymentService {
     private final RefundTransactionSupport refundTransactionSupport;
     private final com.alahadattars.service.EmailService emailService;
     private final WebhookTransactionSupport webhookTransactionSupport;
+    private final com.alahadattars.repository.GiftSetRepository giftSetRepository;
+    private final com.alahadattars.service.GiftSetService giftSetService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.beans.factory.ObjectProvider<com.alahadattars.service.PaymentReconciliationService> paymentReconciliationServiceProvider;
 
     @PostConstruct
     public void validateRazorpayConfig() {
@@ -120,18 +125,39 @@ public class PaymentServiceImpl implements PaymentService {
 
             // CRITICAL: Prevent initializing payment for out-of-stock items (Batch query to eliminate N+1)
             java.util.Set<Long> variantIds = cart.getItems().stream()
+                    .filter(i -> !i.isGiftSet())
                     .map(com.alahadattars.dto.cart.CartItemResponse::getVariantId)
                     .filter(java.util.Objects::nonNull)
                     .collect(java.util.stream.Collectors.toSet());
+            java.util.Set<Long> giftSetIds = cart.getItems().stream()
+                    .filter(com.alahadattars.dto.cart.CartItemResponse::isGiftSet)
+                    .map(com.alahadattars.dto.cart.CartItemResponse::getGiftSetId)
+                    .filter(java.util.Objects::nonNull)
+                    .collect(java.util.stream.Collectors.toSet());
+
             java.util.Map<Long, ProductVariant> variantMap = variantIds.isEmpty() ? java.util.Collections.emptyMap() :
                     productVariantRepository.findAllById(variantIds).stream()
                             .collect(java.util.stream.Collectors.toMap(ProductVariant::getId, v -> v));
+            java.util.Map<Long, com.alahadattars.entity.GiftSet> giftSetMap = giftSetIds.isEmpty() ? java.util.Collections.emptyMap() :
+                    giftSetRepository.findAllByIdWithItemsEager(giftSetIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(com.alahadattars.entity.GiftSet::getId, g -> g));
 
             for (com.alahadattars.dto.cart.CartItemResponse item : cart.getItems()) {
-                ProductVariant variant = variantMap.get(item.getVariantId());
-                if (variant != null && variant.getStock() < item.getQuantity()) {
-                    String productName = variant.getProduct() != null ? variant.getProduct().getName() : "Item";
-                    throw new IllegalStateException("Insufficient stock for " + productName + ". Available: " + variant.getStock());
+                if (item.isGiftSet()) {
+                    com.alahadattars.entity.GiftSet gs = giftSetMap.get(item.getGiftSetId());
+                    if (gs == null || !gs.isActive()) {
+                        throw new IllegalStateException("Gift Set " + item.getName() + " is no longer available.");
+                    }
+                    int avail = giftSetService.calculateAvailableStock(gs);
+                    if (avail < item.getQuantity()) {
+                        throw new IllegalStateException("Insufficient stock for " + item.getName() + ". Available: " + avail);
+                    }
+                } else {
+                    ProductVariant variant = variantMap.get(item.getVariantId());
+                    if (variant != null && variant.getStock() < item.getQuantity()) {
+                        String productName = variant.getProduct() != null ? variant.getProduct().getName() : "Item";
+                        throw new IllegalStateException("Insufficient stock for " + productName + ". Available: " + variant.getStock());
+                    }
                 }
             }
             
@@ -436,6 +462,35 @@ public class PaymentServiceImpl implements PaymentService {
         // It's acceptable if concurrent duplicates race and fail on constraint violation here.
         webhookEventRepository.saveAndFlush(webhookEvent);
 
-        refundTransactionSupport.reconcileRefundFromWebhook(razorpayRefundId, paymentId, status);
+        // Unambiguous Webhook Routing Strategy (Section 4):
+        // 1. Check if an Order exists for this refund ID or payment ID.
+        // 2. Check if a PaymentIntent exists for this payment ID or refund ID.
+        // 3. An event associated with an Order must NEVER be treated as an orphan.
+        boolean orderExists = false;
+        if (orderRepository.findByRefundId(razorpayRefundId).isPresent()) {
+            orderExists = true;
+        } else if (paymentId != null && (orderRepository.findByTransactionId(paymentId).isPresent() || orderRepository.existsByTransactionId(paymentId))) {
+            orderExists = true;
+        }
+
+        if (orderExists) {
+            refundTransactionSupport.reconcileRefundFromWebhook(razorpayRefundId, paymentId, status);
+        } else {
+            boolean isOrphanIntent = false;
+            if (paymentId != null && paymentIntentRepository.findByRazorpayPaymentId(paymentId).isPresent()) {
+                isOrphanIntent = true;
+            } else if (razorpayRefundId != null && paymentIntentRepository.findByReconciliationRefundId(razorpayRefundId).isPresent()) {
+                isOrphanIntent = true;
+            }
+
+            if (isOrphanIntent && paymentReconciliationServiceProvider != null) {
+                paymentReconciliationServiceProvider.ifAvailable(service ->
+                        service.reconcileRefundFromWebhook(razorpayRefundId, paymentId, status)
+                );
+            } else {
+                // Preserves existing fallback for order refunds where order is looked up by paymentId in refundTransactionSupport
+                refundTransactionSupport.reconcileRefundFromWebhook(razorpayRefundId, paymentId, status);
+            }
+        }
     }
 }

@@ -28,4 +28,18 @@ public class OrderItemResponse {
     private Long bottleId;
     private String bottleName;
     private BigDecimal bottlePrice;
+
+    private boolean isGiftSet;
+    private Long giftSetId;
+    private String giftSetName;
+    private String giftSetSnapshot;
+    private java.util.List<OrderItemGiftSetComponentResponse> giftSetComponents;
+
+    public boolean isGiftSet() {
+        return isGiftSet;
+    }
+
+    public void setGiftSet(boolean isGiftSet) {
+        this.isGiftSet = isGiftSet;
+    }
 }

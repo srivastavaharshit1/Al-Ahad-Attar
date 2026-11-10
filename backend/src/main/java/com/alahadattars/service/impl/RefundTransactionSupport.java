@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Owns every DB-only phase of the cancel/refund flow as its own short-lived transaction, so the
@@ -44,6 +45,8 @@ public class RefundTransactionSupport {
     private final RefundRepository refundRepository;
     private final ProductVariantRepository variantRepository;
     private final com.alahadattars.repository.BottleRepository bottleRepository;
+    private final com.alahadattars.repository.OrderItemGiftSetComponentRepository orderItemGiftSetComponentRepository;
+    private final com.alahadattars.repository.AdminNotificationRepository adminNotificationRepository;
 
     /**
      * Customer self-cancellation: only CONFIRMED orders owned by {@code email} may be cancelled.
@@ -232,6 +235,11 @@ public class RefundTransactionSupport {
                     org.hibernate.Hibernate.initialize(item.getVariant().getProduct().getImages());
                 }
             }
+            if (item.isGiftSet()) {
+                if (item.getGiftSetComponents() != null) {
+                    org.hibernate.Hibernate.initialize(item.getGiftSetComponents());
+                }
+            }
         }
     }
 
@@ -292,14 +300,41 @@ public class RefundTransactionSupport {
 
     private void restoreInventory(Order order) {
         for (OrderItem item : order.getItems()) {
-            if (item.getVariant() != null) {
-                ProductVariant variant = item.getVariant();
-                variantRepository.incrementStock(variant.getId(), item.getQuantity());
-                log.info("Inventory restored for variant {} (+{})", variant.getId(), item.getQuantity());
-            }
-            if (item.getBottleId() != null) {
-                bottleRepository.incrementStock(item.getBottleId(), item.getQuantity());
-                log.info("Inventory restored for bottle {} (+{})", item.getBottleId(), item.getQuantity());
+            if (item.isGiftSet()) {
+                List<com.alahadattars.entity.OrderItemGiftSetComponent> components = item.getGiftSetComponents();
+                if (components == null || components.isEmpty()) {
+                    components = orderItemGiftSetComponentRepository.findByOrderItemId(item.getId());
+                }
+                if (components != null) {
+                    for (com.alahadattars.entity.OrderItemGiftSetComponent comp : components) {
+                        int rowsUpdated = variantRepository.incrementStock(comp.getVariantId(), comp.getTotalDeductedQuantity());
+                        if (rowsUpdated > 0) {
+                            log.info("Inventory restored for gift set component variant {} (+{}) for order {}",
+                                    comp.getVariantId(), comp.getTotalDeductedQuantity(), order.getOrderNumber());
+                        } else {
+                            log.error("Failed to restore inventory for cancelled Order #{}: Component variant ID {} ({} - {}) not found.",
+                                    order.getOrderNumber(), comp.getVariantId(), comp.getProductName(), comp.getVariantSize());
+                            com.alahadattars.entity.AdminNotification anomaly = com.alahadattars.entity.AdminNotification.builder()
+                                    .type("INVENTORY_RESTORATION_ANOMALY")
+                                    .orderId(order.getId())
+                                    .message(String.format("Failed to restore inventory for cancelled Order #%s: Component variant ID %d (%s - %s) not found in catalog.",
+                                            order.getOrderNumber(), comp.getVariantId(), comp.getProductName(), comp.getVariantSize()))
+                                    .isRead(false)
+                                    .build();
+                            adminNotificationRepository.save(anomaly);
+                        }
+                    }
+                }
+            } else {
+                if (item.getVariant() != null) {
+                    ProductVariant variant = item.getVariant();
+                    variantRepository.incrementStock(variant.getId(), item.getQuantity());
+                    log.info("Inventory restored for variant {} (+{})", variant.getId(), item.getQuantity());
+                }
+                if (item.getBottleId() != null) {
+                    bottleRepository.incrementStock(item.getBottleId(), item.getQuantity());
+                    log.info("Inventory restored for bottle {} (+{})", item.getBottleId(), item.getQuantity());
+                }
             }
         }
     }

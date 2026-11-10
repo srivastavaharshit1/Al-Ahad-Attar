@@ -11,6 +11,7 @@ export const ROUTES = {
   ATTARS: '/attars',
   BAKHOOR: '/bakhoor',
   PRODUCT: '/product',
+  GIFT_SETS: '/gift-sets',
   CART: '/cart',
   CHECKOUT: '/checkout',
   LOGIN: '/login',

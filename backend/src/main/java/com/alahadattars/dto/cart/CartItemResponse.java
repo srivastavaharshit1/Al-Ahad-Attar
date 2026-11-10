@@ -37,4 +37,18 @@ public class CartItemResponse {
      * Null for regular items.
      */
     private Long freePromotionId;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isGiftSet")
+    private boolean isGiftSet;
+    private Long giftSetId;
+    private String giftSetName;
+    private List<com.alahadattars.dto.giftset.GiftSetItemResponse> includedItems;
+
+    public boolean isGiftSet() {
+        return isGiftSet;
+    }
+
+    public void setGiftSet(boolean isGiftSet) {
+        this.isGiftSet = isGiftSet;
+    }
 }
