@@ -103,7 +103,7 @@ class PaymentReconciliationServiceTest {
             when(paymentIntentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(intent));
             when(orderRepository.existsByTransactionId("pay_rzp_1")).thenReturn(false);
             when(paymentService.checkExistingRefund("pay_rzp_1", new BigDecimal("1299.00"))).thenReturn(Optional.empty());
-            when(paymentService.initiateRefund("pay_rzp_1", new BigDecimal("1299.00")))
+            when(paymentService.initiateRefund(eq("pay_rzp_1"), eq(new BigDecimal("1299.00")), anyString()))
                     .thenReturn(RefundResult.builder().outcome(RefundResult.RefundOutcome.PROCESSED).refundId("rfnd_123").build());
 
             reconciliationService.processSingleIntent(1L);
@@ -149,7 +149,7 @@ class PaymentReconciliationServiceTest {
             when(paymentService.checkExistingRefund("pay_rzp_3", new BigDecimal("1500.00"))).thenReturn(Optional.empty());
 
             // Razorpay accepts refund as 'submitted' (SUCCESS in DTO)
-            when(paymentService.initiateRefund("pay_rzp_3", new BigDecimal("1500.00")))
+            when(paymentService.initiateRefund(eq("pay_rzp_3"), eq(new BigDecimal("1500.00")), anyString()))
                     .thenReturn(RefundResult.builder().outcome(RefundResult.RefundOutcome.SUCCESS).refundId("rfnd_in_flight").build());
 
             reconciliationService.processSingleIntent(3L);
@@ -167,7 +167,7 @@ class PaymentReconciliationServiceTest {
             when(orderRepository.existsByTransactionId("pay_rzp_4")).thenReturn(false);
             when(paymentService.checkExistingRefund("pay_rzp_4", new BigDecimal("999.00"))).thenReturn(Optional.empty());
 
-            when(paymentService.initiateRefund("pay_rzp_4", new BigDecimal("999.00")))
+            when(paymentService.initiateRefund(eq("pay_rzp_4"), eq(new BigDecimal("999.00")), anyString()))
                     .thenReturn(RefundResult.builder().outcome(RefundResult.RefundOutcome.UNKNOWN_TIMEOUT).errorMessage("SocketTimeoutException").build());
 
             reconciliationService.processSingleIntent(4L);
@@ -185,7 +185,7 @@ class PaymentReconciliationServiceTest {
             when(orderRepository.existsByTransactionId("pay_rzp_5")).thenReturn(false);
             when(paymentService.checkExistingRefund("pay_rzp_5", new BigDecimal("2500.00"))).thenReturn(Optional.empty());
 
-            when(paymentService.initiateRefund("pay_rzp_5", new BigDecimal("2500.00")))
+            when(paymentService.initiateRefund(eq("pay_rzp_5"), eq(new BigDecimal("2500.00")), anyString()))
                     .thenReturn(RefundResult.builder().outcome(RefundResult.RefundOutcome.DEFINITIVE_FAILURE).errorMessage("Card expired or merchant balance exhausted").build());
 
             reconciliationService.processSingleIntent(5L);
@@ -204,14 +204,14 @@ class PaymentReconciliationServiceTest {
 
             // checkExistingRefund checks for exact amount 1500.00. Since gateway had a partial refund of 500, checkExistingRefund returns empty
             when(paymentService.checkExistingRefund("pay_rzp_13", new BigDecimal("1500.00"))).thenReturn(Optional.empty());
-            when(paymentService.initiateRefund("pay_rzp_13", new BigDecimal("1500.00")))
+            when(paymentService.initiateRefund(eq("pay_rzp_13"), eq(new BigDecimal("1500.00")), anyString()))
                     .thenReturn(RefundResult.builder().outcome(RefundResult.RefundOutcome.PROCESSED).refundId("rfnd_full_1500").build());
 
             reconciliationService.processSingleIntent(13L);
 
             assertEquals(ReconciliationStatus.REFUNDED, intent.getReconciliationStatus());
             assertEquals("rfnd_full_1500", intent.getReconciliationRefundId());
-            verify(paymentService).initiateRefund("pay_rzp_13", new BigDecimal("1500.00"));
+            verify(paymentService).initiateRefund(eq("pay_rzp_13"), eq(new BigDecimal("1500.00")), eq("recon-order_rzp_13"));
         }
 
         @Test
@@ -236,7 +236,7 @@ class PaymentReconciliationServiceTest {
             when(paymentIntentRepository.findByIdForUpdate(6L)).thenReturn(Optional.of(intent));
             when(orderRepository.existsByTransactionId("pay_rzp_6")).thenReturn(false);
             when(paymentService.checkExistingRefund("pay_rzp_6", new BigDecimal("1000.00"))).thenReturn(Optional.empty());
-            when(paymentService.initiateRefund("pay_rzp_6", new BigDecimal("1000.00")))
+            when(paymentService.initiateRefund(eq("pay_rzp_6"), eq(new BigDecimal("1000.00")), anyString()))
                     .thenAnswer(invocation -> {
                         // Simulate lease expiration & second worker overriding lease token while HTTP call was active
                         intent.setReconciliationLeaseToken("worker_2_token_override");
@@ -288,7 +288,7 @@ class PaymentReconciliationServiceTest {
             when(orderRepository.existsByTransactionId("pay_rzp_15")).thenReturn(false);
             when(paymentService.checkExistingRefund("pay_rzp_15", new BigDecimal("800.00"))).thenReturn(Optional.empty());
 
-            when(paymentService.initiateRefund("pay_rzp_15", new BigDecimal("800.00")))
+            when(paymentService.initiateRefund(eq("pay_rzp_15"), eq(new BigDecimal("800.00")), anyString()))
                     .thenAnswer(invocation -> {
                         // Webhook arrived concurrently and settled status to REFUNDED
                         intent.setReconciliationStatus(ReconciliationStatus.REFUNDED);

@@ -166,14 +166,14 @@ class OrderCancellationServiceTest {
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
         when(refundTransactionSupport.claimAdminRefundProcessing(ORDER_ID, ADMIN_EMAIL))
                 .thenReturn(new RefundTransactionSupport.AdminRefundPreparation(order, new BigDecimal("999.00"), initiatedAt));
-        when(paymentService.initiateRefund(eq("pay_test123"), eq(new BigDecimal("999.00"))))
+        when(paymentService.initiateRefund(eq("pay_test123"), eq(new BigDecimal("999.00")), anyString()))
                 .thenReturn(RefundResult.builder().outcome(RefundResult.RefundOutcome.SUCCESS).refundId("rfnd_xyz").build());
         when(refundTransactionSupport.recordAdminRefundOutcome(eq(order), any(RefundResult.class), eq(new BigDecimal("999.00")), eq(initiatedAt)))
                 .thenReturn(order);
 
         orderService.initiateRefund(ADMIN_EMAIL, ORDER_ID);
 
-        verify(paymentService).initiateRefund("pay_test123", new BigDecimal("999.00"));
+        verify(paymentService).initiateRefund(eq("pay_test123"), eq(new BigDecimal("999.00")), anyString());
         verify(emailService).sendRefundSuccessfulEmail(any());
         verify(notificationService).sendRefundCompletedNotification(order);
         verify(emailService, never()).sendAdminRefundFailedEmail(any());
@@ -185,7 +185,7 @@ class OrderCancellationServiceTest {
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
         when(refundTransactionSupport.claimAdminRefundProcessing(ORDER_ID, ADMIN_EMAIL))
                 .thenReturn(new RefundTransactionSupport.AdminRefundPreparation(order, new BigDecimal("999.00"), initiatedAt));
-        when(paymentService.initiateRefund(anyString(), any(BigDecimal.class)))
+        when(paymentService.initiateRefund(anyString(), any(BigDecimal.class), anyString()))
                 .thenReturn(RefundResult.builder().outcome(RefundResult.RefundOutcome.DEFINITIVE_FAILURE).errorMessage("Razorpay error").build());
         when(refundTransactionSupport.recordAdminRefundOutcome(eq(order), any(RefundResult.class), any(), eq(initiatedAt)))
                 .thenReturn(order);

@@ -218,7 +218,7 @@ class OrderCancellationConcurrencyTest {
 
         // Simulate real Razorpay latency so concurrent threads have an actual window to race inside
         // claimAdminRefundProcessing's atomic claim, not just a theoretical one.
-        when(paymentService.initiateRefund(anyString(), any(BigDecimal.class))).thenAnswer(inv -> {
+        when(paymentService.initiateRefund(anyString(), any(BigDecimal.class), anyString())).thenAnswer(inv -> {
             Thread.sleep(50);
             return RefundResult.builder().outcome(RefundResult.RefundOutcome.PROCESSED).refundId("rfnd_concurrency_test").build();
         });
@@ -246,7 +246,7 @@ class OrderCancellationConcurrencyTest {
 
         // Razorpay must be called exactly once regardless of how many admin requests raced —
         // this is the hard "never produce two refunds" requirement.
-        verify(paymentService, times(1)).initiateRefund(anyString(), any(BigDecimal.class));
+        verify(paymentService, times(1)).initiateRefund(anyString(), any(BigDecimal.class), anyString());
 
         Order finalOrder = orderRepository.findById(order.getId()).orElseThrow();
         assertEquals("REFUNDED", finalOrder.getRefundStatus().name());

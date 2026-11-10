@@ -24,6 +24,10 @@ public interface PaymentIntentRepository extends JpaRepository<PaymentIntent, Lo
     Optional<PaymentIntent> findByReconciliationRefundId(String reconciliationRefundId);
 
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM PaymentIntent p WHERE p.reconciliationRefundId = :reconciliationRefundId")
+    Optional<PaymentIntent> findByReconciliationRefundIdForUpdate(@Param("reconciliationRefundId") String reconciliationRefundId);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM PaymentIntent p WHERE p.razorpayOrderId = :razorpayOrderId")
     Optional<PaymentIntent> findByRazorpayOrderIdForUpdate(@Param("razorpayOrderId") String razorpayOrderId);
 

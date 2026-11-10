@@ -18,7 +18,19 @@ public interface PaymentService {
      * @param amount            The full amount to refund (in INR, not paise).
      * @return RefundResult containing success flag, refundId, or error message.
      */
-    RefundResult initiateRefund(String razorpayPaymentId, BigDecimal amount);
+    default RefundResult initiateRefund(String razorpayPaymentId, BigDecimal amount) {
+        return initiateRefund(razorpayPaymentId, amount, null);
+    }
+
+    /**
+     * Initiates a refund via Razorpay for the given payment with an explicit idempotency key.
+     *
+     * @param razorpayPaymentId The Razorpay payment ID (pay_xxx).
+     * @param amount            The amount to refund in INR.
+     * @param idempotencyKey    Unique, deterministic operation idempotency key passed as X-Refund-Idempotency.
+     * @return RefundResult containing success flag, refundId, or error message.
+     */
+    RefundResult initiateRefund(String razorpayPaymentId, BigDecimal amount, String idempotencyKey);
 
     /**
      * Read-only reconciliation against Razorpay's own refund records for a payment — makes no

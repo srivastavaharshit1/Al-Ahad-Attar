@@ -10,6 +10,12 @@ import com.razorpay.Refund;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
 import com.razorpay.Utils;
+import okhttp3.Credentials;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -250,8 +256,19 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
+    private final OkHttpClient httpClient = new OkHttpClient.Builder()
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .build();
+
     @Override
     public RefundResult initiateRefund(String razorpayPaymentId, BigDecimal amount) {
+        return initiateRefund(razorpayPaymentId, amount, null);
+    }
+
+    @Override
+    public RefundResult initiateRefund(String razorpayPaymentId, BigDecimal amount, String idempotencyKey) {
         try {
             if (razorpayPaymentId == null || razorpayPaymentId.isBlank()) {
                 return RefundResult.builder()
@@ -261,80 +278,151 @@ public class PaymentServiceImpl implements PaymentService {
             }
 
             if (devMode) {
-                // Orders placed in dev mode never had a real Razorpay payment behind them (see
-                // createPaymentOrder), so there's nothing for the real API to refund — every dev-mode
-                // order's transactionId looks like pay_dev_... from Checkout.tsx. Calling Razorpay for
-                // one always fails (payment doesn't exist there), which is exactly what surfaced this.
                 String refundId = "rfnd_dev_" + java.util.UUID.randomUUID().toString().replace("-", "");
                 log.info("[dev-mode] Simulated refund {} for payment {} (amount {})", refundId, razorpayPaymentId, amount);
                 return RefundResult.builder().outcome(RefundResult.RefundOutcome.SUCCESS).refundId(refundId).build();
             }
 
-            // This SDK version has no idempotency-key support on the refund call, so a lost
-            // response (e.g. a timeout after Razorpay already processed the refund) followed by
-            // an admin/system retry would otherwise send a second, genuine refund request — a
-            // real double-refund at Razorpay, not just a duplicate row in our own DB. Check
-            // Razorpay's own record for this payment first; if a non-failed refund for this exact
-            // amount already exists there, treat it as already-completed instead of refunding again.
-            Optional<RefundResult> existing = checkExistingRefund(razorpayPaymentId, amount);
-            if (existing.isPresent() && existing.get().isSuccess()) {
-                log.warn("Found existing Razorpay refund for payment {} matching amount {} — skipping duplicate "
-                        + "refund request (likely a retry after a lost response).", razorpayPaymentId, amount);
-                return existing.get();
-            }
+            // Ensure idempotency key is always non-blank and at least 10 characters for gateway compliance.
+            // Backward compatibility: If no explicit key was provided by caller (e.g. legacy 2-arg caller),
+            // formulate a deterministic fallback key and perform existing-refund pre-check to prevent duplicate refunds.
+            String effectiveKey = idempotencyKey;
+            if (effectiveKey == null || effectiveKey.isBlank()) {
+                effectiveKey = "pay-fallback-" + (razorpayPaymentId.length() >= 10
+                        ? razorpayPaymentId
+                        : String.format("%-10s", razorpayPaymentId).replace(' ', '0'));
 
-            RazorpayClient razorpay = new RazorpayClient(keyId, keySecret);
-            int amountInPaise = amount.multiply(new BigDecimal("100")).intValue();
-
-            JSONObject refundRequest = new JSONObject();
-            // Razorpay expects amount in paise (1 INR = 100 paise)
-            refundRequest.put("amount", amountInPaise);
-            refundRequest.put("speed", "normal"); // 'normal' or 'optimum'
-
-            log.info("Initiating Razorpay refund for payment: {} | Amount: {} INR ({} paise)",
-                    razorpayPaymentId, amount, amountInPaise);
-
-            Refund refund = razorpay.payments.refund(razorpayPaymentId, refundRequest);
-            String refundId = refund.get("id");
-
-            log.info("Razorpay refund successful. Refund ID: {}", refundId);
-
-            RefundResult.RefundOutcome outcome = RefundResult.RefundOutcome.SUCCESS;
-            String status = refund.get("status");
-            if (status != null && status.equalsIgnoreCase("processed")) {
-                outcome = RefundResult.RefundOutcome.PROCESSED;
-            }
-
-            return RefundResult.builder()
-                    .outcome(outcome)
-                    .refundId(refundId)
-                    .build();
-
-        } catch (RazorpayException e) {
-            log.error("Razorpay refund API failed for payment {}: {}", razorpayPaymentId, e.getMessage());
-            
-            boolean isTimeout = false;
-            Throwable cause = e.getCause();
-            if (cause instanceof java.net.SocketTimeoutException || cause instanceof java.net.UnknownHostException || cause instanceof java.io.IOException) {
-                isTimeout = true;
-            } else if (e.getMessage() != null) {
-                String msg = e.getMessage().toLowerCase();
-                if (msg.contains("timeout") || msg.contains("timed out") || msg.contains("connection reset") || msg.contains("unknown host")) {
-                    isTimeout = true;
+                Optional<RefundResult> existing = checkExistingRefund(razorpayPaymentId, amount);
+                if (existing.isPresent()) {
+                    RefundResult existingResult = existing.get();
+                    if (existingResult.isSuccess()) {
+                        log.warn("Found existing Razorpay refund for payment {} matching amount {} — skipping duplicate "
+                                + "refund request (legacy 2-arg caller).", razorpayPaymentId, amount);
+                        return existingResult;
+                    }
+                    if (existingResult.getOutcome() == RefundResult.RefundOutcome.UNKNOWN_TIMEOUT) {
+                        log.warn("Existing refund lookup for payment {} resulted in UNKNOWN_TIMEOUT — skipping new refund dispatch "
+                                + "to avoid duplicate creation. Retaining pending state.", razorpayPaymentId);
+                        return existingResult;
+                    }
                 }
+            } else if (effectiveKey.length() < 10) {
+                effectiveKey = String.format("%-10s", effectiveKey).replace(' ', '0');
             }
 
-            if (isTimeout) {
-                return RefundResult.builder()
-                        .outcome(RefundResult.RefundOutcome.UNKNOWN_TIMEOUT)
-                        .errorMessage("Network timeout while calling Razorpay: " + e.getMessage())
-                        .build();
-            } else {
+            int amountInPaise = amount.multiply(new BigDecimal("100")).intValue();
+            JSONObject refundRequest = new JSONObject();
+            refundRequest.put("amount", amountInPaise);
+            refundRequest.put("speed", "normal");
+
+            log.info("Initiating Razorpay refund for payment: {} | Amount: {} INR ({} paise) | IdempotencyKey: {}",
+                    razorpayPaymentId, amount, amountInPaise, effectiveKey);
+
+            String url = "https://api.razorpay.com/v1/payments/" + razorpayPaymentId + "/refund";
+            String credential = Credentials.basic(keyId, keySecret);
+
+            Request.Builder requestBuilder = new Request.Builder()
+                    .url(url)
+                    .header("Authorization", credential)
+                    .header("User-Agent", "Razorpay/v1 JAVASDK/1.4.6 Java/" + System.getProperty("java.version"))
+                    .header("Content-Type", "application/json")
+                    .header("X-Refund-Idempotency", effectiveKey);
+
+            RequestBody body = RequestBody.create(refundRequest.toString(), MediaType.parse("application/json; charset=utf-8"));
+            requestBuilder.post(body);
+
+            Request request = requestBuilder.build();
+
+            try (Response response = httpClient.newCall(request).execute()) {
+                int statusCode = response.code();
+                String responseBody = response.body() != null ? response.body().string() : "";
+
+                if (statusCode >= 200 && statusCode < 300) {
+                    JSONObject json = new JSONObject(responseBody);
+                    String refundId = json.optString("id");
+                    String status = json.optString("status");
+                    log.info("Razorpay refund HTTP {} successful. Refund ID: {} | Status: {}", statusCode, refundId, status);
+
+                    RefundResult.RefundOutcome outcome = "processed".equalsIgnoreCase(status)
+                            ? RefundResult.RefundOutcome.PROCESSED
+                            : RefundResult.RefundOutcome.SUCCESS;
+
+                    return RefundResult.builder()
+                            .outcome(outcome)
+                            .refundId(refundId)
+                            .build();
+                }
+
+                if (statusCode == 409) {
+                    log.warn("Razorpay returned HTTP 409 Conflict for payment {} with key {}. Refund in progress at gateway.",
+                            razorpayPaymentId, idempotencyKey);
+                    return RefundResult.builder()
+                            .outcome(RefundResult.RefundOutcome.UNKNOWN_TIMEOUT)
+                            .errorMessage("Razorpay returned HTTP 409 Conflict: Refund is currently in progress at gateway. Retaining pending state.")
+                            .build();
+                }
+
+                if (statusCode == 400) {
+                    JSONObject errorJson = null;
+                    try {
+                        JSONObject root = new JSONObject(responseBody);
+                        errorJson = root.optJSONObject("error");
+                    } catch (Exception ignored) {}
+
+                    String description = errorJson != null ? errorJson.optString("description", "") : responseBody;
+                    String reason = errorJson != null ? errorJson.optString("reason", "") : "";
+
+                    if (description.toLowerCase().contains("already refunded")
+                            || description.toLowerCase().contains("already been fully refunded")
+                            || "payment_already_refunded".equalsIgnoreCase(reason)) {
+                        log.info("Razorpay reported payment {} is already refunded. Attempting strict verification lookup...", razorpayPaymentId);
+
+                        Optional<RefundResult> verifiedExisting = checkExistingRefund(razorpayPaymentId, amount);
+                        if (verifiedExisting.isPresent() && verifiedExisting.get().isSuccess()) {
+                            log.info("Verified matching refund {} for payment {} following already-refunded response.",
+                                    verifiedExisting.get().getRefundId(), razorpayPaymentId);
+                            return verifiedExisting.get();
+                        }
+
+                        log.error("CRITICAL: Razorpay returned already-refunded for payment {}, but verified refund record was NOT found. Description: {}",
+                                razorpayPaymentId, description);
+                        return RefundResult.builder()
+                                .outcome(RefundResult.RefundOutcome.DEFINITIVE_FAILURE)
+                                .errorMessage("Razorpay reported payment already refunded, but matching refund record could not be verified: " + description)
+                                .build();
+                    }
+
+                    return RefundResult.builder()
+                            .outcome(RefundResult.RefundOutcome.DEFINITIVE_FAILURE)
+                            .errorMessage("Razorpay error (HTTP 400): " + description)
+                            .build();
+                }
+
+                if (statusCode >= 500 || statusCode == 429) {
+                    return RefundResult.builder()
+                            .outcome(RefundResult.RefundOutcome.UNKNOWN_TIMEOUT)
+                            .errorMessage("Razorpay server or rate-limit error (HTTP " + statusCode + "): " + responseBody)
+                            .build();
+                }
+
                 return RefundResult.builder()
                         .outcome(RefundResult.RefundOutcome.DEFINITIVE_FAILURE)
-                        .errorMessage("Razorpay error: " + e.getMessage())
+                        .errorMessage("Razorpay API failed with HTTP " + statusCode + ": " + responseBody)
                         .build();
             }
+
+        } catch (java.net.SocketTimeoutException | java.net.UnknownHostException e) {
+            log.error("Network timeout while calling Razorpay refund for payment {}: {}", razorpayPaymentId, e.getMessage());
+            return RefundResult.builder()
+                    .outcome(RefundResult.RefundOutcome.UNKNOWN_TIMEOUT)
+                    .errorMessage("Network timeout while calling Razorpay: " + e.getMessage())
+                    .build();
+        } catch (java.io.IOException e) {
+            log.error("IO exception while calling Razorpay refund for payment {}: {}", razorpayPaymentId, e.getMessage());
+            return RefundResult.builder()
+                    .outcome(RefundResult.RefundOutcome.UNKNOWN_TIMEOUT)
+                    .errorMessage("IO exception while calling Razorpay: " + e.getMessage())
+                    .build();
         } catch (Exception e) {
             log.error("Unexpected error during refund for payment {}: {}", razorpayPaymentId, e.getMessage());
             return RefundResult.builder()
@@ -374,12 +462,15 @@ public class PaymentServiceImpl implements PaymentService {
                 return Optional.of(RefundResult.builder().outcome(RefundResult.RefundOutcome.SUCCESS).refundId(refundId).build());
             }
         } catch (Exception e) {
-            // A failed lookup means the outcome is genuinely unknown, not "no refund exists" — the
-            // caller must treat this exactly like "not found" (empty), never as a green light to
-            // call Razorpay again without further reconciliation.
             log.warn("Could not check existing Razorpay refunds for payment {}: {}", razorpayPaymentId, e.getMessage());
+            // AMBIGUOUS OUTCOME: Network error, timeout, or gateway exception must NOT be interpreted as "no refund".
+            // Explicitly represent ambiguous outcomes as UNKNOWN_TIMEOUT so callers never proceed to dispatch a duplicate refund.
+            return Optional.of(RefundResult.builder()
+                    .outcome(RefundResult.RefundOutcome.UNKNOWN_TIMEOUT)
+                    .errorMessage("Could not check existing Razorpay refunds due to network/gateway error: " + e.getMessage())
+                    .build());
         }
-        return Optional.empty();
+        return Optional.empty(); // Razorpay lookup succeeded and verified that NO refund matching this amount exists
     }
 
     @Override

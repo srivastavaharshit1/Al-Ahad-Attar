@@ -104,9 +104,10 @@ public class PaymentReconciliationServiceImpl implements PaymentReconciliationSe
         String leaseToken = claim.getLeaseToken();
         String paymentId = claim.getPaymentId();
         BigDecimal amount = claim.getAmount();
+        String idempotencyKey = "recon-" + claim.getRazorpayOrderId();
 
         // --- PHASE 2: EXTERNAL GATEWAY CALL (NO DATABASE CONNECTION HELD) ---
-        GatewayReconciliationOutcome gatewayOutcome = evaluateGatewayRefund(paymentId, amount);
+        GatewayReconciliationOutcome gatewayOutcome = evaluateGatewayRefund(paymentId, amount, idempotencyKey);
 
         // --- PHASE 3: SHORT TRANSACTION (Settle Outcome with Fencing Token Verification) ---
         txRequiresNew.execute(status -> {
@@ -115,7 +116,7 @@ public class PaymentReconciliationServiceImpl implements PaymentReconciliationSe
         });
     }
 
-    private LeaseClaim claimLeaseInTx(Long paymentIntentId) {
+    private synchronized LeaseClaim claimLeaseInTx(Long paymentIntentId) {
         PaymentIntent intent = paymentIntentRepository.findByIdForUpdate(paymentIntentId).orElse(null);
         if (intent == null) {
             return null;
@@ -182,6 +183,7 @@ public class PaymentReconciliationServiceImpl implements PaymentReconciliationSe
                 .leaseToken(leaseToken)
                 .paymentId(paymentId)
                 .amount(intent.getAmount())
+                .razorpayOrderId(intent.getRazorpayOrderId())
                 .build();
     }
 
@@ -199,7 +201,7 @@ public class PaymentReconciliationServiceImpl implements PaymentReconciliationSe
         return null;
     }
 
-    private GatewayReconciliationOutcome evaluateGatewayRefund(String paymentId, BigDecimal amount) {
+    private GatewayReconciliationOutcome evaluateGatewayRefund(String paymentId, BigDecimal amount, String idempotencyKey) {
         try {
             // STEP 1: Verify existing refunds at Razorpay first (Crash B recovery & duplicate prevention)
             Optional<RefundResult> existing = paymentService.checkExistingRefund(paymentId, amount);
@@ -217,11 +219,17 @@ public class PaymentReconciliationServiceImpl implements PaymentReconciliationSe
                             .refundId(res.getRefundId())
                             .details("Refund is in flight at gateway (status non-terminal)")
                             .build();
+                } else if (res.getOutcome() == RefundResult.RefundOutcome.UNKNOWN_TIMEOUT) {
+                    // Ambiguous outcome (network timeout / rate limit / 5xx) — do NOT dispatch a new refund!
+                    return GatewayReconciliationOutcome.builder()
+                            .action(GatewayAction.TIMEOUT_PENDING)
+                            .details("Existing refund check failed: " + res.getErrorMessage())
+                            .build();
                 }
             }
 
-            // STEP 2: No existing refund found on Razorpay — dispatch fresh refund call
-            RefundResult refundCall = paymentService.initiateRefund(paymentId, amount);
+            // STEP 2: No existing refund found on Razorpay — dispatch fresh refund call with stable idempotency key
+            RefundResult refundCall = paymentService.initiateRefund(paymentId, amount, idempotencyKey);
 
             if (refundCall.getOutcome() == RefundResult.RefundOutcome.PROCESSED) {
                 return GatewayReconciliationOutcome.builder()
@@ -352,7 +360,7 @@ public class PaymentReconciliationServiceImpl implements PaymentReconciliationSe
                 intent = paymentIntentRepository.findByRazorpayPaymentIdForUpdate(paymentId).orElse(null);
             }
             if (intent == null && razorpayRefundId != null) {
-                intent = paymentIntentRepository.findByReconciliationRefundId(razorpayRefundId).orElse(null);
+                intent = paymentIntentRepository.findByReconciliationRefundIdForUpdate(razorpayRefundId).orElse(null);
             }
             if (intent == null) {
                 log.info("No PaymentIntent found for orphan refund webhook (payment: {}, refund: {}). Ignoring.",
@@ -367,10 +375,12 @@ public class PaymentReconciliationServiceImpl implements PaymentReconciliationSe
                 return null;
             }
 
-            // Guard: Terminal state idempotency
-            if (intent.getReconciliationStatus() == ReconciliationStatus.REFUNDED) {
-                log.info("PaymentIntent #{} already REFUNDED. Duplicate webhook for refund {} ignored.",
-                        intent.getId(), razorpayRefundId);
+            // Guard: Terminal state idempotency — all terminal states are immutable
+            if (intent.getReconciliationStatus() == ReconciliationStatus.REFUNDED
+                    || intent.getReconciliationStatus() == ReconciliationStatus.MANUALLY_RESOLVED
+                    || intent.getReconciliationStatus() == ReconciliationStatus.EXEMPT_ORDER_FOUND) {
+                log.info("PaymentIntent #{} already in terminal status {}. Duplicate/late webhook for refund {} ignored.",
+                        intent.getId(), intent.getReconciliationStatus(), razorpayRefundId);
                 return null;
             }
 
@@ -475,6 +485,7 @@ public class PaymentReconciliationServiceImpl implements PaymentReconciliationSe
                     .leaseToken(leaseToken)
                     .paymentId(paymentId)
                     .amount(intent.getAmount())
+                    .razorpayOrderId(intent.getRazorpayOrderId())
                     .build();
         });
 
@@ -482,8 +493,9 @@ public class PaymentReconciliationServiceImpl implements PaymentReconciliationSe
             throw new BadRequestException("Failed to claim lease for retry.");
         }
 
-        // Execute external gateway call outside transaction
-        GatewayReconciliationOutcome outcome = evaluateGatewayRefund(claim.getPaymentId(), claim.getAmount());
+        // Execute external gateway call outside transaction with stable idempotency key
+        String idempotencyKey = "recon-" + claim.getRazorpayOrderId();
+        GatewayReconciliationOutcome outcome = evaluateGatewayRefund(claim.getPaymentId(), claim.getAmount(), idempotencyKey);
 
         // Settle outcome
         txRequiresNew.execute(status -> {
@@ -645,6 +657,7 @@ public class PaymentReconciliationServiceImpl implements PaymentReconciliationSe
         private String leaseToken;
         private String paymentId;
         private BigDecimal amount;
+        private String razorpayOrderId;
     }
 
     private enum GatewayAction {

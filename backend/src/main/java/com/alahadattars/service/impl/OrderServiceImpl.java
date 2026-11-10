@@ -1001,9 +1001,12 @@ public class OrderServiceImpl implements OrderService {
         RefundTransactionSupport.AdminRefundPreparation prep =
                 refundTransactionSupport.claimAdminRefundProcessing(orderId, adminEmail);
 
-        RefundResult result = paymentService.initiateRefund(prep.order().getTransactionId(), prep.refundAmount());
+        String idempotencyKey = prep.idempotencyKey();
+        RefundResult result = paymentService.initiateRefund(prep.order().getTransactionId(), prep.refundAmount(), idempotencyKey);
 
-        Order savedOrder = refundTransactionSupport.recordAdminRefundOutcome(prep.order(), result, prep.refundAmount(), prep.initiatedAt());
+        Order savedOrder = prep.refundRecordId() != null
+                ? refundTransactionSupport.recordAdminRefundOutcome(prep.order(), prep.refundRecordId(), result, prep.refundAmount(), prep.initiatedAt())
+                : refundTransactionSupport.recordAdminRefundOutcome(prep.order(), result, prep.refundAmount(), prep.initiatedAt());
 
         handleAdminRefundOutcome(savedOrder, result, adminEmail);
 
@@ -1014,8 +1017,8 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal refundAmount = order.getRefundAmount() != null ? order.getRefundAmount() : order.getTotalAmount();
         java.util.Optional<RefundResult> reconciled = paymentService.checkExistingRefund(order.getTransactionId(), refundAmount);
 
-        if (reconciled.isEmpty()) {
-            // Genuinely unknown — do NOT assume failure and do NOT allow a new refund attempt to
+        if (reconciled.isEmpty() || reconciled.get().getOutcome() == RefundResult.RefundOutcome.UNKNOWN_TIMEOUT) {
+            // Genuinely unknown or network timeout — do NOT assume failure and do NOT allow a new refund attempt to
             // fire while Razorpay's own outcome for the earlier attempt is still unconfirmed.
             throw new BadRequestException("Refund processing could not be confirmed with Razorpay yet. "
                     + "No additional refund has been created. Please check back shortly before retrying.");
