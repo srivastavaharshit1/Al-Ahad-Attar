@@ -94,6 +94,8 @@ export const GiftSetForm: React.FC<GiftSetFormProps> = ({ initialData, isEdit = 
   // Catalog Products Picker State
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
+  const [productDetailsCache, setProductDetailsCache] = useState<Record<string, Product>>({});
+  const [loadingVariants, setLoadingVariants] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string>('');
   const [selectedVariantId, setSelectedVariantId] = useState<string>('');
   const [componentQuantity, setComponentQuantity] = useState<number>(1);
@@ -120,8 +122,8 @@ export const GiftSetForm: React.FC<GiftSetFormProps> = ({ initialData, isEdit = 
     const fetchCatalog = async () => {
       try {
         setLoadingCatalog(true);
-        // Load up to 100 active catalog products for selection
-        const res = await productService.getProducts({ active: true, size: 100 });
+        // Load up to 200 active catalog products for selection
+        const res = await productService.getProducts({ active: true, size: 200 });
         setCatalogProducts(res.content || []);
       } catch (err) {
         console.error('Failed to load catalog products', err);
@@ -133,11 +135,55 @@ export const GiftSetForm: React.FC<GiftSetFormProps> = ({ initialData, isEdit = 
     fetchCatalog();
   }, []);
 
-  // Selected product object from catalog
+  // Fetch full product details (including variants) when a product is selected
+  useEffect(() => {
+    if (!selectedProductId) {
+      setSelectedVariantId('');
+      return;
+    }
+
+    if (productDetailsCache[selectedProductId]) {
+      return;
+    }
+
+    let isMounted = true;
+    const fetchProductDetails = async () => {
+      try {
+        setLoadingVariants(true);
+        const res = await productService.getProduct(selectedProductId);
+        if (isMounted && res.data) {
+          setProductDetailsCache((prev) => ({
+            ...prev,
+            [selectedProductId]: res.data,
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load product details for variants', err);
+        if (isMounted) {
+          toast.error('Failed to load sizes for the selected fragrance');
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingVariants(false);
+        }
+      }
+    };
+
+    fetchProductDetails();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedProductId, productDetailsCache]);
+
+  // Selected product object from catalog (prefers full detailed object with variants)
   const currentSelectedProduct = useMemo(() => {
     if (!selectedProductId) return null;
-    return catalogProducts.find((p) => String(p.id) === selectedProductId) || null;
-  }, [catalogProducts, selectedProductId]);
+    return (
+      productDetailsCache[selectedProductId] ||
+      catalogProducts.find((p) => String(p.id) === selectedProductId) ||
+      null
+    );
+  }, [catalogProducts, productDetailsCache, selectedProductId]);
 
   // Active variants for selected product
   const availableVariants = useMemo(() => {
@@ -175,7 +221,10 @@ export const GiftSetForm: React.FC<GiftSetFormProps> = ({ initialData, isEdit = 
       productId: currentSelectedProduct.id,
       productName: currentSelectedProduct.name,
       productSlug: currentSelectedProduct.slug,
-      productThumbnail: currentSelectedProduct.images?.[0]?.imageUrl || '',
+      productThumbnail:
+        currentSelectedProduct.images?.[0]?.imageUrl ||
+        (currentSelectedProduct as any).thumbnail ||
+        '',
       variantId: currentSelectedVariant.id,
       variantSize: currentSelectedVariant.size,
       sku: currentSelectedVariant.sku,
@@ -525,13 +574,19 @@ export const GiftSetForm: React.FC<GiftSetFormProps> = ({ initialData, isEdit = 
                   <select
                     value={selectedVariantId}
                     onChange={(e) => setSelectedVariantId(e.target.value)}
-                    disabled={!selectedProductId || availableVariants.length === 0}
+                    disabled={!selectedProductId || loadingVariants || availableVariants.length === 0}
                     className="field-input w-full py-2 px-3 text-sm"
                   >
-                    <option value="">-- Choose Size --</option>
+                    <option value="">
+                      {loadingVariants
+                        ? 'Loading sizes...'
+                        : availableVariants.length === 0 && selectedProductId
+                        ? 'No active sizes found'
+                        : '-- Choose Size --'}
+                    </option>
                     {availableVariants.map((v) => (
                       <option key={v.id} value={v.id}>
-                        {v.size} — Stock: {v.stock} ({formatPrice(v.price)})
+                        {v.size} {v.productType ? `(${v.productType})` : ''} — Stock: {v.stock} ({formatPrice(v.price)})
                       </option>
                     ))}
                   </select>
