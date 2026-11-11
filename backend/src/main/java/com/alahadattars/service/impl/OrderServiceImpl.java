@@ -12,6 +12,7 @@ import com.alahadattars.entity.ProductVariant;
 import com.alahadattars.entity.User;
 import com.alahadattars.enums.OrderStatus;
 import com.alahadattars.enums.PaymentStatus;
+import com.alahadattars.enums.ReconciliationStatus;
 import com.alahadattars.enums.RefundStatus;
 import com.alahadattars.exception.BadRequestException;
 import com.alahadattars.exception.ResourceNotFoundException;
@@ -59,6 +60,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.alahadattars.dto.order.OrderItemGiftSetComponentResponse;
+import com.alahadattars.entity.GiftSet;
+import com.alahadattars.entity.GiftSetImage;
+import com.alahadattars.entity.GiftSetItem;
+import com.alahadattars.entity.OrderItemGiftSetComponent;
+import com.alahadattars.repository.GiftSetRepository;
+import com.alahadattars.repository.OrderItemGiftSetComponentRepository;
+import com.alahadattars.service.GiftSetService;
 import com.alahadattars.service.PaymentService;
 import com.alahadattars.service.GuestCheckoutLockService;
 import com.alahadattars.dto.payment.PaymentVerificationRequest;
@@ -67,6 +76,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -97,6 +109,9 @@ public class OrderServiceImpl implements OrderService {
     private final WebhookEventRepository webhookEventRepository;
     private final GuestCheckoutLockService guestCheckoutLockService;
     private final ApplicationEventPublisher eventPublisher;
+    private final GiftSetRepository giftSetRepository;
+    private final GiftSetService giftSetService;
+    private final OrderItemGiftSetComponentRepository orderItemGiftSetComponentRepository;
 
     private static final DateTimeFormatter EMAIL_DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
 
@@ -165,6 +180,27 @@ public class OrderServiceImpl implements OrderService {
         }
 
         if (intent.isConsumed()) {
+            ReconciliationStatus reconStatus = intent.getReconciliationStatus();
+            if (reconStatus == ReconciliationStatus.REFUNDED) {
+                String refMsg = intent.getReconciliationRefundId() != null
+                        ? " Refund reference: " + intent.getReconciliationRefundId() + "." : "";
+                throw new BadRequestException("Your payment was received, but your checkout session expired before your order was finalized. "
+                        + "A full refund of ₹" + intent.getAmount() + " has been processed back to your original payment method."
+                        + refMsg + " Please allow 3 to 5 business days for bank settlement.");
+            } else if (reconStatus == ReconciliationStatus.PENDING_CONFIRMATION) {
+                throw new BadRequestException("Your payment was received, but your checkout session expired before order completion. "
+                        + "We are currently verifying your payment status with the gateway to ensure your funds are protected. "
+                        + "You will receive an email update shortly once verified, or you may contact support quoting reference: "
+                        + intent.getRazorpayOrderId());
+            } else if (reconStatus == ReconciliationStatus.PROCESSING) {
+                throw new BadRequestException("Your payment was received, but your checkout session expired before order completion. "
+                        + "Your transaction is currently being verified. "
+                        + "Please contact support quoting reference: " + intent.getRazorpayOrderId() + " if you require immediate assistance.");
+            } else if (reconStatus == ReconciliationStatus.FAILED) {
+                throw new BadRequestException("Your payment was received, but your checkout session expired. "
+                        + "An automatic resolution could not be completed immediately. Our support team has been alerted and will assist you. "
+                        + "Please contact support quoting payment reference: " + intent.getRazorpayOrderId());
+            }
             log.warn("Replay attempt on already-consumed payment intent {} by user {}",
                     request.getRazorpayOrderId(), email);
             throw new BadRequestException("This payment has already been used for another order.");
@@ -213,14 +249,34 @@ public class OrderServiceImpl implements OrderService {
         // --- Phase 4B N+1 Batching ---
         java.util.Set<Long> variantIds = new java.util.HashSet<>();
         java.util.Set<Long> bottleIds = new java.util.HashSet<>();
+        java.util.Set<Long> giftSetIds = new java.util.HashSet<>();
         for (OrderItemRequest req : request.getItems()) {
-            if (req.getVariantId() != null) variantIds.add(req.getVariantId());
-            if (req.getBottleId() != null) bottleIds.add(req.getBottleId());
+            if (req.getGiftSetId() != null || req.isGiftSet()) {
+                if (req.getGiftSetId() != null) giftSetIds.add(req.getGiftSetId());
+            } else {
+                if (req.getVariantId() != null) variantIds.add(req.getVariantId());
+                if (req.getBottleId() != null) bottleIds.add(req.getBottleId());
+            }
         }
 
-        java.util.Map<Long, ProductVariant> variantMap = variantIds.isEmpty() ? java.util.Collections.emptyMap() :
+        java.util.Map<Long, GiftSet> giftSetMap = giftSetIds.isEmpty() ? java.util.Collections.emptyMap() :
+                giftSetRepository.findAllByIdWithItemsEager(giftSetIds).stream()
+                        .collect(Collectors.toMap(GiftSet::getId, g -> g));
+
+        // Include any variants required by gift sets into variantIds for single-batch loading
+        for (GiftSet gs : giftSetMap.values()) {
+            if (gs.getItems() != null) {
+                for (GiftSetItem gi : gs.getItems()) {
+                    if (gi.getVariant() != null && gi.getVariant().getId() != null) {
+                        variantIds.add(gi.getVariant().getId());
+                    }
+                }
+            }
+        }
+
+        java.util.Map<Long, ProductVariant> variantMap = variantIds.isEmpty() ? new java.util.HashMap<>() :
                 variantRepository.findAllById(variantIds).stream()
-                .collect(Collectors.toMap(ProductVariant::getId, v -> v));
+                        .collect(Collectors.toMap(ProductVariant::getId, v -> v, (a, b) -> a, java.util.HashMap::new));
         java.util.Map<Long, com.alahadattars.entity.Bottle> bottleMap = bottleIds.isEmpty() ? java.util.Collections.emptyMap() :
                 bottleRepository.findAllById(bottleIds).stream()
                 .collect(Collectors.toMap(com.alahadattars.entity.Bottle::getId, b -> b));
@@ -228,47 +284,71 @@ public class OrderServiceImpl implements OrderService {
         // First pass: Add all paid items to the cart
         for (OrderItemRequest itemReq : request.getItems()) {
             if (!itemReq.isFreeItem()) {
-                ProductVariant variant = java.util.Optional.ofNullable(variantMap.get(itemReq.getVariantId()))
-                        .orElseThrow(() -> new ResourceNotFoundException("Variant not found: " + itemReq.getVariantId()));
-
-                BigDecimal finalPrice = variant.getPrice();
-                com.alahadattars.entity.Bottle bottle = null;
-                if (itemReq.getBottleId() != null) {
-                    bottle = java.util.Optional.ofNullable(bottleMap.get(itemReq.getBottleId()))
-                            .orElseThrow(() -> new ResourceNotFoundException("Bottle not found: " + itemReq.getBottleId()));
-                    if (!bottle.isActive()) {
-                        throw new BadRequestException("Selected bottle is not available");
+                if (itemReq.getGiftSetId() != null || itemReq.isGiftSet()) {
+                    GiftSet giftSet = giftSetMap.get(itemReq.getGiftSetId());
+                    if (giftSet == null) {
+                        giftSet = giftSetRepository.findByIdWithItemsEager(itemReq.getGiftSetId())
+                                .orElseThrow(() -> new ResourceNotFoundException("Gift Set not found with id: " + itemReq.getGiftSetId()));
                     }
-                    if (bottle.getApplicability() != com.alahadattars.enums.BottleApplicability.BOTH) {
-                        if (variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR && bottle.getApplicability() != com.alahadattars.enums.BottleApplicability.ATTAR) {
-                            throw new BadRequestException("This bottle is not applicable for Attars.");
-                        }
-                        if (variant.getProductType() == com.alahadattars.enums.ProductType.PERFUME && bottle.getApplicability() != com.alahadattars.enums.BottleApplicability.PERFUME) {
-                            throw new BadRequestException("This bottle is not applicable for Perfumes.");
-                        }
+                    if (!giftSet.isActive()) {
+                        throw new BadRequestException("Gift Set " + giftSet.getName() + " is not available.");
                     }
-                    finalPrice = finalPrice.add(bottle.getPrice());
+                    if (itemReq.getBottleId() != null) {
+                        throw new BadRequestException("Bottle selection is not allowed for Gift Sets.");
+                    }
+                    BigDecimal livePrice = giftSet.getSalePrice() != null ? giftSet.getSalePrice() : giftSet.getPrice();
+                    CartItem ci = new CartItem();
+                    ci.setId(tempId++);
+                    ci.setCart(tempCart);
+                    ci.setIsGiftSet(true);
+                    ci.setGiftSet(giftSet);
+                    ci.setQuantity(itemReq.getQuantity());
+                    ci.setPrice(livePrice);
+                    ci.setFreeItem(false);
+                    tempCart.addItem(ci);
+                } else {
+                    ProductVariant variant = java.util.Optional.ofNullable(variantMap.get(itemReq.getVariantId()))
+                            .orElseThrow(() -> new ResourceNotFoundException("Variant not found: " + itemReq.getVariantId()));
+
+                    BigDecimal finalPrice = variant.getPrice();
+                    com.alahadattars.entity.Bottle bottle = null;
+                    if (itemReq.getBottleId() != null) {
+                        bottle = java.util.Optional.ofNullable(bottleMap.get(itemReq.getBottleId()))
+                                .orElseThrow(() -> new ResourceNotFoundException("Bottle not found: " + itemReq.getBottleId()));
+                        if (!bottle.isActive()) {
+                            throw new BadRequestException("Selected bottle is not available");
+                        }
+                        if (bottle.getApplicability() != com.alahadattars.enums.BottleApplicability.BOTH) {
+                            if (variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR && bottle.getApplicability() != com.alahadattars.enums.BottleApplicability.ATTAR) {
+                                throw new BadRequestException("This bottle is not applicable for Attars.");
+                            }
+                            if (variant.getProductType() == com.alahadattars.enums.ProductType.PERFUME && bottle.getApplicability() != com.alahadattars.enums.BottleApplicability.PERFUME) {
+                                throw new BadRequestException("This bottle is not applicable for Perfumes.");
+                            }
+                        }
+                        finalPrice = finalPrice.add(bottle.getPrice());
+                    }
+
+                    boolean isBakhoor = variant.getProduct().getCategory() != null &&
+                                        (variant.getProduct().getCategory().getType() == com.alahadattars.enums.CategoryType.BAKHOOR ||
+                                         "Bakhoor".equalsIgnoreCase(variant.getProduct().getCategory().getName()));
+
+                    if ((variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR || variant.getProductType() == com.alahadattars.enums.ProductType.PERFUME) && !isBakhoor && bottle == null) {
+                        throw new BadRequestException("A bottle must be selected for this fragrance.");
+                    }
+
+                    CartItem ci = new CartItem();
+                    ci.setId(tempId++);
+                    ci.setCart(tempCart);
+                    ci.setProduct(variant.getProduct());
+                    ci.setVariant(variant);
+                    ci.setBottle(bottle);
+                    ci.setQuantity(itemReq.getQuantity());
+                    ci.setFreeItem(false);
+                    ci.setFreePromotionId(null);
+                    ci.setPrice(finalPrice);
+                    tempCart.addItem(ci);
                 }
-
-                boolean isBakhoor = variant.getProduct().getCategory() != null &&
-                                    (variant.getProduct().getCategory().getType() == com.alahadattars.enums.CategoryType.BAKHOOR ||
-                                     "Bakhoor".equalsIgnoreCase(variant.getProduct().getCategory().getName()));
-
-                if ((variant.getProductType() == com.alahadattars.enums.ProductType.ATTAR || variant.getProductType() == com.alahadattars.enums.ProductType.PERFUME) && !isBakhoor && bottle == null) {
-                    throw new BadRequestException("A bottle must be selected for this fragrance.");
-                }
-
-                CartItem ci = new CartItem();
-                ci.setId(tempId++);
-                ci.setCart(tempCart);
-                ci.setProduct(variant.getProduct());
-                ci.setVariant(variant);
-                ci.setBottle(bottle);
-                ci.setQuantity(itemReq.getQuantity());
-                ci.setFreeItem(false);
-                ci.setFreePromotionId(null);
-                ci.setPrice(finalPrice);
-                tempCart.addItem(ci);
             }
         }
 
@@ -296,67 +376,196 @@ public class OrderServiceImpl implements OrderService {
 
         CartResponse cartEval = promotionEngineService.evaluateCart(tempCart, request.getCouponCode());
 
-        // CRITICAL: Validate stock availability BEFORE creating order
+        // Consolidate required variant and bottle units across standalone items and gift set components
+        java.util.Map<Long, Integer> consolidatedVariantDeductions = new java.util.LinkedHashMap<>();
+        java.util.Map<Long, Integer> consolidatedBottleDeductions = new java.util.LinkedHashMap<>();
+
         for (CartItemResponse itemRes : cartEval.getItems()) {
-            ProductVariant variant = java.util.Optional.ofNullable(variantMap.get(itemRes.getVariantId()))
-                    .orElseThrow(() -> new ResourceNotFoundException("Variant not found: " + itemRes.getVariantId()));
-            if (variant.getStock() < itemRes.getQuantity()) {
-                throw new BadRequestException("Insufficient stock for " + variant.getProduct().getName() + " (" + variant.getSize() + "). Available: " + variant.getStock() + ", Requested: " + itemRes.getQuantity());
-            }
-            if (itemRes.getBottle() != null) {
-                com.alahadattars.entity.Bottle bottle = java.util.Optional.ofNullable(bottleMap.get(itemRes.getBottle().getId())).orElseThrow();
-                if (!bottle.isActive()) {
-                    throw new BadRequestException("Selected bottle " + bottle.getName() + " is no longer available.");
+            if (itemRes.isGiftSet()) {
+                GiftSet gs = giftSetMap.get(itemRes.getGiftSetId());
+                if (gs == null) {
+                    gs = giftSetRepository.findByIdWithItemsEager(itemRes.getGiftSetId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Gift Set not found with id: " + itemRes.getGiftSetId()));
                 }
-                if (bottle.getStockQuantity() < itemRes.getQuantity()) {
-                    throw new BadRequestException("Insufficient stock for bottle " + bottle.getName() + ". Available: " + bottle.getStockQuantity() + ", Requested: " + itemRes.getQuantity());
+                for (GiftSetItem comp : gs.getItems()) {
+                    int unitsNeeded = comp.getQuantity() * itemRes.getQuantity();
+                    consolidatedVariantDeductions.merge(comp.getVariant().getId(), unitsNeeded, Integer::sum);
+                }
+            } else {
+                consolidatedVariantDeductions.merge(itemRes.getVariantId(), itemRes.getQuantity(), Integer::sum);
+                if (itemRes.getBottle() != null) {
+                    consolidatedBottleDeductions.merge(itemRes.getBottle().getId(), itemRes.getQuantity(), Integer::sum);
                 }
             }
         }
 
+        // Pre-check stock availability
+        java.util.Set<Long> missingVariantIds = consolidatedVariantDeductions.keySet().stream()
+                .filter(id -> !variantMap.containsKey(id))
+                .collect(Collectors.toSet());
+        if (!missingVariantIds.isEmpty()) {
+            variantRepository.findAllById(missingVariantIds).forEach(v -> variantMap.put(v.getId(), v));
+        }
+
+        for (java.util.Map.Entry<Long, Integer> entry : consolidatedVariantDeductions.entrySet()) {
+            Long vId = entry.getKey();
+            int needed = entry.getValue();
+            ProductVariant v = variantMap.get(vId);
+            if (v == null || !v.isActive()) {
+                throw new BadRequestException("Required product variant #" + vId + " is no longer available.");
+            }
+            if (v.getStock() < needed) {
+                String pName = v.getProduct() != null ? v.getProduct().getName() : "Variant #" + vId;
+                throw new BadRequestException("Insufficient stock for " + pName + " (" + v.getSize() + "). Available: " + v.getStock() + ", Required: " + needed);
+            }
+        }
+
+        for (java.util.Map.Entry<Long, Integer> entry : consolidatedBottleDeductions.entrySet()) {
+            Long bId = entry.getKey();
+            int needed = entry.getValue();
+            com.alahadattars.entity.Bottle b = bottleMap.get(bId);
+            if (b == null) {
+                b = bottleRepository.findById(bId).orElseThrow(() -> new ResourceNotFoundException("Bottle not found: " + bId));
+            }
+            if (!b.isActive()) {
+                throw new BadRequestException("Selected bottle " + b.getName() + " is no longer available.");
+            }
+            if (b.getStockQuantity() < needed) {
+                throw new BadRequestException("Insufficient stock for bottle " + b.getName() + ". Available: " + b.getStockQuantity() + ", Required: " + needed);
+            }
+        }
+
+        // Deadlock-free atomic inventory deductions: sort ascending by ID
+        List<Long> sortedVariantIds = consolidatedVariantDeductions.keySet().stream().sorted().toList();
+        for (Long vid : sortedVariantIds) {
+            int needed = consolidatedVariantDeductions.get(vid);
+            if (variantRepository.decrementStock(vid, needed) == 0) {
+                ProductVariant v = variantMap.get(vid);
+                String pName = (v != null && v.getProduct() != null) ? v.getProduct().getName() + " (" + v.getSize() + ")" : "Variant #" + vid;
+                throw new BadRequestException("Insufficient stock for " + pName + ". Stock just changed — please refresh your cart and try again.");
+            }
+        }
+
+        List<Long> sortedBottleIds = consolidatedBottleDeductions.keySet().stream().sorted().toList();
+        for (Long bid : sortedBottleIds) {
+            int needed = consolidatedBottleDeductions.get(bid);
+            if (bottleRepository.decrementStock(bid, needed) == 0) {
+                com.alahadattars.entity.Bottle b = bottleMap.get(bid);
+                String bName = b != null ? b.getName() : "Bottle #" + bid;
+                throw new BadRequestException("Insufficient stock for bottle " + bName + ". Please refresh your cart and try again.");
+            }
+        }
+
+        // Build OrderItems
         for (CartItemResponse itemRes : cartEval.getItems()) {
-            ProductVariant variant = java.util.Optional.ofNullable(variantMap.get(itemRes.getVariantId())).orElseThrow();
-
-            // Deduct inventory atomically (including free items — they consume stock). The
-            // friendly pre-check above catches the common case; this atomic UPDATE is what
-            // actually prevents overselling when two concurrent checkouts race for the last
-            // units — a plain read-modify-write here can lose one buyer's decrement.
-            if (variantRepository.decrementStock(variant.getId(), itemRes.getQuantity()) == 0) {
-                throw new BadRequestException("Insufficient stock for " + variant.getProduct().getName()
-                        + " (" + variant.getSize() + "). Stock just changed — please refresh your cart and try again.");
-            }
-
-            if (itemRes.getBottle() != null) {
-                if (bottleRepository.decrementStock(itemRes.getBottle().getId(), itemRes.getQuantity()) == 0) {
-                    throw new BadRequestException("Insufficient stock for bottle " + itemRes.getBottle().getName() + ". Please refresh your cart and try again.");
+            if (itemRes.isGiftSet()) {
+                GiftSet gs = giftSetMap.get(itemRes.getGiftSetId());
+                if (gs == null) {
+                    gs = giftSetRepository.findByIdWithItemsEager(itemRes.getGiftSetId()).orElseThrow();
                 }
+                BigDecimal originalPrice = gs.getSalePrice() != null ? gs.getSalePrice() : gs.getPrice();
+                BigDecimal unitPrice = itemRes.getFinalPrice();
+                BigDecimal discountAmt = itemRes.getDiscountAmount();
+                BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(itemRes.getQuantity()));
+
+                // Immutable historical JSON snapshot
+                Map<String, Object> snapshotMap = new java.util.LinkedHashMap<>();
+                snapshotMap.put("giftSetId", gs.getId());
+                snapshotMap.put("giftSetName", gs.getName());
+                snapshotMap.put("giftSetSlug", gs.getSlug());
+                List<Map<String, Object>> compSnapshots = new ArrayList<>();
+                for (GiftSetItem comp : gs.getItems()) {
+                    Map<String, Object> compMap = new java.util.LinkedHashMap<>();
+                    compMap.put("productId", comp.getProduct().getId());
+                    compMap.put("productName", comp.getProduct().getName());
+                    compMap.put("variantId", comp.getVariant().getId());
+                    compMap.put("variantSize", comp.getVariant().getSize());
+                    compMap.put("sku", comp.getVariant().getSku());
+                    compMap.put("quantityPerSet", comp.getQuantity());
+                    compMap.put("totalDeductedQuantity", comp.getQuantity() * itemRes.getQuantity());
+                    compSnapshots.add(compMap);
+                }
+                snapshotMap.put("components", compSnapshots);
+                String snapshotJson;
+                try {
+                    snapshotJson = objectMapper.writeValueAsString(snapshotMap);
+                } catch (Exception e) {
+                    log.error("Failed to serialize gift set snapshot for gift set {}", gs.getId(), e);
+                    snapshotJson = null;
+                }
+
+                OrderItem orderItem = OrderItem.builder()
+                        .order(order)
+                        .isGiftSet(true)
+                        .giftSetId(gs.getId())
+                        .giftSetName(gs.getName())
+                        .giftSetSnapshot(snapshotJson)
+                        .variant(null)
+                        .quantity(itemRes.getQuantity())
+                        .originalPrice(originalPrice)
+                        .discountAmount(discountAmt)
+                        .unitPrice(unitPrice)
+                        .subtotal(subtotal)
+                        .productName(gs.getName())
+                        .variantSize(null)
+                        .bottleId(null)
+                        .bottleName(null)
+                        .bottlePrice(null)
+                        .freeItem(false)
+                        .freePromotionId(null)
+                        .build();
+
+                for (GiftSetItem comp : gs.getItems()) {
+                    OrderItemGiftSetComponent componentEntity = OrderItemGiftSetComponent.builder()
+                            .orderItem(orderItem)
+                            .giftSetId(gs.getId())
+                            .productId(comp.getProduct().getId())
+                            .productName(comp.getProduct().getName())
+                            .variantId(comp.getVariant().getId())
+                            .variantSize(comp.getVariant().getSize())
+                            .sku(comp.getVariant().getSku())
+                            .quantityPerSet(comp.getQuantity())
+                            .totalDeductedQuantity(comp.getQuantity() * itemRes.getQuantity())
+                            .build();
+                    orderItem.addGiftSetComponent(componentEntity);
+                }
+
+                order.addItem(orderItem);
+            } else {
+                ProductVariant variant = java.util.Optional.ofNullable(variantMap.get(itemRes.getVariantId()))
+                        .orElseGet(() -> variantRepository.findById(itemRes.getVariantId()).orElseThrow());
+
+                boolean isFreeOrderItem = itemRes.isFreeItem();
+                BigDecimal originalPrice = variant.getPrice(); // Always store actual market price
+                BigDecimal unitPrice = isFreeOrderItem ? BigDecimal.ZERO : itemRes.getFinalPrice();
+                BigDecimal discountAmt = isFreeOrderItem
+                        ? originalPrice // Entire price is the "discount" for free items
+                        : itemRes.getDiscountAmount();
+                BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(itemRes.getQuantity()));
+
+                OrderItem orderItem = OrderItem.builder()
+                        .order(order)
+                        .isGiftSet(false)
+                        .giftSetId(null)
+                        .giftSetName(null)
+                        .giftSetSnapshot(null)
+                        .variant(variant)
+                        .quantity(itemRes.getQuantity())
+                        .originalPrice(originalPrice)
+                        .discountAmount(discountAmt)
+                        .unitPrice(unitPrice)
+                        .subtotal(subtotal)
+                        .productName(variant.getProduct().getName())
+                        .variantSize(variant.getSize())
+                        .bottleId(itemRes.getBottle() != null ? itemRes.getBottle().getId() : null)
+                        .bottleName(itemRes.getBottle() != null ? itemRes.getBottle().getName() : null)
+                        .bottlePrice(itemRes.getBottle() != null ? itemRes.getBottle().getPrice() : null)
+                        .freeItem(isFreeOrderItem)
+                        .freePromotionId(isFreeOrderItem ? itemRes.getFreePromotionId() : null)
+                        .build();
+
+                order.addItem(orderItem);
             }
-
-            boolean isFreeOrderItem = itemRes.isFreeItem();
-            BigDecimal originalPrice = variant.getPrice(); // Always store actual market price
-            BigDecimal unitPrice = isFreeOrderItem ? BigDecimal.ZERO : itemRes.getFinalPrice();
-            BigDecimal discountAmt = isFreeOrderItem
-                    ? originalPrice // Entire price is the "discount" for free items
-                    : itemRes.getDiscountAmount();
-            BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(itemRes.getQuantity()));
-
-            OrderItem orderItem = OrderItem.builder()
-                    .variant(variant)
-                    .quantity(itemRes.getQuantity())
-                    .originalPrice(originalPrice)
-                    .discountAmount(discountAmt)
-                    .unitPrice(unitPrice)
-                    .subtotal(subtotal)
-                    .productName(variant.getProduct().getName())
-                    .variantSize(variant.getSize())
-                    .bottleId(itemRes.getBottle() != null ? itemRes.getBottle().getId() : null)
-                    .bottleName(itemRes.getBottle() != null ? itemRes.getBottle().getName() : null)
-                    .bottlePrice(itemRes.getBottle() != null ? itemRes.getBottle().getPrice() : null)
-                    .freeItem(isFreeOrderItem)
-                    .freePromotionId(isFreeOrderItem ? itemRes.getFreePromotionId() : null)
-                    .build();
-
-            order.addItem(orderItem);
         }
 
         com.alahadattars.entity.StoreSettings settings = storeSettingsService.getSettingsEntity();
@@ -792,9 +1001,12 @@ public class OrderServiceImpl implements OrderService {
         RefundTransactionSupport.AdminRefundPreparation prep =
                 refundTransactionSupport.claimAdminRefundProcessing(orderId, adminEmail);
 
-        RefundResult result = paymentService.initiateRefund(prep.order().getTransactionId(), prep.refundAmount());
+        String idempotencyKey = prep.idempotencyKey();
+        RefundResult result = paymentService.initiateRefund(prep.order().getTransactionId(), prep.refundAmount(), idempotencyKey);
 
-        Order savedOrder = refundTransactionSupport.recordAdminRefundOutcome(prep.order(), result, prep.refundAmount(), prep.initiatedAt());
+        Order savedOrder = prep.refundRecordId() != null
+                ? refundTransactionSupport.recordAdminRefundOutcome(prep.order(), prep.refundRecordId(), result, prep.refundAmount(), prep.initiatedAt())
+                : refundTransactionSupport.recordAdminRefundOutcome(prep.order(), result, prep.refundAmount(), prep.initiatedAt());
 
         handleAdminRefundOutcome(savedOrder, result, adminEmail);
 
@@ -805,8 +1017,8 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal refundAmount = order.getRefundAmount() != null ? order.getRefundAmount() : order.getTotalAmount();
         java.util.Optional<RefundResult> reconciled = paymentService.checkExistingRefund(order.getTransactionId(), refundAmount);
 
-        if (reconciled.isEmpty()) {
-            // Genuinely unknown — do NOT assume failure and do NOT allow a new refund attempt to
+        if (reconciled.isEmpty() || reconciled.get().getOutcome() == RefundResult.RefundOutcome.UNKNOWN_TIMEOUT) {
+            // Genuinely unknown or network timeout — do NOT assume failure and do NOT allow a new refund attempt to
             // fire while Razorpay's own outcome for the earlier attempt is still unconfirmed.
             throw new BadRequestException("Refund processing could not be confirmed with Razorpay yet. "
                     + "No additional refund has been created. Please check back shortly before retrying.");
@@ -927,10 +1139,60 @@ public class OrderServiceImpl implements OrderService {
         return productImageResolver.resolveImage(variant.getProduct().getImages(), preferredType);
     }
 
+    private String resolveGiftSetOrderItemImage(Long giftSetId) {
+        if (giftSetId == null) return null;
+        return giftSetRepository.findById(giftSetId)
+                .map(gs -> {
+                    if (gs.getImages() == null || gs.getImages().isEmpty()) return null;
+                    return gs.getImages().stream()
+                            .filter(GiftSetImage::isActive)
+                            .filter(GiftSetImage::isPrimary)
+                            .findFirst()
+                            .map(img -> storageService.resolveUrl(img.getImageUrl(), "/api/gift-sets/images/" + img.getId() + "/file"))
+                            .orElseGet(() -> storageService.resolveUrl(gs.getImages().get(0).getImageUrl(), "/api/gift-sets/images/" + gs.getImages().get(0).getId() + "/file"));
+                })
+                .orElse(null);
+    }
+
     private OrderItemResponse mapItemToResponse(OrderItem item) {
+        if (item.isGiftSet()) {
+            List<OrderItemGiftSetComponentResponse> components = null;
+            if (item.getGiftSetComponents() != null && !item.getGiftSetComponents().isEmpty()) {
+                components = item.getGiftSetComponents().stream()
+                        .map(OrderItemGiftSetComponentResponse::fromEntity)
+                        .collect(Collectors.toList());
+            } else if (item.getId() != null) {
+                components = orderItemGiftSetComponentRepository.findByOrderItemId(item.getId()).stream()
+                        .map(OrderItemGiftSetComponentResponse::fromEntity)
+                        .collect(Collectors.toList());
+            }
+
+            return OrderItemResponse.builder()
+                    .id(item.getId())
+                    .isGiftSet(true)
+                    .giftSetId(item.getGiftSetId())
+                    .giftSetName(item.getGiftSetName())
+                    .giftSetSnapshot(item.getGiftSetSnapshot())
+                    .giftSetComponents(components)
+                    .variant(null)
+                    .productName(item.getGiftSetName() != null ? item.getGiftSetName() : item.getProductName())
+                    .variantSize(null)
+                    .productImage(resolveGiftSetOrderItemImage(item.getGiftSetId()))
+                    .quantity(item.getQuantity())
+                    .originalPrice(item.getOriginalPrice())
+                    .discountAmount(item.getDiscountAmount())
+                    .unitPrice(item.getUnitPrice())
+                    .subtotal(item.getSubtotal())
+                    .bottleId(null)
+                    .bottleName(null)
+                    .bottlePrice(null)
+                    .build();
+        }
+
         return OrderItemResponse.builder()
                 .id(item.getId())
-                .variant(variantMapper.toResponse(item.getVariant()))
+                .isGiftSet(false)
+                .variant(item.getVariant() != null ? variantMapper.toResponse(item.getVariant()) : null)
                 .quantity(item.getQuantity())
                 .originalPrice(item.getOriginalPrice())
                 .discountAmount(item.getDiscountAmount())

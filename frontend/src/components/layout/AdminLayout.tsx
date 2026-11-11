@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { path: '/admin/analytics', label: 'Analytics', icon: 'monitoring' },
   { path: '/admin/products', label: 'Products', icon: 'inventory_2', end: true },
   { path: '/admin/products/pricing', label: 'Bulk Pricing', icon: 'price_change' },
+  { path: '/admin/gift-sets', label: 'Gift Sets', icon: 'redeem' },
   { path: '/admin/categories', label: 'Categories', icon: 'category' },
   { path: '/admin/orders', label: 'Orders', icon: 'shopping_cart' },
   { path: '/admin/refunds', label: 'Refunds', icon: 'currency_exchange' },

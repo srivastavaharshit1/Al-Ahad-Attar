@@ -78,23 +78,28 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!cartData) return;
     
     setItems(prevItems => {
+      const isItemMatch = (p: CartItem, i: any) => {
+        const itemIsGiftSet = !!(i.isGiftSet || i.giftSet || i.giftSetId);
+        if (itemIsGiftSet) {
+          return p.isGiftSet && p.giftSetId === i.giftSetId;
+        }
+        return (
+          !p.isGiftSet &&
+          p.productId?.toString() === i.productId?.toString() &&
+          p.variantId?.toString() === i.variantId?.toString() &&
+          p.bottle?.id === i.bottle?.id
+        );
+      };
+
       const mappedItems: CartItem[] = (cartData.items || [])
         .filter((i: any) => {
-          const existing = prevItems.find(p => 
-            p.productId.toString() === i.productId.toString() && 
-            p.variantId?.toString() === i.variantId?.toString() &&
-            p.bottle?.id === i.bottle?.id
-          );
+          const existing = prevItems.find(p => isItemMatch(p, i));
           const id = i.id ? i.id.toString() : (existing ? existing.id : null);
           return id ? !pendingRemovals.current.has(id) : true;
         })
         .map((i: any) => {
         // Try to preserve existing local IDs for guest carts to prevent UI flicker/re-renders
-        const existing = prevItems.find(p => 
-          p.productId.toString() === i.productId.toString() && 
-          p.variantId?.toString() === i.variantId?.toString() &&
-          p.bottle?.id === i.bottle?.id
-        );
+        const existing = prevItems.find(p => isItemMatch(p, i));
         const id = i.id ? i.id.toString() : (existing ? existing.id : Math.random().toString(36).substring(7));
         
         const optimisticQty = pendingQuantities.current.get(id);
@@ -102,8 +107,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         return {
           id,
-          productId: i.productId.toString(),
-          variantId: i.variantId.toString(),
+          productId: i.productId ? i.productId.toString() : undefined,
+          variantId: i.variantId ? i.variantId.toString() : undefined,
           name: i.name,
           image: i.image,
           size: i.size,
@@ -114,7 +119,11 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           finalPrice: Number(i.finalPrice || i.price),
           freeItem: i.freeItem,
           freePromotionId: i.freePromotionId,
-          bottle: i.bottle
+          bottle: i.bottle,
+          isGiftSet: !!(i.isGiftSet || i.giftSet || i.giftSetId),
+          giftSetId: i.giftSetId,
+          giftSetName: i.giftSetName,
+          includedItems: i.includedItems
         };
       });
       return mappedItems;
@@ -146,9 +155,15 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const guestItems = storage.get<CartItem[]>('cart', []);
           if (guestItems.length > 0) {
             for (const guestItem of guestItems) {
-              if (guestItem.variantId) {
+              if (guestItem.isGiftSet && guestItem.giftSetId) {
                 try {
-                  await cartService.addToCart(Number(guestItem.variantId), guestItem.quantity);
+                  await cartService.addGiftSetToCart(Number(guestItem.giftSetId), guestItem.quantity);
+                } catch (mergeError) {
+                  console.error("Failed to merge guest gift set into account cart", guestItem, mergeError);
+                }
+              } else if (guestItem.variantId) {
+                try {
+                  await cartService.addToCart(Number(guestItem.variantId), guestItem.quantity, guestItem.bottle?.id);
                 } catch (mergeError) {
                   console.error("Failed to merge guest cart item into account cart", guestItem, mergeError);
                 }
@@ -197,7 +212,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const evaluate = async () => {
       try {
         const payload = {
-          items: items.map(i => ({
+          items: items.map(i => (i.isGiftSet ? {
+            isGiftSet: true,
+            giftSetId: i.giftSetId ? Number(i.giftSetId) : undefined,
+            quantity: i.quantity,
+            freeItem: false,
+          } : {
             productId: Number(i.productId),
             variantId: Number(i.variantId),
             quantity: i.quantity,
@@ -233,28 +253,36 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     couponCode,
     manuallySelectedPromotionId,
     // JSON.stringify to avoid infinite loops when syncCartState replaces the items array reference
-    JSON.stringify(items.map(i => ({ p: i.productId, v: i.variantId, q: i.quantity, f: i.freeItem, prm: i.freePromotionId, b: i.bottle?.id })))
+    JSON.stringify(items.map(i => ({ p: i.productId, v: i.variantId, gs: i.giftSetId, isGs: i.isGiftSet, q: i.quantity, f: i.freeItem, prm: i.freePromotionId, b: i.bottle?.id })))
   ]);
 
   const addItem = async (item: CartItem) => {
-    if (isAuthenticated && item.variantId) {
+    if (isAuthenticated) {
       try {
-        const bottleId = item.bottle?.id;
-        const response = await cartService.addToCart(Number(item.variantId), item.quantity, bottleId);
-        if (response) {
+        if (item.isGiftSet && item.giftSetId) {
+          const response = await cartService.addGiftSetToCart(Number(item.giftSetId), item.quantity);
+          if (response) {
             syncCartState(response.data);
             toast.success(`${item.name} added to cart`);
+          }
+        } else if (item.variantId) {
+          const bottleId = item.bottle?.id;
+          const response = await cartService.addToCart(Number(item.variantId), item.quantity, bottleId);
+          if (response) {
+            syncCartState(response.data);
+            toast.success(`${item.name} added to cart`);
+          }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to add item to remote cart", error);
-        toast.error("Failed to add item to cart");
+        toast.error(error.response?.data?.message || "Failed to add item to cart");
       }
     } else {
       setItems(prev => {
         const existingItem = prev.find(i => 
-          i.productId === item.productId && 
-          i.variantId === item.variantId &&
-          i.bottle?.id === item.bottle?.id
+          item.isGiftSet
+            ? (i.isGiftSet && i.giftSetId === item.giftSetId)
+            : (!i.isGiftSet && i.productId === item.productId && i.variantId === item.variantId && i.bottle?.id === item.bottle?.id)
         );
         if (existingItem) {
           return prev.map(i => 

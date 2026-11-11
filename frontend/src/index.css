@@ -291,4 +291,102 @@
   .progress-fill {
     transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   }
+
+  /* Luxury Navigation Link Underline */
+  .nav-link-luxury {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 0.25rem;
+    transition: color 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .nav-link-luxury::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 1.5px;
+    background: #d4af37;
+    transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), left 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .nav-link-luxury:hover::after,
+  .nav-link-luxury.is-active::after {
+    width: 100%;
+    left: 0;
+  }
+
+  /* Luxury Icon Buttons */
+  .icon-btn-luxury {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    padding: 0.625rem;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .icon-btn-luxury:hover {
+    background-color: rgba(212, 175, 55, 0.08);
+    color: #d4af37;
+    transform: translateY(-1px);
+  }
+
+  /* Smooth Carousel Scrollbar Hide & Touch Momentum */
+  .carousel-snap-track {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .carousel-snap-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Wishlist Button Micro-interaction */
+  .wishlist-btn-pop:active {
+    transform: scale(0.85);
+  }
+
+  /* Subtle Golden Sheen */
+  .gold-sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  .gold-sheen::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.18),
+      transparent
+    );
+    transform: skewX(-20deg);
+    transition: left 0.75s ease;
+  }
+  .gold-sheen:hover::after {
+    left: 150%;
+  }
+
+  /* Drawer slide animation */
+  @keyframes slideLeft {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  .animate-slide-left {
+    animation: slideLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
 }

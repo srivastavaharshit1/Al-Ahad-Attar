@@ -185,8 +185,21 @@ export const AdminOrderDetails: React.FC = () => {
                     </div>
                       <div>
                         <p className="font-label-lg">{item.productName}</p>
-                        <p className="text-sm text-on-surface-variant mb-1">{item.variantSize}</p>
-                        {item.bottleName && (
+                        {item.isGiftSet ? (
+                          <div className="mb-1">
+                            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 inline-block mb-1">
+                              Curated Gift Set
+                            </span>
+                            {item.giftSetComponents && item.giftSetComponents.length > 0 && (
+                              <p className="text-xs text-on-surface-variant">
+                                Components: {item.giftSetComponents.map(c => `${c.productName} (${c.variantSize}) × ${c.quantityPerSet}`).join(' • ')}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          item.variantSize && <p className="text-sm text-on-surface-variant mb-1">{item.variantSize}</p>
+                        )}
+                        {!item.isGiftSet && item.bottleName && (
                           <p className="text-xs text-on-surface-variant mb-1 flex items-center gap-1">
                             <span className="material-symbols-outlined text-[14px]">liquor</span>
                             {item.bottleName}

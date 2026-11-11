@@ -22,11 +22,14 @@ public class GuestCartRequest {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class GuestCartItemRequest {
-        @NotNull(message = "Product ID is required")
         private Long productId;
         
-        @NotNull(message = "Variant ID is required")
         private Long variantId;
+
+        private Long giftSetId;
+
+        @Builder.Default
+        private boolean isGiftSet = false;
 
         @NotNull(message = "Quantity is required")
         private Integer quantity;
@@ -37,5 +40,13 @@ public class GuestCartRequest {
         private Long freePromotionId;
 
         private Long bottleId;
+
+        public boolean isGiftSet() {
+            return isGiftSet;
+        }
+
+        public void setGiftSet(boolean isGiftSet) {
+            this.isGiftSet = isGiftSet;
+        }
     }
 }

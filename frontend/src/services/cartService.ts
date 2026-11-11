@@ -18,13 +18,13 @@ export interface CartResponse {
 
 export interface CartItemResponse {
   id: number;
-  productId: number;
-  variantId: number;
+  productId?: number;
+  variantId?: number;
   name: string;
   image: string;
-  size: string;
+  size?: string;
   quantity: number;
-  price: number;
+  price?: number;
   originalPrice?: number;
   finalPrice?: number;
   discountAmount?: number;
@@ -36,6 +36,18 @@ export interface CartItemResponse {
     price: number;
     imageUrl?: string;
   };
+  isGiftSet?: boolean;
+  giftSetId?: number;
+  giftSetName?: string;
+  includedItems?: Array<{
+    id?: number;
+    productId?: number;
+    productName?: string;
+    variantId?: number;
+    variantSize?: string;
+    sku?: string;
+    quantity?: number;
+  }>;
 }
 
 export const cartService = {
@@ -51,6 +63,11 @@ export const cartService = {
 
   addToCart: async (variantId: number, quantity: number, bottleId?: number) => {
     const response = await apiClient.post<ApiResponse<CartResponse>>('/cart/items', { variantId, quantity, bottleId });
+    return response.data;
+  },
+
+  addGiftSetToCart: async (giftSetId: number, quantity: number) => {
+    const response = await apiClient.post<ApiResponse<CartResponse>>('/cart/items', { giftSetId, quantity });
     return response.data;
   },
 

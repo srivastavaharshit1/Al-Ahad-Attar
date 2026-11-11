@@ -179,7 +179,9 @@ export const Orders: React.FC = () => {
                         </div>
                         <div>
                           <p className="font-label-lg">{item.productName}</p>
-                          <p className="text-sm text-on-surface-variant">{item.variantSize}</p>
+                          <p className="text-sm text-on-surface-variant">
+                            {item.isGiftSet ? 'Curated Gift Set' : (item.variantSize || '')}
+                          </p>
                         </div>
                       </div>
                     ))}

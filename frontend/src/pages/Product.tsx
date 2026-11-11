@@ -380,17 +380,17 @@ export const ProductPage: React.FC = () => {
         { label: product.name }
       ]} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter lg:gap-16">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 pt-2">
         {/* Left Column: Image Gallery */}
-        <div className="flex flex-col md:flex-row gap-4 lg:col-span-5 w-full max-w-[540px] mx-auto lg:mx-0">
+        <div className="flex flex-col md:flex-row gap-4 lg:col-span-6 w-full max-w-[560px] mx-auto lg:mx-0">
 
           {/* Thumbnails */}
           {allImages.length > 1 && (
-            <div className="order-2 md:order-1 flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto pb-2 md:pb-0 md:pr-2 hide-scrollbar w-full md:w-[76px] flex-shrink-0">
+            <div className="order-2 md:order-1 flex md:flex-col gap-2.5 overflow-x-auto md:overflow-y-auto pb-2 md:pb-0 md:pr-1 hide-scrollbar w-full md:w-[72px] flex-shrink-0">
               {allProductImageObjects.map((imgObj, idx) => (
                 <button
                   key={imgObj.id}
-                  className={`flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden border-2 bg-surface transition-all duration-200 hover:-translate-y-[1px] md:hover:-translate-y-0 md:hover:-translate-x-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${mainImage === imgObj.imageUrl ? 'border-accent shadow-sm' : 'border-transparent hover:border-accent/50'}`}
+                  className={`flex-shrink-0 w-[64px] h-[64px] md:w-[68px] md:h-[68px] rounded-sm overflow-hidden border bg-white transition-all duration-200 hover:-translate-y-[1px] md:hover:-translate-y-0 md:hover:-translate-x-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${mainImage === imgObj.imageUrl ? 'border-accent shadow-xs' : 'border-[#e4dcc8] hover:border-accent/60'}`}
                   onClick={() => setMainImage(imgObj.imageUrl)}
                   aria-label={`View image ${idx + 1}`}
                   aria-current={mainImage === imgObj.imageUrl}
@@ -405,9 +405,9 @@ export const ProductPage: React.FC = () => {
             </div>
           )}
 
-          {/* Main Image */}
+          {/* Main Image Frame */}
           <div
-            className="order-1 md:order-2 w-full h-auto aspect-[4/5] max-h-[560px] rounded-2xl overflow-hidden bg-surface border border-outline-variant/50 shadow-[0_10px_30px_rgba(18,28,42,0.05)] relative group cursor-zoom-in flex items-center justify-center"
+            className="order-1 md:order-2 w-full h-auto aspect-[4/5] max-h-[580px] rounded-sm overflow-hidden bg-white border border-[#e4dcc8] shadow-xs relative group cursor-zoom-in flex items-center justify-center"
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
@@ -424,7 +424,7 @@ export const ProductPage: React.FC = () => {
                 <img
                   src={getImageUrl(mainImage)}
                   alt={product.name}
-                  className="w-full h-full object-contain p-4 md:p-[16px] lg:p-[20px] transition-transform duration-700 group-hover:scale-105 select-none"
+                  className="w-full h-full object-contain p-6 md:p-8 transition-transform duration-700 group-hover:scale-105 select-none"
                   draggable={false}
                 />
 
@@ -433,158 +433,180 @@ export const ProductPage: React.FC = () => {
                   <>
                     <button
                       onClick={(e) => { e.stopPropagation(); handlePrevImage(); }}
-                      className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-surface/80 backdrop-blur-sm border border-outline-variant shadow-sm flex items-center justify-center text-on-surface hover:text-primary hover:bg-surface transition-all opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 backdrop-blur-xs border border-[#e4dcc8] shadow-xs flex items-center justify-center text-ink hover:text-accent hover:border-accent transition-all opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none"
                       aria-label="Previous image"
                     >
-                      <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+                      <span className="material-symbols-outlined text-[18px]">chevron_left</span>
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleNextImage(); }}
-                      className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-surface/80 backdrop-blur-sm border border-outline-variant shadow-sm flex items-center justify-center text-on-surface hover:text-primary hover:bg-surface transition-all opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 backdrop-blur-xs border border-[#e4dcc8] shadow-xs flex items-center justify-center text-ink hover:text-accent hover:border-accent transition-all opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none"
                       aria-label="Next image"
                     >
-                      <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+                      <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                     </button>
                   </>
                 )}
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center text-on-surface-variant p-6 h-full w-full bg-surface-container select-none">
-                <span className="material-symbols-outlined text-5xl mb-2 opacity-50">image_not_supported</span>
-                <p className="font-body-md text-center">No images available for {activeType === 'ATTAR' ? 'Attar' : (activeType === 'PERFUME' ? 'Perfume' : 'this type')}.</p>
+              <div className="flex flex-col items-center justify-center text-ink/40 p-6 h-full w-full bg-[#faf8f5] select-none">
+                <span className="material-symbols-outlined text-4xl mb-2 opacity-50">image_not_supported</span>
+                <p className="text-xs uppercase tracking-wider text-center">No image available for {activeType === 'ATTAR' ? 'Attar' : (activeType === 'PERFUME' ? 'Perfume' : 'this item')}.</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Right Column: Product Details */}
-        <div className="flex flex-col lg:col-span-7">
+        <div className="flex flex-col lg:col-span-6">
           <div className="mb-6">
-            <h1 className="font-headline-lg text-headline-lg text-primary mb-3 mt-1 lg:mt-0">{product.name}</h1>
+            <span className="text-accent text-[11px] font-semibold uppercase tracking-[0.25em] mb-2 block">
+              {product.category?.name || 'Exclusive Fragrance'}
+            </span>
+            <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl text-ink font-normal tracking-tight mb-3">
+              {product.name}
+            </h1>
 
-            <div className="flex items-center space-x-4 mb-5">
-              <div className="flex text-inverse-primary fill-icon">
-                <StarRating rating={product.averageRating || 0} size={20} showText={false} />
+            <div className="flex items-center space-x-3 mb-5">
+              <div className="flex text-accent">
+                <StarRating rating={product.averageRating || 0} size={18} showText={false} />
               </div>
-              <span className="font-label-sm text-label-sm text-on-surface-variant">({product.reviewCount || 0} Reviews)</span>
+              <span className="text-xs text-ink/60 font-medium">({product.reviewCount || 0} Reviews)</span>
             </div>
 
-            <div className="flex items-baseline space-x-4 mb-7">
-              <span className="font-display-lg-mobile text-display-lg-mobile text-primary">{selectedVariant ? formatPrice(selectedVariant.price) : 'N/A'}</span>
+            <div className="flex items-baseline space-x-3 mb-6 pb-6 border-b border-[#e4dcc8]">
+              <span className="font-serif text-2xl sm:text-3xl text-ink font-semibold">
+                {selectedVariant ? formatPrice(selectedVariant.price) : 'N/A'}
+              </span>
+              <span className="text-[11px] text-ink/50 uppercase tracking-wider">Taxes included</span>
             </div>
 
-            <p className="font-body-lg text-body-lg text-on-surface-variant mb-8 max-w-[85%] leading-relaxed">
-              {product.description}
-            </p>
+            {product.description && (
+              <p className="text-sm sm:text-base text-ink/75 mb-7 max-w-xl leading-relaxed font-light">
+                {product.description}
+              </p>
+            )}
 
             <div className="space-y-6">
-                {showTypeToggle && (
-                  <div className="mb-6">
-                    <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-3">Select Type</h3>
-                    <div className="inline-flex flex-wrap bg-surface-container-lowest border border-outline-variant/30 rounded-full p-1 max-w-full">
-                      <button
-                        onClick={() => handleTypeChange('ATTAR')}
-                        className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-                          activeType === 'ATTAR'
-                            ? 'bg-accent-soft text-accent-hover'
-                            : 'text-on-surface-variant hover:text-accent'
-                        }`}
-                      >
-                        Attar
-                      </button>
-                      <button
-                        onClick={() => handleTypeChange('PERFUME')}
-                        className={`px-6 py-2 rounded-full font-label-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-                          activeType === 'PERFUME'
-                            ? 'bg-accent-soft text-accent-hover'
-                            : 'text-on-surface-variant hover:text-accent'
-                        }`}
-                      >
-                        Perfume
-                      </button>
-                    </div>
+              {showTypeToggle && (
+                <div>
+                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent mb-3">
+                    Select Formulation
+                  </h3>
+                  <div className="inline-flex flex-wrap bg-surface-container-lowest border border-[#e4dcc8] rounded-full p-1 max-w-full shadow-xs">
+                    <button
+                      onClick={() => handleTypeChange('ATTAR')}
+                      className={`px-5 py-1.5 rounded-full text-xs uppercase tracking-wider font-medium transition-all ${
+                        activeType === 'ATTAR'
+                          ? 'bg-ink text-surface shadow-xs'
+                          : 'text-ink/70 hover:text-ink'
+                      }`}
+                    >
+                      Pure Attar
+                    </button>
+                    <button
+                      onClick={() => handleTypeChange('PERFUME')}
+                      className={`px-5 py-1.5 rounded-full text-xs uppercase tracking-wider font-medium transition-all ${
+                        activeType === 'PERFUME'
+                          ? 'bg-ink text-surface shadow-xs'
+                          : 'text-ink/70 hover:text-ink'
+                      }`}
+                    >
+                      Eau De Parfum
+                    </button>
                   </div>
-                )}
+                </div>
+              )}
 
               {product.category?.name === 'Bakhoor' || filteredVariants.length === 1 ? (
                 <div>
-                  <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-3">
-                    {filteredVariants[0]?.colorName ? 'Colour' : (product.category?.name?.toLowerCase() === 'car perfume' || filteredVariants[0]?.size?.toLowerCase()?.includes('pc') ? 'Quantity' : 'Weight')}
+                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent mb-3">
+                    {filteredVariants[0]?.colorName ? 'Colour' : (product.category?.name?.toLowerCase() === 'car perfume' || filteredVariants[0]?.size?.toLowerCase()?.includes('pc') ? 'Quantity' : 'Size / Weight')}
                   </h3>
-                  <div className="px-6 py-3 border border-outline-variant rounded-DEFAULT font-label-md text-label-md text-on-surface inline-block bg-surface-bright">
+                  <div className="px-5 py-2.5 border border-[#e4dcc8] rounded-sm text-xs uppercase tracking-wider font-medium text-ink inline-block bg-surface-container-lowest">
                     {filteredVariants[0]?.colorName || `${filteredVariants[0]?.size} Pack`}
                   </div>
                 </div>
               ) : (
                 <div>
-                  <h3 className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface mb-3">
-                    {filteredVariants.some(v => v.colorName) ? 'Select Colour' : 'Select Size'}
+                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent mb-3">
+                    {filteredVariants.some(v => v.colorName) ? 'Select Colour' : 'Select Volume'}
                   </h3>
-                  <div className="flex flex-wrap gap-4">
-                    {filteredVariants.map((variant) => (
-                      <label key={variant.id} className="cursor-pointer">
-                        <input
-                          type="radio"
-                          name="variant-selection"
-                          className="peer sr-only variant-radio"
-                          checked={selectedVariant?.id === variant.id}
-                          onChange={() => handleVariantChange(variant)}
-                        />
-                        <div className="px-6 py-3 border border-outline-variant rounded-md font-label-md text-label-md text-on-surface hover:border-accent peer-checked:bg-accent peer-checked:text-ink peer-checked:border-accent peer-focus-visible:ring-2 peer-focus-visible:ring-accent peer-focus-visible:ring-offset-2 transition-all duration-200 shadow-sm">
-                          {variant.colorName || variant.size}
-                        </div>
-                      </label>
-                    ))}
+                  <div className="flex flex-wrap gap-2.5">
+                    {filteredVariants.map((variant) => {
+                      const isSelected = selectedVariant?.id === variant.id;
+                      return (
+                        <label key={variant.id} className="cursor-pointer">
+                          <input
+                            type="radio"
+                            name="variant-selection"
+                            className="sr-only"
+                            checked={isSelected}
+                            onChange={() => handleVariantChange(variant)}
+                          />
+                          <div className={`px-5 py-2.5 border rounded-sm text-xs uppercase tracking-wider font-medium transition-all duration-200 shadow-xs ${
+                            isSelected
+                              ? 'bg-ink text-surface border-ink'
+                              : 'bg-surface-container-lowest text-ink/75 border-[#e4dcc8] hover:border-accent hover:text-ink'
+                          }`}>
+                            {variant.colorName || variant.size}
+                          </div>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-
               {/* Premium Promotion Banner */}
               {renderPromoBanner()}
 
-              <div className="flex gap-4 pt-7">
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-6">
                 <button
                   onClick={handleAddToCart}
                   disabled={!selectedVariant || selectedVariant.stock === 0}
-                  className="w-[85%] h-[56px] bg-primary text-on-primary rounded-md font-label-md uppercase tracking-widest hover:bg-surface-tint transition-all duration-200 flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-[1px] hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+                  className="flex-1 h-[54px] bg-ink text-surface rounded-sm font-semibold text-xs uppercase tracking-[0.2em] hover:bg-ink/90 active:scale-[0.99] transition-all flex justify-center items-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
                 >
-                  <span className="material-symbols-outlined text-[20px]">shopping_bag</span>
-                  {selectedVariant && selectedVariant.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
+                  <span className="material-symbols-outlined text-[19px]">shopping_bag</span>
+                  <span>{selectedVariant && selectedVariant.stock > 0 ? 'Add to Bag' : 'Out of Stock'}</span>
                 </button>
                 <button
                   onClick={handleToggleWishlist}
                   disabled={!selectedVariant}
-                  className={`w-[15%] min-w-[56px] h-[56px] border rounded-md flex justify-center items-center transition-all duration-200 hover:-translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+                  className={`w-[54px] h-[54px] border rounded-sm flex justify-center items-center transition-all duration-200 wishlist-btn-pop ${
                     selectedVariant && isInWishlist(selectedVariant.id.toString())
-                      ? 'border-accent text-accent bg-accent-soft'
-                      : 'border-outline-variant text-on-surface hover:border-accent hover:text-accent'
+                      ? 'border-accent text-accent bg-accent/10'
+                      : 'border-[#e4dcc8] text-ink/70 hover:border-accent hover:text-accent bg-surface-container-lowest'
                   }`}
                   aria-label={selectedVariant && isInWishlist(selectedVariant.id.toString()) ? 'Remove from wishlist' : 'Add to wishlist'}
                 >
-                  <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: selectedVariant && isInWishlist(selectedVariant.id.toString()) ? "'FILL' 1" : "'FILL' 0" }}>
+                  <span
+                    className="material-symbols-outlined text-[22px]"
+                    style={{ fontVariationSettings: selectedVariant && isInWishlist(selectedVariant.id.toString()) ? "'FILL' 1" : "'FILL' 0" }}
+                  >
                     favorite
                   </span>
                 </button>
               </div>
 
               {/* Trust Section */}
-              <div className="flex flex-wrap items-center gap-5 pt-6 text-[10px] sm:text-[11px] uppercase tracking-wider text-on-surface-variant/80 font-medium">
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-5 text-[10px] sm:text-[11px] uppercase tracking-wider text-ink/60 font-medium border-t border-[#e4dcc8]">
                 <div className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px]">verified</span>
-                  100% Original
+                  <span className="material-symbols-outlined text-[16px] text-accent">verified</span>
+                  100% Authentic
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px]">lock</span>
-                  Secure Checkout
+                  <span className="material-symbols-outlined text-[16px] text-accent">lock</span>
+                  Encrypted Checkout
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px]">local_shipping</span>
-                  Fast Shipping
+                  <span className="material-symbols-outlined text-[16px] text-accent">local_shipping</span>
+                  Express Delivery
                 </div>
                 <div className="flex items-center gap-1.5 hidden sm:flex">
-                  <span className="material-symbols-outlined text-[16px]">package_2</span>
-                  Premium Packaging
+                  <span className="material-symbols-outlined text-[16px] text-accent">package_2</span>
+                  Artisanal Packaging
                 </div>
               </div>
             </div>
@@ -605,6 +627,24 @@ export const ProductPage: React.FC = () => {
         <section ref={relatedRef} className={`max-w-[1280px] mx-auto w-full px-4 sm:px-6 md:px-8 lg:px-10 reveal ${relatedInView ? 'in-view' : ''}`}>
           <RelatedProducts productId={product.id} />
         </section>
+      )}
+
+      {/* Mobile Floating Sticky CTA */}
+      {product && selectedVariant && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#fbf9f5]/95 backdrop-blur-md border-t border-[#e4dcc8] px-4 py-3 flex items-center justify-between gap-3 shadow-lg">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-serif text-ink truncate font-medium">{product.name}</p>
+            <p className="text-sm font-semibold text-ink">{formatPrice(selectedVariant.price)}</p>
+          </div>
+          <button
+            onClick={handleAddToCart}
+            disabled={selectedVariant.stock === 0}
+            className="px-5 py-2.5 bg-ink text-surface rounded-sm font-semibold text-xs uppercase tracking-wider hover:bg-ink/90 active:scale-95 transition-all flex items-center gap-1.5 shadow-xs disabled:opacity-50 shrink-0"
+          >
+            <span className="material-symbols-outlined text-[16px]">shopping_bag</span>
+            <span>{selectedVariant.stock > 0 ? 'Add to Bag' : 'Sold Out'}</span>
+          </button>
+        </div>
       )}
 
       <style dangerouslySetInnerHTML={{__html: `

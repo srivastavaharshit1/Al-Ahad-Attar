@@ -139,11 +139,26 @@ export const Cart: React.FC = () => {
                       <h3 className="text-xl font-serif mb-1" style={{ color: C.navy }}>
                         {item.name}
                       </h3>
-                      <div className="text-[11px] mb-2" style={{ color: C.navyLight }}>
-                        <span className="font-semibold" style={{ color: C.navy }}>{(item.size || '').match(/ml|gm|Pack/) ? 'Size: ' : 'Colour: '}{item.size}</span>
-                      </div>
+                      {item.isGiftSet ? (
+                        <div className="text-[11px] mb-2" style={{ color: C.navyLight }}>
+                          <span className="font-semibold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider inline-block mb-1" style={{ backgroundColor: C.goldBg, color: C.goldDark, border: `1px solid ${C.goldBorder}` }}>
+                            Curated Gift Set
+                          </span>
+                          {item.includedItems && item.includedItems.length > 0 && (
+                            <div className="text-[11px]" style={{ color: C.navyLight }}>
+                              Includes: {item.includedItems.map(inc => `${inc.productName || 'Attar'} (${inc.variantSize || ''})`).join(' • ')}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        item.size ? (
+                          <div className="text-[11px] mb-2" style={{ color: C.navyLight }}>
+                            <span className="font-semibold" style={{ color: C.navy }}>{(item.size || '').match(/ml|gm|Pack/) ? 'Size: ' : 'Colour: '}{item.size}</span>
+                          </div>
+                        ) : null
+                      )}
                       
-                      {item.bottle && item.bottle.name && (
+                      {!item.isGiftSet && item.bottle && item.bottle.name && (
                         <div className="text-[11px] mb-1" style={{ color: C.navyLight }}>
                           Packaging: {item.bottle.name} {item.bottle.price > 0 ? `(+${formatPrice(item.bottle.price)})` : ''}
                         </div>
@@ -411,10 +426,9 @@ export const Cart: React.FC = () => {
                 
                 <Link
                   to="/checkout"
-                  className="w-full py-4 rounded-lg flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:brightness-110 shadow-sm"
-                  style={{ background: `linear-gradient(to right, ${C.gold}, ${C.goldDark})` }}
+                  className="w-full py-4 rounded-sm flex items-center justify-center gap-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-surface bg-ink hover:bg-ink/90 active:scale-[0.99] transition-all shadow-xs"
                 >
-                  <span className="material-symbols-outlined text-[16px]">shopping_cart_checkout</span>
+                  <span className="material-symbols-outlined text-[18px]">shopping_cart_checkout</span>
                   PROCEED TO CHECKOUT
                 </Link>
                 

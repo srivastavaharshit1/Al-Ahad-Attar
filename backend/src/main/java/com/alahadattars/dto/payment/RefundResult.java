@@ -26,6 +26,6 @@ public class RefundResult {
     private String errorMessage;
 
     public boolean isSuccess() {
-        return outcome == RefundOutcome.SUCCESS;
+        return outcome == RefundOutcome.SUCCESS || outcome == RefundOutcome.PROCESSED;
     }
 }

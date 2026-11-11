@@ -1,8 +1,18 @@
 import type { Product } from './product';
 
+export interface GiftSetComponentInfo {
+  id?: number;
+  productId?: number;
+  productName?: string;
+  variantId?: number;
+  variantSize?: string;
+  sku?: string;
+  quantity?: number;
+}
+
 export interface CartItem {
   id: string;
-  productId: string;
+  productId?: string;
   variantId?: string | number;
   quantity: number;
   originalPrice?: number;
@@ -22,6 +32,11 @@ export interface CartItem {
     price: number;
     imageUrl?: string;
   };
+
+  isGiftSet?: boolean;
+  giftSetId?: number;
+  giftSetName?: string;
+  includedItems?: GiftSetComponentInfo[];
 }
 
 export interface Wishlist {

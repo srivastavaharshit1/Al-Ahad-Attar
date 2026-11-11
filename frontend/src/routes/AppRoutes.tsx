@@ -18,6 +18,8 @@ const LoadingScreen = () => (
 const Home = React.lazy(() => import('../pages/Home').then(m => ({ default: m.Home })));
 const Collection = React.lazy(() => import('../pages/Collection').then(m => ({ default: m.Collection })));
 const Product = React.lazy(() => import('../pages/Product').then(m => ({ default: m.Product })));
+const GiftSets = React.lazy(() => import('../pages/GiftSets').then(m => ({ default: m.GiftSets })));
+const GiftSetDetail = React.lazy(() => import('../pages/GiftSetDetail').then(m => ({ default: m.GiftSetDetail })));
 const Cart = React.lazy(() => import('../pages/Cart').then(m => ({ default: m.Cart })));
 const Checkout = React.lazy(() => import('../pages/Checkout').then(m => ({ default: m.Checkout })));
 const OrderSuccess = React.lazy(() => import('../pages/OrderSuccess').then(m => ({ default: m.OrderSuccess })));
@@ -47,6 +49,9 @@ const AdminDashboard = React.lazy(() => import('../pages/admin/Dashboard').then(
 const AdminProducts = React.lazy(() => import('../pages/admin/Products').then(m => ({ default: m.Products })));
 const AdminAddProduct = React.lazy(() => import('../pages/admin/AddProduct').then(m => ({ default: m.AddProduct })));
 const AdminEditProduct = React.lazy(() => import('../pages/admin/EditProduct').then(m => ({ default: m.EditProduct })));
+const AdminGiftSets = React.lazy(() => import('../pages/admin/GiftSets').then(m => ({ default: m.GiftSets })));
+const AdminAddGiftSet = React.lazy(() => import('../pages/admin/AddGiftSet').then(m => ({ default: m.AddGiftSet })));
+const AdminEditGiftSet = React.lazy(() => import('../pages/admin/EditGiftSet').then(m => ({ default: m.EditGiftSet })));
 const AdminOrders = React.lazy(() => import('../pages/admin/Orders').then(m => ({ default: m.Orders })));
 const AdminOrderDetails = React.lazy(() => import('../pages/admin/OrderDetails').then(m => ({ default: m.AdminOrderDetails })));
 const AdminRefunds = React.lazy(() => import('../pages/admin/Refunds').then(m => ({ default: m.Refunds })));
@@ -77,6 +82,8 @@ export const AppRoutes: React.FC = () => {
           <Route path="category/incense-sticks" element={<Collection category="incense-sticks" />} />
           <Route path="category/perfumes" element={<Collection category="perfumes" />} />
           <Route path="category/car-perfumes" element={<Collection category="car-perfumes" />} />
+          <Route path="gift-sets" element={<GiftSets />} />
+          <Route path="gift-sets/:slug" element={<GiftSetDetail />} />
           <Route path="product/:id" element={<Product />} />
           <Route path="cart" element={<Cart />} />
           <Route path="about" element={<About />} />
@@ -119,6 +126,9 @@ export const AppRoutes: React.FC = () => {
           <Route path="products/pricing" element={<AdminBulkPricing />} />
           <Route path="products/new" element={<AdminAddProduct />} />
           <Route path="products/:id/edit" element={<AdminEditProduct />} />
+          <Route path="gift-sets" element={<AdminGiftSets />} />
+          <Route path="gift-sets/new" element={<AdminAddGiftSet />} />
+          <Route path="gift-sets/:id/edit" element={<AdminEditGiftSet />} />
           <Route path="orders" element={<AdminOrders />} />
           <Route path="orders/:id" element={<AdminOrderDetails />} />
           <Route path="refunds" element={<AdminRefunds />} />

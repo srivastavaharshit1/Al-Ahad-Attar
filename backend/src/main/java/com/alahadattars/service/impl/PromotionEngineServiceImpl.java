@@ -6,6 +6,8 @@ import com.alahadattars.dto.cart.FreeProductOptionResponse;
 import com.alahadattars.dto.promotion.PromotionResponse;
 import com.alahadattars.entity.Cart;
 import com.alahadattars.entity.CartItem;
+import com.alahadattars.entity.GiftSet;
+import com.alahadattars.entity.GiftSetImage;
 import com.alahadattars.entity.Product;
 import com.alahadattars.entity.Promotion;
 import com.alahadattars.entity.PromotionConfiguration;
@@ -122,37 +124,66 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         BigDecimal originalSubtotal = BigDecimal.ZERO;
 
         for (CartItem item : cart.getItems()) {
-            // Read the variant's live price, not the CartItem.price snapshot taken at add-to-cart
-            // time — OrderServiceImpl.createOrder does the same at checkout ("Always store actual
-            // market price"), so a price the admin corrects after a customer added the item to
-            // their cart takes effect immediately instead of staying stuck at whatever it was
-            // (including 0, if the variant briefly had no price set) until the item is re-added.
-            BigDecimal livePrice = item.getVariant().getPrice();
-            if (item.getBottle() != null) {
-                livePrice = livePrice.add(item.getBottle().getPrice());
+            if (item.isGiftSet()) {
+                GiftSet gs = item.getGiftSet();
+                BigDecimal livePrice = gs.getSalePrice() != null ? gs.getSalePrice() : gs.getPrice();
+                if (!item.isFreeItem()) {
+                    originalSubtotal = originalSubtotal.add(
+                            livePrice.multiply(BigDecimal.valueOf(item.getQuantity())));
+                }
+                CartItemResponse response = CartItemResponse.builder()
+                        .id(item.getId())
+                        .isGiftSet(true)
+                        .giftSetId(gs.getId())
+                        .giftSetName(gs.getName())
+                        .name(gs.getName())
+                        .image(resolveGiftSetImage(gs))
+                        .size(null)
+                        .quantity(item.getQuantity())
+                        .originalPrice(livePrice)
+                        .discountAmount(BigDecimal.ZERO)
+                        .finalPrice(livePrice)
+                        .appliedPromotions(new ArrayList<>())
+                        .freeItem(false)
+                        .freePromotionId(null)
+                        .bottle(null)
+                        .includedItems(resolveGiftSetItems(gs))
+                        .build();
+                itemResponses.add(response);
+            } else {
+                // Read the variant's live price, not the CartItem.price snapshot taken at add-to-cart
+                // time — OrderServiceImpl.createOrder does the same at checkout ("Always store actual
+                // market price"), so a price the admin corrects after a customer added the item to
+                // their cart takes effect immediately instead of staying stuck at whatever it was
+                // (including 0, if the variant briefly had no price set) until the item is re-added.
+                BigDecimal livePrice = item.getVariant().getPrice();
+                if (item.getBottle() != null) {
+                    livePrice = livePrice.add(item.getBottle().getPrice());
+                }
+                // Free items don't add to the subtotal
+                if (!item.isFreeItem()) {
+                    originalSubtotal = originalSubtotal.add(
+                            livePrice.multiply(BigDecimal.valueOf(item.getQuantity())));
+                }
+                CartItemResponse response = CartItemResponse.builder()
+                        .id(item.getId())
+                        .isGiftSet(false)
+                        .productId(item.getProduct().getId())
+                        .variantId(item.getVariant().getId())
+                        .name(item.getProduct().getName())
+                        .image(resolveCartItemImage(item.getVariant(), item.getProduct()))
+                        .size(item.getVariant().getSize())
+                        .quantity(item.getQuantity())
+                        .originalPrice(item.isFreeItem() ? BigDecimal.ZERO : livePrice)
+                        .discountAmount(BigDecimal.ZERO)
+                        .finalPrice(item.isFreeItem() ? BigDecimal.ZERO : livePrice)
+                        .appliedPromotions(new ArrayList<>())
+                        .freeItem(item.isFreeItem())
+                        .freePromotionId(item.getFreePromotionId())
+                        .bottle(item.getBottle() != null ? com.alahadattars.dto.bottle.BottleResponse.fromEntity(item.getBottle(), storageService) : null)
+                        .build();
+                itemResponses.add(response);
             }
-            // Free items don't add to the subtotal
-            if (!item.isFreeItem()) {
-                originalSubtotal = originalSubtotal.add(
-                        livePrice.multiply(BigDecimal.valueOf(item.getQuantity())));
-            }
-            CartItemResponse response = CartItemResponse.builder()
-                    .id(item.getId())
-                    .productId(item.getProduct().getId())
-                    .variantId(item.getVariant().getId())
-                    .name(item.getProduct().getName())
-                    .image(resolveCartItemImage(item.getVariant(), item.getProduct()))
-                    .size(item.getVariant().getSize())
-                    .quantity(item.getQuantity())
-                    .originalPrice(item.isFreeItem() ? BigDecimal.ZERO : livePrice)
-                    .discountAmount(BigDecimal.ZERO)
-                    .finalPrice(item.isFreeItem() ? BigDecimal.ZERO : livePrice)
-                    .appliedPromotions(new ArrayList<>())
-                    .freeItem(item.isFreeItem())
-                    .freePromotionId(item.getFreePromotionId())
-                    .bottle(item.getBottle() != null ? com.alahadattars.dto.bottle.BottleResponse.fromEntity(item.getBottle(), storageService) : null)
-                    .build();
-            itemResponses.add(response);
         }
 
         BigDecimal totalItemDiscounts = BigDecimal.ZERO;
@@ -251,6 +282,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                     CartItemResponse itemResponse = itemResponses.get(i);
                     if (itemResponse.isFreeItem()) continue;
                     CartItem cartItem = cart.getItems().get(i);
+                    if (cartItem.isGiftSet()) continue;
                     
                     boolean matchesBuy = isItemEligible(promo, cartItem);
                     boolean matchesGet = isVariantEligibleAsFreeGift(cartItem.getVariant(), config);
@@ -588,6 +620,43 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         return productImageResolver.resolveImage(product.getImages(), preferredType);
     }
 
+    private String resolveGiftSetImage(GiftSet giftSet) {
+        if (giftSet == null || giftSet.getImages() == null || giftSet.getImages().isEmpty()) {
+            return null;
+        }
+        return giftSet.getImages().stream()
+                .filter(GiftSetImage::isActive)
+                .filter(GiftSetImage::isPrimary)
+                .findFirst()
+                .map(img -> storageService.resolveUrl(img.getImageUrl(), "/api/gift-sets/images/" + img.getId() + "/file"))
+                .orElseGet(() -> giftSet.getImages().stream()
+                        .filter(GiftSetImage::isActive)
+                        .findFirst()
+                        .map(img -> storageService.resolveUrl(img.getImageUrl(), "/api/gift-sets/images/" + img.getId() + "/file"))
+                        .orElse(null));
+    }
+
+    private List<com.alahadattars.dto.giftset.GiftSetItemResponse> resolveGiftSetItems(GiftSet giftSet) {
+        if (giftSet == null || giftSet.getItems() == null || giftSet.getItems().isEmpty()) {
+            return new ArrayList<>();
+        }
+        return giftSet.getItems().stream()
+                .map(item -> {
+                    ProductVariant v = item.getVariant();
+                    Product p = item.getProduct();
+                    return com.alahadattars.dto.giftset.GiftSetItemResponse.builder()
+                            .id(item.getId())
+                            .productId(p != null ? p.getId() : null)
+                            .productName(p != null ? p.getName() : null)
+                            .variantId(v != null ? v.getId() : null)
+                            .variantSize(v != null ? v.getSize() : null)
+                            .sku(v != null ? v.getSku() : null)
+                            .quantity(item.getQuantity())
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
     // ─── validateFreeItemEligibility ─────────────────────────────────────────
 
     @Override
@@ -706,7 +775,10 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         if (promo.getMinCartValue() != null) {
             BigDecimal cartTotal = cart.getItems().stream()
                     .filter(i -> !i.isFreeItem())
-                    .map(i -> i.getVariant().getPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
+                    .map(i -> (i.isGiftSet()
+                            ? (i.getGiftSet().getSalePrice() != null ? i.getGiftSet().getSalePrice() : i.getGiftSet().getPrice())
+                            : i.getVariant().getPrice())
+                            .multiply(BigDecimal.valueOf(i.getQuantity())))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             if (cartTotal.compareTo(promo.getMinCartValue()) < 0) return false;
         }
@@ -726,6 +798,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
      * Returns true if the cart item satisfies the buy-side conditions.
      */
     private boolean itemMatchesBuyCondition(CartItem item, PromotionConfiguration config) {
+        if (item.isGiftSet()) return false;
         if (config.getBuyScope() == null) {
             // Legacy inference path — kept byte-for-byte for promotions created before buyScope
             // existed (scope was implicit based on which fields happened to be set).
@@ -1000,6 +1073,9 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
 
 
     private boolean isItemEligible(Promotion promo, CartItem cartItem) {
+        if (cartItem == null || cartItem.isGiftSet()) {
+            return false;
+        }
         ItemEligibilityCondition condition = eligibilityConditionFactory.getCondition(promo);
         if (condition != null) {
             return condition.isItemEligible(promo, cartItem);
@@ -1057,6 +1133,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
 
         for (CartItem item : cart.getItems()) {
             if (item.isFreeItem()) continue; // Ignore free items for qualification
+            if (item.isGiftSet()) continue;
 
             boolean matchesBuy = isItemEligible(promo, item);
             boolean matchesGet = isVariantEligibleAsFreeGift(item.getVariant(), config);

@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Owns every DB-only phase of the cancel/refund flow as its own short-lived transaction, so the
@@ -44,6 +45,8 @@ public class RefundTransactionSupport {
     private final RefundRepository refundRepository;
     private final ProductVariantRepository variantRepository;
     private final com.alahadattars.repository.BottleRepository bottleRepository;
+    private final com.alahadattars.repository.OrderItemGiftSetComponentRepository orderItemGiftSetComponentRepository;
+    private final com.alahadattars.repository.AdminNotificationRepository adminNotificationRepository;
 
     /**
      * Customer self-cancellation: only CONFIRMED orders owned by {@code email} may be cancelled.
@@ -127,20 +130,30 @@ public class RefundTransactionSupport {
     }
 
     /** Outcome of the DB-only guard phase of an admin-initiated refund. */
-    static class AdminRefundPreparation {
+    public static class AdminRefundPreparation {
         private final Order order;
         private final BigDecimal refundAmount;
         private final LocalDateTime initiatedAt;
-        
-        AdminRefundPreparation(Order order, BigDecimal refundAmount, LocalDateTime initiatedAt) {
+        private final Long refundRecordId;
+        private final String idempotencyKey;
+
+        public AdminRefundPreparation(Order order, BigDecimal refundAmount, LocalDateTime initiatedAt) {
+            this(order, refundAmount, initiatedAt, null, "order-" + (order != null ? order.getOrderNumber() : "UNKNOWN") + "-ref-1");
+        }
+
+        public AdminRefundPreparation(Order order, BigDecimal refundAmount, LocalDateTime initiatedAt, Long refundRecordId, String idempotencyKey) {
             this.order = order;
             this.refundAmount = refundAmount;
             this.initiatedAt = initiatedAt;
+            this.refundRecordId = refundRecordId;
+            this.idempotencyKey = idempotencyKey;
         }
-        
+
         public Order order() { return order; }
         public BigDecimal refundAmount() { return refundAmount; }
         public LocalDateTime initiatedAt() { return initiatedAt; }
+        public Long refundRecordId() { return refundRecordId; }
+        public String idempotencyKey() { return idempotencyKey; }
     }
 
     @Transactional
@@ -176,40 +189,67 @@ public class RefundTransactionSupport {
         order.setRefundInitiatedBy(adminEmail);
         order.setRefundAmount(refundAmount);
         order.setRefundFailureReason(null);
-        orderRepository.save(order);
+        order = orderRepository.save(order);
 
-        return new AdminRefundPreparation(order, refundAmount, initiatedAt);
+        // Create an in-flight Refund audit record to represent this specific refund operation.
+        // Its auto-generated database ID provides a persistent, globally unique operation identity.
+        Refund refund = Refund.builder()
+                .order(order)
+                .paymentId(order.getTransactionId())
+                .amount(refundAmount)
+                .status(RefundStatus.PROCESSING)
+                .initiatedAt(initiatedAt)
+                .build();
+        refund = refundRepository.save(refund);
+
+        Long refundId = refund.getId();
+        String idempotencyKey = refundId != null
+                ? "order-" + order.getOrderNumber() + "-ref-" + refundId
+                : "order-" + order.getOrderNumber() + "-ref-0";
+
+        return new AdminRefundPreparation(order, refundAmount, initiatedAt, refundId, idempotencyKey);
     }
 
     @Transactional
-    public Order recordAdminRefundOutcome(Order order, RefundResult result, BigDecimal refundAmount, LocalDateTime initiatedAt) {
+    public Order recordAdminRefundOutcome(Order order, Long refundRecordId, RefundResult result, BigDecimal refundAmount, LocalDateTime initiatedAt) {
+        Refund refund = null;
+        if (refundRecordId != null) {
+            refund = refundRepository.findById(refundRecordId).orElse(null);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
         if (result.getOutcome() == RefundResult.RefundOutcome.SUCCESS) {
             order.setRefundStatus(RefundStatus.PROCESSING);
             order.setRefundId(result.getRefundId());
             order.setRefundFailureReason(null);
             log.info("Refund API SUCCESSFUL for order {} | Refund ID: {}. Leaving in PROCESSING state pending webhook.", order.getId(), result.getRefundId());
-            saveRefundRecord(order, result.getRefundId(), refundAmount, RefundStatus.PROCESSING, null, initiatedAt, null);
+            updateOrSaveRefundRecord(refund, order, result.getRefundId(), refundAmount, RefundStatus.PROCESSING, null, initiatedAt, null);
         } else if (result.getOutcome() == RefundResult.RefundOutcome.PROCESSED) {
             order.setRefundStatus(RefundStatus.REFUNDED);
             order.setRefundId(result.getRefundId());
             order.setRefundFailureReason(null);
-            order.setRefundCompletedAt(LocalDateTime.now());
+            order.setRefundCompletedAt(now);
             log.info("Refund API returned PROCESSED for order {} | Refund ID: {}. Marking REFUNDED immediately.", order.getId(), result.getRefundId());
-            saveRefundRecord(order, result.getRefundId(), refundAmount, RefundStatus.REFUNDED, null, initiatedAt, order.getRefundCompletedAt());
+            updateOrSaveRefundRecord(refund, order, result.getRefundId(), refundAmount, RefundStatus.REFUNDED, null, initiatedAt, now);
         } else if (result.getOutcome() == RefundResult.RefundOutcome.UNKNOWN_TIMEOUT) {
             order.setRefundStatus(RefundStatus.PROCESSING);
             order.setRefundFailureReason("API timeout or unknown state. Waiting for webhook reconciliation.");
             log.warn("Refund API UNKNOWN/TIMEOUT for order {}. Leaving in PROCESSING state pending webhook.", order.getId());
-            saveRefundRecord(order, null, refundAmount, RefundStatus.PROCESSING, "API timeout/unknown", initiatedAt, null);
+            updateOrSaveRefundRecord(refund, order, null, refundAmount, RefundStatus.PROCESSING, "API timeout/unknown", initiatedAt, null);
         } else {
             order.setRefundStatus(RefundStatus.FAILED);
             order.setRefundFailureReason(result.getErrorMessage());
             log.error("Refund FAILED definitively for order {} | Error: {}", order.getId(), result.getErrorMessage());
-            saveRefundRecord(order, null, refundAmount, RefundStatus.FAILED, result.getErrorMessage(), initiatedAt, null);
+            updateOrSaveRefundRecord(refund, order, null, refundAmount, RefundStatus.FAILED, result.getErrorMessage(), initiatedAt, null);
         }
         Order saved = orderRepository.save(order);
         initializeForResponse(saved);
         return saved;
+    }
+
+    @Transactional
+    public Order recordAdminRefundOutcome(Order order, RefundResult result, BigDecimal refundAmount, LocalDateTime initiatedAt) {
+        return recordAdminRefundOutcome(order, null, result, refundAmount, initiatedAt);
     }
 
     /**
@@ -230,6 +270,11 @@ public class RefundTransactionSupport {
                 org.hibernate.Hibernate.initialize(item.getVariant().getProduct());
                 if (item.getVariant().getProduct() != null) {
                     org.hibernate.Hibernate.initialize(item.getVariant().getProduct().getImages());
+                }
+            }
+            if (item.isGiftSet()) {
+                if (item.getGiftSetComponents() != null) {
+                    org.hibernate.Hibernate.initialize(item.getGiftSetComponents());
                 }
             }
         }
@@ -281,10 +326,9 @@ public class RefundTransactionSupport {
         }
         orderRepository.save(order);
 
-        // The claim/PROCESSING phase (claimAdminRefundProcessing) never creates a Refund audit
-        // row — only recordAdminRefundOutcome does, after the blocking Razorpay call returns. If
-        // that never ran, this webhook is the first place a row for this attempt gets written.
-        saveRefundRecord(order, processed ? razorpayRefundId : null, order.getRefundAmount(), order.getRefundStatus(),
+        // If the blocking call never returned locally, this webhook updates the in-flight
+        // PROCESSING Refund record (or creates one if none exists).
+        updateOrSaveRefundRecord(null, order, processed ? razorpayRefundId : null, order.getRefundAmount(), order.getRefundStatus(),
                 order.getRefundFailureReason(), order.getRefundInitiatedAt(), processed ? now : null);
 
         log.info("Reconciled order {} refund to {} via webhook (refund {}).", order.getId(), order.getRefundStatus(), razorpayRefundId);
@@ -292,23 +336,57 @@ public class RefundTransactionSupport {
 
     private void restoreInventory(Order order) {
         for (OrderItem item : order.getItems()) {
-            if (item.getVariant() != null) {
-                ProductVariant variant = item.getVariant();
-                variantRepository.incrementStock(variant.getId(), item.getQuantity());
-                log.info("Inventory restored for variant {} (+{})", variant.getId(), item.getQuantity());
-            }
-            if (item.getBottleId() != null) {
-                bottleRepository.incrementStock(item.getBottleId(), item.getQuantity());
-                log.info("Inventory restored for bottle {} (+{})", item.getBottleId(), item.getQuantity());
+            if (item.isGiftSet()) {
+                List<com.alahadattars.entity.OrderItemGiftSetComponent> components = item.getGiftSetComponents();
+                if (components == null || components.isEmpty()) {
+                    components = orderItemGiftSetComponentRepository.findByOrderItemId(item.getId());
+                }
+                if (components != null) {
+                    for (com.alahadattars.entity.OrderItemGiftSetComponent comp : components) {
+                        int rowsUpdated = variantRepository.incrementStock(comp.getVariantId(), comp.getTotalDeductedQuantity());
+                        if (rowsUpdated > 0) {
+                            log.info("Inventory restored for gift set component variant {} (+{}) for order {}",
+                                    comp.getVariantId(), comp.getTotalDeductedQuantity(), order.getOrderNumber());
+                        } else {
+                            log.error("Failed to restore inventory for cancelled Order #{}: Component variant ID {} ({} - {}) not found.",
+                                    order.getOrderNumber(), comp.getVariantId(), comp.getProductName(), comp.getVariantSize());
+                            com.alahadattars.entity.AdminNotification anomaly = com.alahadattars.entity.AdminNotification.builder()
+                                    .type("INVENTORY_RESTORATION_ANOMALY")
+                                    .orderId(order.getId())
+                                    .message(String.format("Failed to restore inventory for cancelled Order #%s: Component variant ID %d (%s - %s) not found in catalog.",
+                                            order.getOrderNumber(), comp.getVariantId(), comp.getProductName(), comp.getVariantSize()))
+                                    .isRead(false)
+                                    .build();
+                            adminNotificationRepository.save(anomaly);
+                        }
+                    }
+                }
+            } else {
+                if (item.getVariant() != null) {
+                    ProductVariant variant = item.getVariant();
+                    variantRepository.incrementStock(variant.getId(), item.getQuantity());
+                    log.info("Inventory restored for variant {} (+{})", variant.getId(), item.getQuantity());
+                }
+                if (item.getBottleId() != null) {
+                    bottleRepository.incrementStock(item.getBottleId(), item.getQuantity());
+                    log.info("Inventory restored for bottle {} (+{})", item.getBottleId(), item.getQuantity());
+                }
             }
         }
     }
 
-    private Refund saveRefundRecord(Order order, String razorpayRefundId, BigDecimal amount, RefundStatus status,
-                                     String failureReason, LocalDateTime initiatedAt, LocalDateTime completedAt) {
-        Refund refund = null;
-        if (razorpayRefundId != null) {
+    private Refund updateOrSaveRefundRecord(Refund existingRefund, Order order, String razorpayRefundId, BigDecimal amount,
+                                            RefundStatus status, String failureReason, LocalDateTime initiatedAt, LocalDateTime completedAt) {
+        Refund refund = existingRefund;
+        if (refund == null && razorpayRefundId != null) {
             refund = refundRepository.findByRazorpayRefundId(razorpayRefundId).orElse(null);
+        }
+        
+        if (refund == null) {
+            List<Refund> orderRefunds = refundRepository.findByOrderOrderByCreatedAtDesc(order);
+            if (!orderRefunds.isEmpty() && orderRefunds.get(0).getStatus() == RefundStatus.PROCESSING) {
+                refund = orderRefunds.get(0);
+            }
         }
         
         if (refund == null) {
@@ -320,7 +398,10 @@ public class RefundTransactionSupport {
                     .initiatedAt(initiatedAt)
                     .build();
         }
-        
+
+        if (razorpayRefundId != null) {
+            refund.setRazorpayRefundId(razorpayRefundId);
+        }
         refund.setStatus(status);
         refund.setFailureReason(failureReason);
         if (completedAt != null && refund.getCompletedAt() == null) {

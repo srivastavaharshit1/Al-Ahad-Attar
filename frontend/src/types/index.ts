@@ -9,3 +9,4 @@ export * from './variant';
 export * from './api';
 export * from './address';
 export * from './promotion';
+export * from './giftSet';
