@@ -191,6 +191,21 @@ export const GiftSetForm: React.FC<GiftSetFormProps> = ({ initialData, isEdit = 
     return currentSelectedProduct.variants.filter((v) => v.active);
   }, [currentSelectedProduct]);
 
+  // Auto-select the first available variant when a product is selected and variants load
+  useEffect(() => {
+    if (availableVariants.length > 0) {
+      const isValid = availableVariants.some((v) => String(v.id) === selectedVariantId);
+      if (!isValid) {
+        const defaultVar = (currentSelectedProduct as any)?.defaultVariantId
+          ? availableVariants.find((v) => v.id === (currentSelectedProduct as any).defaultVariantId)
+          : null;
+        setSelectedVariantId(String(defaultVar ? defaultVar.id : availableVariants[0].id));
+      }
+    } else {
+      setSelectedVariantId('');
+    }
+  }, [availableVariants, currentSelectedProduct]);
+
   // Selected variant object
   const currentSelectedVariant = useMemo(() => {
     if (!selectedVariantId) return null;
@@ -199,8 +214,18 @@ export const GiftSetForm: React.FC<GiftSetFormProps> = ({ initialData, isEdit = 
 
   // Handle adding a component to the gift set
   const handleAddComponent = () => {
-    if (!currentSelectedProduct || !currentSelectedVariant) {
-      toast.error('Please select both a product and a variant');
+    if (!selectedProductId) {
+      toast.error('Please select a fragrance from the catalog first');
+      return;
+    }
+
+    if (!selectedVariantId || !currentSelectedVariant) {
+      toast.error('Please select a variant size (e.g. 3ml, 6ml)');
+      return;
+    }
+
+    if (!currentSelectedProduct) {
+      toast.error('Please select a valid fragrance');
       return;
     }
 
@@ -235,6 +260,7 @@ export const GiftSetForm: React.FC<GiftSetFormProps> = ({ initialData, isEdit = 
     };
 
     setComponents([...components, newComponent]);
+    setSelectedProductId('');
     setSelectedVariantId('');
     setComponentQuantity(1);
     toast.success(`Added ${currentSelectedProduct.name} (${currentSelectedVariant.size})`);
@@ -602,7 +628,7 @@ export const GiftSetForm: React.FC<GiftSetFormProps> = ({ initialData, isEdit = 
                     min={1}
                     value={componentQuantity}
                     onChange={(e) => setComponentQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    disabled={!selectedVariantId}
+                    disabled={!selectedProductId}
                     className="field-input w-full py-2 px-2 text-center text-sm"
                   />
                 </div>
@@ -612,11 +638,20 @@ export const GiftSetForm: React.FC<GiftSetFormProps> = ({ initialData, isEdit = 
                   <button
                     type="button"
                     onClick={handleAddComponent}
-                    disabled={!selectedVariantId}
-                    className="btn btn-secondary w-full py-2 px-3 text-xs inline-flex items-center justify-center gap-1.5"
+                    disabled={loadingCatalog || loadingVariants}
+                    className="w-full py-2 px-3 text-xs font-semibold rounded bg-accent hover:bg-accent-hover text-ink inline-flex items-center justify-center gap-1.5 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    Add
+                    {loadingVariants ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Loading</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>+ Add</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
