@@ -7,6 +7,10 @@ import type { AdminNotification } from '../../services/adminNotificationService'
 const NAV_ITEMS = [
   { path: '/admin', label: 'Dashboard', icon: 'dashboard', end: true },
   { path: '/admin/analytics', label: 'Analytics', icon: 'monitoring' },
+  { path: '/admin/billing', label: 'Billing & POS', icon: 'point_of_sale', end: true },
+  { path: '/admin/billing/sales', label: 'POS Sales', icon: 'receipt_long' },
+  { path: '/admin/billing/invoices', label: 'Invoices', icon: 'description' },
+  { path: '/admin/billing/reports', label: 'Billing Reports', icon: 'query_stats' },
   { path: '/admin/products', label: 'Products', icon: 'inventory_2', end: true },
   { path: '/admin/products/pricing', label: 'Bulk Pricing', icon: 'price_change' },
   { path: '/admin/gift-sets', label: 'Gift Sets', icon: 'redeem' },

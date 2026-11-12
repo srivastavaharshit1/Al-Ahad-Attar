@@ -8,6 +8,7 @@ import com.alahadattars.entity.Product;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 
 public interface PromotionEngineService {
 
@@ -21,6 +22,18 @@ public interface PromotionEngineService {
      * @return Fully evaluated CartResponse with pricing, messages, and free product options
      */
     CartResponse evaluateCart(Cart cart, String couponCode);
+
+    /**
+     * Evaluates promotions under an explicit caller policy. Implementations that do not support
+     * POS evaluation fail closed rather than silently using storefront eligibility.
+     */
+    default CartResponse evaluateCart(Cart cart, String couponCode, PromotionEvaluationContext context) {
+        Objects.requireNonNull(context, "promotion evaluation context is required");
+        if (context == PromotionEvaluationContext.STOREFRONT) {
+            return evaluateCart(cart, couponCode);
+        }
+        throw new UnsupportedOperationException("POS promotion evaluation is not supported by this implementation");
+    }
 
     /**
      * Calculates the best automatic promotion available for a specific product.

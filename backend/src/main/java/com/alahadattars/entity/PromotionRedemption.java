@@ -53,4 +53,8 @@ public class PromotionRedemption extends BaseEntity {
 
     @Column(name = "order_id")
     private Long orderId;
+
+    /** Non-null only for a finalized POS redemption; online order fields remain unchanged. */
+    @Column(name = "pos_sale_id")
+    private Long posSaleId;
 }

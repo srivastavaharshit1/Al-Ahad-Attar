@@ -20,6 +20,7 @@ import com.alahadattars.repository.ProductVariantRepository;
 import com.alahadattars.repository.PromotionRedemptionRepository;
 import com.alahadattars.repository.PromotionRepository;
 import com.alahadattars.service.PromotionEngineService;
+import com.alahadattars.service.PromotionEvaluationContext;
 import com.alahadattars.service.ProductImageResolver;
 import com.alahadattars.service.StorageService;
 import com.alahadattars.service.promotion.EligibilityConditionFactory;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -59,11 +61,19 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
     @Override
     @Transactional(readOnly = true)
     public CartResponse evaluateCart(Cart cart, String couponCode) {
+        return evaluateCart(cart, couponCode, PromotionEvaluationContext.STOREFRONT);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CartResponse evaluateCart(
+            Cart cart, String couponCode, PromotionEvaluationContext context) {
+        Objects.requireNonNull(context, "promotion evaluation context is required");
         LocalDateTime now = LocalDateTime.now();
         // The query enforces the date window, but not the usage/per-user limits — apply those here so an
         // exhausted promotion is neither applied nor advertised as available.
         List<Promotion> automaticPromotions = new ArrayList<>(promotionRepository.findActiveAutomaticPromotions(now));
-        automaticPromotions.removeIf(p -> !isRedeemable(p, cart, now));
+        automaticPromotions.removeIf(p -> !isRedeemable(p, cart, now, context));
         List<Promotion> allPromotions = new ArrayList<>();
 
         Long manualPromoId = cart.getManuallySelectedPromotionId();
@@ -77,7 +87,8 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
                 manualPromo = promotionRepository.findById(manualPromoId).orElse(null);
                 // findById skips the guards the repository queries apply, so re-impose them here: an
                 // arbitrary id must not smuggle in an expired promotion or a code-gated coupon.
-                if (manualPromo != null && manualPromo.getCode() == null && isRedeemable(manualPromo, cart, now)) {
+                if (manualPromo != null && manualPromo.getCode() == null
+                        && isRedeemable(manualPromo, cart, now, context)) {
                     allPromotions.add(manualPromo);
                     for (Promotion p : automaticPromotions) {
                         if (p.isStackable() && !p.getId().equals(manualPromoId)) allPromotions.add(p);
@@ -102,7 +113,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
             Optional<Promotion> couponOpt = promotionRepository.findActivePromotionByCode(cleanCoupon, now);
             if (couponOpt.isPresent()) {
                 Promotion coupon = couponOpt.get();
-                if (isRedeemable(coupon, cart, now)) {
+                if (isRedeemable(coupon, cart, now, context)) {
                     allPromotions.add(coupon);
                     couponFound = true;
                 }
@@ -411,12 +422,13 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         }
 
         // Phase 4: FREE_PRODUCT — evaluate eligibility and populate freeProductOptions
-        List<FreeProductOptionResponse> freeProductOptions = evaluateFreeProductOptions(cart, couponCode);
+        List<FreeProductOptionResponse> freeProductOptions =
+                evaluateFreeProductOptions(cart, couponCode, context);
 
         // Revalidate existing free items in the cart
         for (CartItem item : cart.getItems()) {
             if (!item.isFreeItem()) continue;
-            boolean stillValid = validateFreeItemStillValid(cart, item, couponCode);
+            boolean stillValid = validateFreeItemStillValid(cart, item, couponCode, context);
             if (!stillValid) {
                 // Mark invalid — CartServiceImpl handles actual removal; we just warn
                 unlockMessages.add("Your free gift '"
@@ -433,7 +445,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
             if (p.getPromotionType() == PromotionType.FREE_PRODUCT) continue;
             if (appliedPromos.contains(p) || lockedPromos.contains(p)) continue;
 
-            if (isRedeemable(p, cart, now)) {
+            if (isRedeemable(p, cart, now, context)) {
                 if (p.getMinCartValue() != null && subtotalAfterItemDiscounts.compareTo(p.getMinCartValue()) < 0) {
                     BigDecimal diff = p.getMinCartValue().subtract(subtotalAfterItemDiscounts);
                     if (diff.compareTo(new BigDecimal("500")) <= 0) {
@@ -476,10 +488,17 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
     @Override
     @Transactional(readOnly = true)
     public List<FreeProductOptionResponse> evaluateFreeProductOptions(Cart cart, String couponCode) {
+        return evaluateFreeProductOptions(cart, couponCode, PromotionEvaluationContext.STOREFRONT);
+    }
+
+    private List<FreeProductOptionResponse> evaluateFreeProductOptions(
+            Cart cart, String couponCode, PromotionEvaluationContext context) {
+        Objects.requireNonNull(context, "promotion evaluation context is required");
         if (cart == null || cart.getItems() == null || cart.getItems().isEmpty()) return List.of();
 
         LocalDateTime now = LocalDateTime.now();
-        List<Promotion> allActive = promotionRepository.findAllActivePromotions(now);
+        List<Promotion> allActive = new ArrayList<>(promotionRepository.findAllActivePromotions(now));
+        allActive.removeIf(promotion -> !isAllowedInContext(promotion, context));
 
         boolean isGuest = cart.getUser() == null;
         Long userId = isGuest ? null : cart.getUser().getId();
@@ -494,6 +513,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         if (cleanCoupon != null) {
             promotionRepository.findActivePromotionByCode(cleanCoupon, now)
                     .filter(p -> p.getPromotionType() == PromotionType.FREE_PRODUCT)
+                    .filter(p -> isAllowedInContext(p, context))
                     .filter(this::isPromotionValid)
                     .ifPresent(p -> { if (!allActive.contains(p)) allActive.add(p); });
         }
@@ -501,6 +521,7 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
         List<FreeProductOptionResponse> options = new ArrayList<>();
 
         for (Promotion promo : allActive) {
+            if (!isAllowedInContext(promo, context)) continue;
             if (promo.getPromotionType() != PromotionType.FREE_PRODUCT && promo.getPromotionType() != PromotionType.BUY_X_GET_Y) continue;
             if (!isCustomerEligible(promo, isGuest, successfulOrderCount, userId)) {
                 log.info("[TARGETING] Skipping promo '{}' – customer ineligible", promo.getName());
@@ -943,16 +964,18 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
     @Override
     @Transactional(readOnly = true)
     public boolean isFreeCartItemStillValid(Cart cart, CartItem freeItem) {
-        return validateFreeItemStillValid(cart, freeItem, null);
+        return validateFreeItemStillValid(cart, freeItem, null, PromotionEvaluationContext.STOREFRONT);
     }
 
-    private boolean validateFreeItemStillValid(Cart cart, CartItem freeItem, String couponCode) {
+    private boolean validateFreeItemStillValid(
+            Cart cart, CartItem freeItem, String couponCode, PromotionEvaluationContext context) {
         if (freeItem.getFreePromotionId() == null) return false;
         LocalDateTime now = LocalDateTime.now();
         Optional<Promotion> promoOpt = promotionRepository.findById(freeItem.getFreePromotionId());
         if (promoOpt.isEmpty()) return false;
         Promotion promo = promoOpt.get();
-        if (!promo.isActive() || !isDateValid(promo, now) || !isPromotionValid(promo)) return false;
+        if (!isAllowedInContext(promo, context)
+                || !promo.isActive() || !isDateValid(promo, now) || !isPromotionValid(promo)) return false;
         PromotionConfiguration config = promo.getConfiguration();
         if (config == null) return false;
 
@@ -998,10 +1021,18 @@ public class PromotionEngineServiceImpl implements PromotionEngineService {
      * redemption limits. Prefer this over {@link #isPromotionValid} wherever a cart is in hand — the
      * latter checks neither dates nor the per-user cap.
      */
-    private boolean isRedeemable(Promotion promotion, Cart cart, LocalDateTime now) {
+    private boolean isRedeemable(
+            Promotion promotion, Cart cart, LocalDateTime now, PromotionEvaluationContext context) {
+        if (!isAllowedInContext(promotion, context)) return false;
         if (!isPromotionValid(promotion)) return false;
         if (!isDateValid(promotion, now)) return false;
         return isWithinPerUserLimit(promotion, cart);
+    }
+
+    private boolean isAllowedInContext(Promotion promotion, PromotionEvaluationContext context) {
+        if (context != PromotionEvaluationContext.POS) return true;
+        Integer perUserLimit = promotion.getPerUserLimit();
+        return perUserLimit == null || perUserLimit <= 0;
     }
 
     private boolean isWithinPerUserLimit(Promotion promotion, Cart cart) {
