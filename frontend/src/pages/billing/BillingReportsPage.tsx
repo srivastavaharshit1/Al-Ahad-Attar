@@ -4,7 +4,10 @@ import { billingService } from '../../services/billingService';
 import type { BillingSalesSummary, OnlineInvoiceJob } from '../../types/billing';
 import { BillingSectionNav } from './BillingSectionNav';
 
-const money = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value);
+const money = (value?: number | null) => {
+  const num = typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(num);
+};
 const todayUtc = () => new Date().toISOString().slice(0, 10);
 const monthStartUtc = () => `${todayUtc().slice(0, 7)}-01`;
 
@@ -27,8 +30,10 @@ export function BillingReportsPage() {
         billingService.getOnlineInvoiceJobs('BLOCKED_CONFIGURATION'),
       ]);
       setSummary(totals);
-      setJobs([...failedJobs.content, ...blockedJobs.content]
-        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)));
+      const failed = failedJobs?.content || [];
+      const blocked = blockedJobs?.content || [];
+      setJobs([...failed, ...blocked]
+        .sort((a, b) => (Date.parse(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || 0)));
     } catch {
       setMessage('Billing reports are unavailable. Confirm the Billing migrations and the selected date range.');
     } finally { setLoading(false); }
@@ -45,10 +50,15 @@ export function BillingReportsPage() {
     finally { setBusyJob(null); }
   };
 
-  const showRows = (title: string, rows: BillingSalesSummary['daily']) => <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-    <h3 className="border-b px-4 py-3 font-semibold">{title}</h3>
-    {rows.length === 0 ? <p className="p-4 text-sm text-slate-500">No sales in this period.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[500px] text-sm"><thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-4 py-2">Period (UTC)</th><th className="px-4 py-2 text-right">Sales</th><th className="px-4 py-2 text-right">Transactions</th><th className="px-4 py-2 text-right">Discounts</th></tr></thead><tbody className="divide-y">{rows.map(row => <tr key={row.period}><td className="px-4 py-2">{row.period}</td><td className="px-4 py-2 text-right">{money(row.sales)}</td><td className="px-4 py-2 text-right">{row.count}</td><td className="px-4 py-2 text-right">{money(row.discounts)}</td></tr>)}</tbody></table></div>}
-  </section>;
+  const showRows = (title: string, rows?: BillingSalesSummary['daily']) => {
+    const list = rows || [];
+    return (
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <h3 className="border-b px-4 py-3 font-semibold">{title}</h3>
+        {list.length === 0 ? <p className="p-4 text-sm text-slate-500">No sales in this period.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[500px] text-sm"><thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-4 py-2">Period (UTC)</th><th className="px-4 py-2 text-right">Sales</th><th className="px-4 py-2 text-right">Transactions</th><th className="px-4 py-2 text-right">Discounts</th></tr></thead><tbody className="divide-y">{list.map(row => <tr key={row.period}><td className="px-4 py-2">{row.period}</td><td className="px-4 py-2 text-right">{money(row.sales)}</td><td className="px-4 py-2 text-right">{row.count}</td><td className="px-4 py-2 text-right">{money(row.discounts)}</td></tr>)}</tbody></table></div>}
+      </section>
+    );
+  };
 
   return <div className="mx-auto max-w-7xl space-y-5">
     <BillingSectionNav />
@@ -62,7 +72,7 @@ export function BillingReportsPage() {
         ['POS sales', summary.posSales, `${summary.posCount} transactions`],
         ['Discounts', summary.combinedDiscounts, 'Promotion + manual discounts'],
       ].map(([label, value, detail]) => <section key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-sm text-slate-500">{label}</p><p className="mt-1 text-2xl font-semibold">{money(Number(value))}</p><p className="mt-1 text-xs text-slate-500">{detail}</p></section>)}</div>
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white"><h3 className="border-b px-4 py-3 font-semibold">Payment method breakdown</h3>{summary.paymentBreakdown.length === 0 ? <p className="p-4 text-sm text-slate-500">No sales in this period.</p> : <table className="w-full text-sm"><thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-4 py-2">Method</th><th className="px-4 py-2 text-right">Transactions</th><th className="px-4 py-2 text-right">Sales</th><th className="px-4 py-2 text-right">Discounts</th></tr></thead><tbody className="divide-y">{summary.paymentBreakdown.map(row => <tr key={row.method}><td className="px-4 py-2">{row.method}</td><td className="px-4 py-2 text-right">{row.count}</td><td className="px-4 py-2 text-right">{money(row.sales)}</td><td className="px-4 py-2 text-right">{money(row.discounts)}</td></tr>)}</tbody></table>}</section>
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white"><h3 className="border-b px-4 py-3 font-semibold">Payment method breakdown</h3>{(summary.paymentBreakdown || []).length === 0 ? <p className="p-4 text-sm text-slate-500">No sales in this period.</p> : <table className="w-full text-sm"><thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-4 py-2">Method</th><th className="px-4 py-2 text-right">Transactions</th><th className="px-4 py-2 text-right">Sales</th><th className="px-4 py-2 text-right">Discounts</th></tr></thead><tbody className="divide-y">{(summary.paymentBreakdown || []).map(row => <tr key={row.method}><td className="px-4 py-2">{row.method}</td><td className="px-4 py-2 text-right">{row.count}</td><td className="px-4 py-2 text-right">{money(row.sales)}</td><td className="px-4 py-2 text-right">{money(row.discounts)}</td></tr>)}</tbody></table>}</section>
       <div className="grid gap-5 xl:grid-cols-2">{showRows('Daily sales', summary.daily)}{showRows('Monthly sales', summary.monthly)}</div>
     </>}
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white"><div className="flex items-center justify-between border-b px-4 py-3"><h3 className="font-semibold">Online invoice jobs needing attention</h3><span className="text-xs text-slate-500">{jobs.length} shown</span></div>{jobs.length === 0 ? <p className="p-4 text-sm text-slate-500">No failed or configuration-blocked invoice-generation jobs in the current page.</p> : <ul className="divide-y">{jobs.map(job => <li key={job.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-medium">Order #{job.orderId} · job {job.id} · {job.status} · {job.attemptCount} attempts</p><p className="text-xs text-amber-800">{job.lastErrorCode || job.status} · {job.lastErrorSummary || 'No summary recorded'}</p></div><button disabled={busyJob === job.id} onClick={() => void retry(job.id)} className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">{busyJob === job.id ? 'Queueing…' : 'Retry invoice generation'}</button></li>)}</ul>}</section>

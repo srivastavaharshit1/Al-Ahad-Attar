@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { adminNotificationService } from '../../services/adminNotificationService';
 import type { AdminNotification } from '../../services/adminNotificationService';
+import { ErrorBoundary } from '../common/ErrorBoundary';
 
 const NAV_ITEMS = [
   { path: '/admin', label: 'Dashboard', icon: 'dashboard', end: true },
@@ -305,7 +306,9 @@ export const AdminLayout: React.FC = () => {
 
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 lg:p-10 bg-surface-bright">
-          <Outlet />
+          <ErrorBoundary title="Admin Module Error">
+            <Outlet />
+          </ErrorBoundary>
         </div>
       </main>
     </div>
