@@ -89,6 +89,9 @@ export function POSPage() {
   const [quote, setQuote] = useState<PosQuoteResponse | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState('');
+  const [variantLoading, setVariantLoading] = useState(false);
+  const [variantError, setVariantError] = useState('');
+  const latestProductRequestId = useRef(0);
   const [finalizing, setFinalizing] = useState(false);
   const [finalizationUncertain, setFinalizationUncertain] = useState(false);
   const [finalizeError, setFinalizeError] = useState('');
@@ -145,19 +148,47 @@ export function POSPage() {
     && (selectedVariant.productType === 'ATTAR' || selectedVariant.productType === 'PERFUME'));
 
   const handleSelectProduct = async (product: Product) => {
+    const requestId = ++latestProductRequestId.current;
     setSelectedProductId(product.id);
     setSelectedBottleId('');
+    setVariantError('');
+
+    // Avoid duplicate requests when variants are already available
     if (product.variants && product.variants.length > 0) {
-      setSelectedVariantId(product.variants.find(variant => variant.active)?.id || '');
-    } else {
-      try {
-        const full = await productService.getProduct(product.id.toString());
-        if (full?.data) {
-          setProducts(current => current.map(p => p.id === product.id ? full.data! : p));
-          setSelectedVariantId(full.data.variants?.find(variant => variant.active)?.id || '');
-        }
-      } catch {
+      setVariantLoading(false);
+      const activeVariant = product.variants.find(variant => variant.active);
+      setSelectedVariantId(activeVariant?.id ?? '');
+      return;
+    }
+
+    // Fetch full product details asynchronously
+    setSelectedVariantId('');
+    setVariantLoading(true);
+
+    try {
+      const full = await productService.getProduct(product.id.toString());
+      const fullProduct = full?.data;
+
+      if (fullProduct) {
+        setProducts(current => current.map(p => p.id === product.id ? fullProduct : p));
+      }
+
+      // Prevent stale asynchronous responses from overwriting a subsequently selected product
+      if (latestProductRequestId.current !== requestId) {
+        return;
+      }
+
+      const variants = fullProduct?.variants || [];
+      const activeVariant = variants.find(variant => variant.active);
+      setSelectedVariantId(activeVariant?.id ?? '');
+    } catch {
+      if (latestProductRequestId.current === requestId) {
+        setVariantError('Unable to load product variants. Please try again.');
         setSelectedVariantId('');
+      }
+    } finally {
+      if (latestProductRequestId.current === requestId) {
+        setVariantLoading(false);
       }
     }
   };
@@ -397,9 +428,34 @@ export function POSPage() {
               {!selectedProduct && <p className="mt-3 text-sm text-slate-500">Choose a product to view its active variants.</p>}
               {selectedProduct && <div className="mt-3 space-y-3">
                 <p className="font-medium">{selectedProduct.name}</p>
-                {availableVariants.length === 0 ? (
-                  <p className="py-4 text-center text-xs text-slate-500">Loading variant sizes…</p>
-                ) : (
+
+                {variantLoading && (
+                  <div className="flex items-center justify-center gap-2 py-6 text-sm text-slate-500">
+                    <LoaderCircle className="h-4 w-4 animate-spin text-amber-600" />
+                    <span>Loading active variants…</span>
+                  </div>
+                )}
+
+                {!variantLoading && variantError && (
+                  <div role="alert" className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                    <p>{variantError}</p>
+                    <button
+                      type="button"
+                      onClick={() => void handleSelectProduct(selectedProduct)}
+                      className="font-semibold text-red-800 underline hover:text-red-950 block"
+                    >
+                      Retry loading variants
+                    </button>
+                  </div>
+                )}
+
+                {!variantLoading && !variantError && availableVariants.length === 0 && (
+                  <p className="py-4 text-center text-xs text-slate-500">
+                    No active variants or bottle sizes are available for this product.
+                  </p>
+                )}
+
+                {!variantLoading && !variantError && availableVariants.length > 0 && (
                   <>
                     <label className="block text-xs font-medium text-slate-600">Variant
                       <select value={selectedVariantId} onChange={event => { setSelectedVariantId(Number(event.target.value)); setSelectedBottleId(''); }}
