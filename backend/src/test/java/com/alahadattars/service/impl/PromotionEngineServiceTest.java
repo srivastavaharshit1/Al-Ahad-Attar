@@ -15,7 +15,9 @@ import com.alahadattars.enums.PromotionScope;
 import com.alahadattars.enums.PromotionType;
 import com.alahadattars.exception.BadRequestException;
 import com.alahadattars.repository.ProductVariantRepository;
+import com.alahadattars.repository.PromotionRedemptionRepository;
 import com.alahadattars.repository.PromotionRepository;
+import com.alahadattars.service.PromotionEvaluationContext;
 import com.alahadattars.service.impl.PromotionEngineServiceImpl;
 import com.alahadattars.service.promotion.EligibilityConditionFactory;
 import com.alahadattars.service.promotion.LegacyCategoryDiscountCondition;
@@ -49,6 +51,9 @@ public class PromotionEngineServiceTest {
 
     @Mock
     private ProductVariantRepository productVariantRepository;
+
+    @Mock
+    private PromotionRedemptionRepository promotionRedemptionRepository;
 
     @Mock
     private PromotionResponseMapper promotionResponseMapper;
@@ -568,6 +573,212 @@ public class PromotionEngineServiceTest {
     }
 
     @Test
+    void posContext_keepsPromotionWithoutPerCustomerLimitEligible() {
+        promoDiscount.setPerUserLimit(null);
+        when(promotionRepository.findActiveAutomaticPromotions(any(LocalDateTime.class)))
+                .thenReturn(List.of(promoDiscount));
+        when(eligibilityConditionFactory.getCondition(any())).thenReturn(new LegacyCategoryDiscountCondition());
+
+        CartResponse response = promotionEngineService.evaluateCart(cart, null, PromotionEvaluationContext.POS);
+
+        assertEquals(0, new BigDecimal("200.00").compareTo(response.getItemDiscounts()));
+        assertEquals(0, new BigDecimal("1800.00").compareTo(response.getTotal()));
+        assertEquals(List.of(promoDiscount.getId()), response.getAppliedPromotions().stream()
+                .map(PromotionResponse::getId).toList());
+    }
+
+    @Test
+    void posContext_treatsZeroPerCustomerLimitAsUnlimited() {
+        promoDiscount.setPerUserLimit(0);
+        when(promotionRepository.findActiveAutomaticPromotions(any(LocalDateTime.class)))
+                .thenReturn(List.of(promoDiscount));
+        when(eligibilityConditionFactory.getCondition(any())).thenReturn(new LegacyCategoryDiscountCondition());
+
+        CartResponse response = promotionEngineService.evaluateCart(cart, null, PromotionEvaluationContext.POS);
+
+        assertEquals(0, new BigDecimal("200.00").compareTo(response.getItemDiscounts()));
+        assertEquals(0, new BigDecimal("1800.00").compareTo(response.getTotal()));
+    }
+
+    @Test
+    void posContext_excludesPositivePerCustomerLimitBeforeDiscountAndAvailabilityCalculation() {
+        promoDiscount.setPerUserLimit(1);
+        when(promotionRepository.findActiveAutomaticPromotions(any(LocalDateTime.class)))
+                .thenReturn(List.of(promoDiscount));
+        when(promotionRepository.findAllActivePromotions(any(LocalDateTime.class)))
+                .thenReturn(List.of(promoDiscount));
+
+        CartResponse response = promotionEngineService.evaluateCart(cart, null, PromotionEvaluationContext.POS);
+
+        assertEquals(0, new BigDecimal("2000").compareTo(response.getSubtotal()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(response.getItemDiscounts()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(response.getCartDiscount()));
+        assertEquals(0, new BigDecimal("2000").compareTo(response.getTotal()));
+        assertTrue(response.getAppliedPromotions().isEmpty());
+        assertTrue(response.getAvailablePromotions().isEmpty());
+        assertTrue(response.getLockedPromotions().isEmpty());
+    }
+
+    @Test
+    void posContext_excludesManuallySelectedPerCustomerLimitedPromotion() {
+        promoDiscount.setPerUserLimit(1);
+        cart.setManuallySelectedPromotionId(promoDiscount.getId());
+        when(promotionRepository.findById(promoDiscount.getId())).thenReturn(Optional.of(promoDiscount));
+        when(promotionRepository.findActiveAutomaticPromotions(any(LocalDateTime.class)))
+                .thenReturn(List.of());
+
+        CartResponse response = promotionEngineService.evaluateCart(cart, null, PromotionEvaluationContext.POS);
+
+        assertTrue(response.getAppliedPromotions().isEmpty());
+        assertEquals(0, new BigDecimal("2000").compareTo(response.getTotal()));
+    }
+
+    @Test
+    void posContext_excludesPerCustomerLimitedFreeProductOptions() {
+        promoFree.setPerUserLimit(1);
+        promoFree.getConfiguration().setFreeCategoryIds(List.of(10L));
+        promoFree.getConfiguration().setAllowedFreeVariantSize("3 ml");
+        when(promotionRepository.findAllActivePromotions(any(LocalDateTime.class)))
+                .thenReturn(List.of(promoFree));
+
+        CartResponse response = promotionEngineService.evaluateCart(
+                cart, null, PromotionEvaluationContext.POS);
+
+        assertTrue(response.getFreeProductOptions().isEmpty());
+        org.mockito.Mockito.verifyNoInteractions(productVariantRepository);
+    }
+
+    @Test
+    void posContext_filtersLimitedPromotionBeforePreservingRemainingStackingAndCap() {
+        promoDiscount.setStackable(true);
+        Promotion limitedCartPromotion = cartDiscountPromotion(
+                3L, "Limited cart offer", null, new BigDecimal("20"), 1, 30, true, null);
+        Promotion cappedCartPromotion = cartDiscountPromotion(
+                4L, "Capped cart offer", null, new BigDecimal("10"), null, 10, true, new BigDecimal("50"));
+        when(promotionRepository.findActiveAutomaticPromotions(any(LocalDateTime.class)))
+                .thenReturn(List.of(limitedCartPromotion, promoDiscount, cappedCartPromotion));
+        when(promotionRepository.findAllActivePromotions(any(LocalDateTime.class)))
+                .thenReturn(List.of(limitedCartPromotion, promoDiscount, cappedCartPromotion));
+        when(eligibilityConditionFactory.getCondition(any())).thenReturn(new LegacyCategoryDiscountCondition());
+
+        CartResponse response = promotionEngineService.evaluateCart(cart, null, PromotionEvaluationContext.POS);
+
+        assertEquals(0, new BigDecimal("200.00").compareTo(response.getItemDiscounts()));
+        assertEquals(0, new BigDecimal("50.00").compareTo(response.getCartDiscount()));
+        assertEquals(0, new BigDecimal("1750.00").compareTo(response.getTotal()));
+        assertEquals(2, response.getAppliedPromotions().size());
+        assertTrue(response.getAppliedPromotions().stream()
+                .noneMatch(promotion -> promotion.getId().equals(limitedCartPromotion.getId())));
+    }
+
+    @Test
+    void posContext_stillEnforcesGlobalUsageLimit() {
+        promoDiscount.setPerUserLimit(0);
+        promoDiscount.setUsageLimit(2);
+        promoDiscount.setUsedCount(1);
+        when(promotionRepository.findActiveAutomaticPromotions(any(LocalDateTime.class)))
+                .thenReturn(List.of(promoDiscount));
+        when(eligibilityConditionFactory.getCondition(any())).thenReturn(new LegacyCategoryDiscountCondition());
+
+        CartResponse belowLimit = promotionEngineService.evaluateCart(cart, null, PromotionEvaluationContext.POS);
+        promoDiscount.setUsedCount(2);
+        CartResponse atLimit = promotionEngineService.evaluateCart(cart, null, PromotionEvaluationContext.POS);
+
+        assertEquals(0, new BigDecimal("200.00").compareTo(belowLimit.getItemDiscounts()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(atLimit.getItemDiscounts()));
+        assertEquals(0, new BigDecimal("2000").compareTo(atLimit.getTotal()));
+    }
+
+    @Test
+    void posContext_preservesUnlimitedAutomaticAndCouponPromotionStacking() {
+        promoDiscount.setStackable(true);
+        Promotion coupon = cartDiscountPromotion(
+                5L, "Coupon cart offer", "POS5", new BigDecimal("5"), null, 5, true, new BigDecimal("50"));
+        when(promotionRepository.findActiveAutomaticPromotions(any(LocalDateTime.class)))
+                .thenReturn(List.of(promoDiscount));
+        when(promotionRepository.findActivePromotionByCode(eq("POS5"), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(coupon));
+        when(promotionRepository.findAllActivePromotions(any(LocalDateTime.class)))
+                .thenReturn(List.of(promoDiscount, coupon));
+        when(eligibilityConditionFactory.getCondition(any())).thenReturn(new LegacyCategoryDiscountCondition());
+
+        CartResponse response = promotionEngineService.evaluateCart(cart, "POS5", PromotionEvaluationContext.POS);
+
+        assertEquals(0, new BigDecimal("200.00").compareTo(response.getItemDiscounts()));
+        assertEquals(0, new BigDecimal("50.00").compareTo(response.getCartDiscount()));
+        assertEquals(0, new BigDecimal("1750.00").compareTo(response.getTotal()));
+        assertEquals(2, response.getAppliedPromotions().size());
+        assertTrue(response.getAppliedPromotions().stream().anyMatch(promotion -> coupon.getId().equals(promotion.getId())));
+    }
+
+    @Test
+    void posContext_excludesPerCustomerLimitedCouponBeforeDiscountCalculation() {
+        Promotion coupon = cartDiscountPromotion(
+                6L, "Limited coupon", "POSLIMIT", new BigDecimal("10"), 1, 5, true, null);
+        when(promotionRepository.findActivePromotionByCode(eq("POSLIMIT"), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(coupon));
+        when(promotionRepository.findAllActivePromotions(any(LocalDateTime.class)))
+                .thenReturn(List.of(coupon));
+
+        CartResponse response = promotionEngineService.evaluateCart(cart, "POSLIMIT", PromotionEvaluationContext.POS);
+
+        assertEquals(0, new BigDecimal("2000").compareTo(response.getTotal()));
+        assertTrue(response.getAppliedPromotions().isEmpty());
+        assertTrue(response.getAvailablePromotions().isEmpty());
+    }
+
+    @Test
+    void storefrontDefaultAndExplicitContextPreserveGuestPerCustomerPromotionBehavior() {
+        promoDiscount.setPerUserLimit(1);
+        when(promotionRepository.findActiveAutomaticPromotions(any(LocalDateTime.class)))
+                .thenReturn(List.of(promoDiscount));
+        when(eligibilityConditionFactory.getCondition(any())).thenReturn(new LegacyCategoryDiscountCondition());
+
+        CartResponse defaultResponse = promotionEngineService.evaluateCart(cart, null);
+        CartResponse explicitStorefrontResponse = promotionEngineService.evaluateCart(
+                cart, null, PromotionEvaluationContext.STOREFRONT);
+
+        assertEquals(0, new BigDecimal("1800.00").compareTo(defaultResponse.getTotal()));
+        assertEquals(0, defaultResponse.getTotal().compareTo(explicitStorefrontResponse.getTotal()));
+        assertEquals(defaultResponse.getAppliedPromotions().stream().map(PromotionResponse::getId).toList(),
+                explicitStorefrontResponse.getAppliedPromotions().stream().map(PromotionResponse::getId).toList());
+    }
+
+    @Test
+    void storefrontStillAppliesPerCustomerLimitAgainstAuthenticatedCustomerHistory() {
+        User user = new User();
+        user.setId(71L);
+        user.setEmail("customer@test.com");
+        cart.setUser(user);
+        promoDiscount.setPerUserLimit(1);
+        when(orderRepository.countSuccessfulOrdersByUserEmail("customer@test.com")).thenReturn(0L);
+        when(promotionRedemptionRepository.countByPromotionIdAndUserId(promoDiscount.getId(), user.getId()))
+                .thenReturn(1L);
+        when(promotionRepository.findActiveAutomaticPromotions(any(LocalDateTime.class)))
+                .thenReturn(List.of(promoDiscount));
+
+        CartResponse response = promotionEngineService.evaluateCart(cart, null);
+
+        assertTrue(response.getAppliedPromotions().isEmpty());
+        assertEquals(0, new BigDecimal("2000").compareTo(response.getTotal()));
+    }
+
+    @Test
+    void storefrontPreservesExistingPromotionRounding() {
+        variant.setPrice(new BigDecimal("10.05"));
+        cart.getItems().get(0).setQuantity(1);
+        promoDiscount.setPerUserLimit(1);
+        when(promotionRepository.findActiveAutomaticPromotions(any(LocalDateTime.class)))
+                .thenReturn(List.of(promoDiscount));
+        when(eligibilityConditionFactory.getCondition(any())).thenReturn(new LegacyCategoryDiscountCondition());
+
+        CartResponse response = promotionEngineService.evaluateCart(cart, null);
+
+        assertEquals(0, new BigDecimal("1.01").compareTo(response.getItemDiscounts()));
+        assertEquals(0, new BigDecimal("9.04").compareTo(response.getTotal()));
+    }
+
+    @Test
     void testFirstOrder_EligibleWhenZeroSuccessfulOrders() {
         // Authenticated user with 0 successful orders
         User user = new User();
@@ -716,5 +927,30 @@ public class PromotionEngineServiceTest {
         
         CartResponse response = promotionEngineService.evaluateCart(cart, null);
         assertEquals(0, response.getAppliedPromotions().size());
+    }
+
+    private Promotion cartDiscountPromotion(
+            Long id,
+            String name,
+            String code,
+            BigDecimal discountValue,
+            Integer perUserLimit,
+            int priority,
+            boolean stackable,
+            BigDecimal maxDiscountValue) {
+        Promotion promotion = new Promotion();
+        promotion.setId(id);
+        promotion.setName(name);
+        promotion.setCode(code);
+        promotion.setPromotionType(PromotionType.CART_DISCOUNT);
+        promotion.setDiscountType(com.alahadattars.enums.DiscountType.PERCENTAGE);
+        promotion.setDiscountValue(discountValue);
+        promotion.setPerUserLimit(perUserLimit);
+        promotion.setPriority(priority);
+        promotion.setStackable(stackable);
+        promotion.setMaxDiscountValue(maxDiscountValue);
+        promotion.setActive(true);
+        promotion.setUsedCount(0);
+        return promotion;
     }
 }
