@@ -6,6 +6,7 @@ interface Props {
   fallback?: ReactNode;
   onReset?: () => void;
   title?: string;
+  showDetails?: boolean;
 }
 
 interface State {
@@ -61,10 +62,10 @@ export class ErrorBoundary extends Component<Props, State> {
               An unexpected error occurred while rendering this section. You can try refreshing the page or reloading this component.
             </p>
 
-            {this.state.error && (
+            {this.props.showDetails && this.state.error && (
               <details className="mt-4 rounded-lg bg-slate-50 p-3 text-left text-xs text-slate-700">
                 <summary className="cursor-pointer font-medium text-slate-600 hover:text-slate-900">
-                  Technical error details
+                  Technical error details (Admin only)
                 </summary>
                 <div className="mt-2 overflow-auto max-h-48 font-mono text-[11px] text-red-600">
                   <p className="font-semibold">{this.state.error.toString()}</p>

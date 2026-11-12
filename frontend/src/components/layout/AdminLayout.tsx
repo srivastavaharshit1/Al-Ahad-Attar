@@ -306,7 +306,7 @@ export const AdminLayout: React.FC = () => {
 
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 lg:p-10 bg-surface-bright">
-          <ErrorBoundary title="Admin Module Error">
+          <ErrorBoundary title="Admin Module Error" showDetails={true}>
             <Outlet />
           </ErrorBoundary>
         </div>
