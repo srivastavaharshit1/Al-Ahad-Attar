@@ -40,7 +40,9 @@ function quoteCurrency(value: string): string {
 }
 
 function isBakhoor(product: Product): boolean {
-  return product.category?.type === 'BAKHOOR' || product.category?.name?.toLowerCase() === 'bakhoor';
+  const catType = product.category?.type || (product as any).categoryType;
+  const catName = product.category?.name || product.categoryName;
+  return catType === 'BAKHOOR' || catName?.toLowerCase() === 'bakhoor';
 }
 
 function requestErrorMessage(error: unknown): string {
@@ -141,6 +143,24 @@ export function POSPage() {
   const bottleRequired = Boolean(selectedProduct && selectedVariant
     && !isBakhoor(selectedProduct)
     && (selectedVariant.productType === 'ATTAR' || selectedVariant.productType === 'PERFUME'));
+
+  const handleSelectProduct = async (product: Product) => {
+    setSelectedProductId(product.id);
+    setSelectedBottleId('');
+    if (product.variants && product.variants.length > 0) {
+      setSelectedVariantId(product.variants.find(variant => variant.active)?.id || '');
+    } else {
+      try {
+        const full = await productService.getProduct(product.id.toString());
+        if (full?.data) {
+          setProducts(current => current.map(p => p.id === product.id ? full.data! : p));
+          setSelectedVariantId(full.data.variants?.find(variant => variant.active)?.id || '');
+        }
+      } catch {
+        setSelectedVariantId('');
+      }
+    }
+  };
 
   const addDraftLine = () => {
     if (!selectedProduct || !selectedVariant || !Number.isInteger(quantity) || quantity < 1 || quantity > 999) return;
@@ -357,17 +377,18 @@ export function POSPage() {
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(270px,.8fr)]">
             <div className="max-h-[520px] space-y-2 overflow-auto pr-1">
               {loading && <p className="py-8 text-center text-sm text-slate-500">Loading catalog…</p>}
-              {!loading && visibleProducts.map(product => (
-                <button key={product.id} type="button" onClick={() => {
-                  setSelectedProductId(product.id);
-                  setSelectedVariantId(product.variants.find(variant => variant.active)?.id || '');
-                  setSelectedBottleId('');
-                }}
-                  className={`flex w-full items-center justify-between gap-4 rounded-xl border p-3 text-left transition ${selectedProductId === product.id ? 'border-amber-500 bg-amber-50' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}>
-                  <span className="min-w-0"><span className="block truncate font-medium">{product.name}</span><span className="text-xs text-slate-500">{product.brand || product.categoryName || 'Product'}</span></span>
-                  <span className="shrink-0 text-xs text-slate-500">{product.variants.filter(variant => variant.active).length} sizes</span>
-                </button>
-              ))}
+              {!loading && visibleProducts.map(product => {
+                const sizeCount = product.variants
+                  ? product.variants.filter(variant => variant.active).length
+                  : ((product as any).availableSizes?.length ?? 0);
+                return (
+                  <button key={product.id} type="button" onClick={() => void handleSelectProduct(product)}
+                    className={`flex w-full items-center justify-between gap-4 rounded-xl border p-3 text-left transition ${selectedProductId === product.id ? 'border-amber-500 bg-amber-50' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}>
+                    <span className="min-w-0"><span className="block truncate font-medium">{product.name}</span><span className="text-xs text-slate-500">{product.brand || product.categoryName || 'Product'}</span></span>
+                    <span className="shrink-0 text-xs text-slate-500">{sizeCount > 0 ? `${sizeCount} sizes` : 'Select'}</span>
+                  </button>
+                );
+              })}
               {!loading && visibleProducts.length === 0 && <p className="py-8 text-center text-sm text-slate-500">No standalone products found.</p>}
             </div>
 
@@ -376,27 +397,33 @@ export function POSPage() {
               {!selectedProduct && <p className="mt-3 text-sm text-slate-500">Choose a product to view its active variants.</p>}
               {selectedProduct && <div className="mt-3 space-y-3">
                 <p className="font-medium">{selectedProduct.name}</p>
-                <label className="block text-xs font-medium text-slate-600">Variant
-                  <select value={selectedVariantId} onChange={event => { setSelectedVariantId(Number(event.target.value)); setSelectedBottleId(''); }}
-                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-                    {availableVariants.map(variant => <option key={variant.id} value={variant.id}>{variant.size} · {catalogCurrency.format(variant.price)}</option>)}
-                  </select>
-                </label>
-                <label className="block text-xs font-medium text-slate-600">Bottle {bottleRequired ? '(required)' : '(optional)'}
-                  <select value={selectedBottleId} onChange={event => setSelectedBottleId(event.target.value ? Number(event.target.value) : '')}
-                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-                    <option value="">No bottle selected</option>
-                    {availableBottles.map(bottle => <option key={bottle.id} value={bottle.id}>{bottle.name} · {catalogCurrency.format(bottle.price)}</option>)}
-                  </select>
-                </label>
-                <label className="block text-xs font-medium text-slate-600">Quantity
-                  <input type="number" min={1} max={999} value={quantity} onChange={event => setQuantity(event.target.valueAsNumber)}
-                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
-                </label>
-                <button type="button" disabled={!selectedVariant || (bottleRequired && !selectedBottleId) || !Number.isInteger(quantity) || quantity < 1 || quantity > 999 || lines.length >= 50} onClick={addDraftLine}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">
-                  <Plus className="h-4 w-4" /> Add to quote draft
-                </button>
+                {availableVariants.length === 0 ? (
+                  <p className="py-4 text-center text-xs text-slate-500">Loading variant sizes…</p>
+                ) : (
+                  <>
+                    <label className="block text-xs font-medium text-slate-600">Variant
+                      <select value={selectedVariantId} onChange={event => { setSelectedVariantId(Number(event.target.value)); setSelectedBottleId(''); }}
+                        className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                        {availableVariants.map(variant => <option key={variant.id} value={variant.id}>{variant.size} · {catalogCurrency.format(variant.price)}</option>)}
+                      </select>
+                    </label>
+                    <label className="block text-xs font-medium text-slate-600">Bottle {bottleRequired ? '(required)' : '(optional)'}
+                      <select value={selectedBottleId} onChange={event => setSelectedBottleId(event.target.value ? Number(event.target.value) : '')}
+                        className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                        <option value="">No bottle selected</option>
+                        {availableBottles.map(bottle => <option key={bottle.id} value={bottle.id}>{bottle.name} · {catalogCurrency.format(bottle.price)}</option>)}
+                      </select>
+                    </label>
+                    <label className="block text-xs font-medium text-slate-600">Quantity
+                      <input type="number" min={1} max={999} value={quantity} onChange={event => setQuantity(event.target.valueAsNumber)}
+                        className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
+                    </label>
+                    <button type="button" disabled={!selectedVariant || (bottleRequired && !selectedBottleId) || !Number.isInteger(quantity) || quantity < 1 || quantity > 999 || lines.length >= 50} onClick={addDraftLine}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">
+                      <Plus className="h-4 w-4" /> Add to quote draft
+                    </button>
+                  </>
+                )}
                 <p className="text-xs leading-5 text-slate-500">Catalog prices are indicative. The quote endpoint resolves live ProductVariant.price and bottle price; discountedPrice is not used.</p>
               </div>}
             </div>
