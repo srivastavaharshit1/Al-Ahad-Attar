@@ -1,10 +1,24 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, Mail, MessageCircle, Printer, RefreshCw } from 'lucide-react';
 import { billingService, type BillingHistoryFilters } from '../../services/billingService';
 import type { InvoiceConsent, InvoiceConsentPolicy, InvoiceDelivery, InvoiceDeliveryChannel, InvoiceHistoryItem, InvoicePaperFormat } from '../../types/billing';
 import { BillingSectionNav } from './BillingSectionNav';
 
-const money = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value);
+const money = (value?: number | null) => {
+  const num = typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(num);
+};
+
+const formatDate = (dateStr?: string | null) => {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleString('en-IN');
+  } catch {
+    return '—';
+  }
+};
+
 const pageSize = 25;
 
 export function InvoiceHistoryPage() {
@@ -12,6 +26,7 @@ export function InvoiceHistoryPage() {
   const [total, setTotal] = useState(0);
   const [policies, setPolicies] = useState<InvoiceConsentPolicy[]>([]);
   const [selected, setSelected] = useState<InvoiceHistoryItem | null>(null);
+  const selectedIdRef = useRef<number | null>(null);
   const [consents, setConsents] = useState<InvoiceConsent[]>([]);
   const [deliveries, setDeliveries] = useState<InvoiceDelivery[]>([]);
   const [destinations, setDestinations] = useState<Record<InvoiceDeliveryChannel, string>>({ EMAIL: '', WHATSAPP: '' });
@@ -29,6 +44,7 @@ export function InvoiceHistoryPage() {
 
   const selectInvoice = useCallback(async (invoice: InvoiceHistoryItem | null) => {
     setSelected(invoice);
+    selectedIdRef.current = invoice?.id ?? null;
     setMessage('');
     if (!invoice) {
       setConsents([]);
@@ -39,11 +55,11 @@ export function InvoiceHistoryPage() {
       const [currentConsents, history] = await Promise.all([
         billingService.getConsents(invoice.id), billingService.getDeliveries(invoice.id),
       ]);
-      setConsents(currentConsents);
-      setDeliveries(history);
+      setConsents(currentConsents || []);
+      setDeliveries(history || []);
       setDestinations({
-        EMAIL: currentConsents.find(item => item.channel === 'EMAIL')?.destination || invoice.customerEmail || '',
-        WHATSAPP: currentConsents.find(item => item.channel === 'WHATSAPP')?.destination || invoice.customerMobile || '',
+        EMAIL: (currentConsents || []).find(item => item.channel === 'EMAIL')?.destination || invoice.customerEmail || '',
+        WHATSAPP: (currentConsents || []).find(item => item.channel === 'WHATSAPP')?.destination || invoice.customerMobile || '',
       });
       setConfirmed({ EMAIL: false, WHATSAPP: false });
     } catch {
@@ -59,16 +75,22 @@ export function InvoiceHistoryPage() {
         billingService.getInvoices({ ...filters, limit: pageSize, offset }),
         billingService.getConsentPolicies(),
       ]);
-      setInvoices(page.content);
-      setTotal(page.totalElements);
-      setPolicies(consentPolicies);
-      if (selected) await selectInvoice(page.content.find(row => row.id === selected.id) || null);
+      const list = page?.content || [];
+      setInvoices(list);
+      setTotal(page?.totalElements || 0);
+      setPolicies(consentPolicies || []);
+      if (selectedIdRef.current) {
+        const found = list.find(row => row.id === selectedIdRef.current);
+        if (found) {
+          setSelected(found);
+        }
+      }
     } catch {
       setMessage('Invoice history is unavailable. Check that Billing migrations are installed and the Admin account has access.');
     } finally {
       setLoading(false);
     }
-  }, [filters, offset, selected, selectInvoice]);
+  }, [filters, offset]);
 
   useEffect(() => { void reload(); }, [reload]);
 
@@ -192,7 +214,7 @@ export function InvoiceHistoryPage() {
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm"><span className="font-semibold">Invoices</span><span className="text-slate-500">{total.toLocaleString()} records</span></div>
         {loading ? <p className="p-6 text-sm text-slate-500">Loading invoice history…</p> : invoices.length === 0 ? <div className="p-6"><p className="font-medium">No invoices match these filters.</p><p className="mt-1 text-sm text-slate-500">Paid online orders are generated asynchronously; POS invoices are created with the sale.</p></div> : <div className="divide-y divide-slate-100">
           {invoices.map(invoice => <button key={invoice.id} onClick={() => void selectInvoice(invoice)} className={`grid w-full grid-cols-[minmax(0,1fr)_auto] gap-2 p-4 text-left hover:bg-slate-50 ${selected?.id === invoice.id ? 'bg-amber-50/60' : ''}`}>
-            <span className="min-w-0"><span className="block truncate font-medium">{invoice.invoiceNumber} <span className="ml-1 text-xs font-normal text-slate-500">{invoice.channel}</span></span><span className="block truncate text-xs text-slate-500">{invoice.customerName || 'Customer'}{invoice.saleId ? ` · Sale #${invoice.saleId}` : invoice.orderNumber ? ` · ${invoice.orderNumber}` : ''} · {new Date(invoice.issuedAt).toLocaleString('en-IN')}</span><span className="mt-1 block text-[11px] text-slate-500">Email: {invoice.emailStatus || '—'} · WhatsApp: {invoice.whatsappStatus || '—'}</span></span><span className="text-sm font-semibold">{money(invoice.total)}</span>
+            <span className="min-w-0"><span className="block truncate font-medium">{invoice.invoiceNumber} <span className="ml-1 text-xs font-normal text-slate-500">{invoice.channel}</span></span><span className="block truncate text-xs text-slate-500">{invoice.customerName || 'Customer'}{invoice.saleId ? ` · Sale #${invoice.saleId}` : invoice.orderNumber ? ` · ${invoice.orderNumber}` : ''} · {formatDate(invoice.issuedAt)}</span><span className="mt-1 block text-[11px] text-slate-500">Email: {invoice.emailStatus || '—'} · WhatsApp: {invoice.whatsappStatus || '—'}</span></span><span className="text-sm font-semibold">{money(invoice.total)}</span>
           </button>)}
         </div>}
         <div className="flex items-center justify-between border-t border-slate-100 p-3 text-sm"><span className="text-slate-500">Showing {total === 0 ? 0 : offset + 1}–{Math.min(offset + pageSize, total)} of {total}</span><div className="flex gap-2"><button disabled={offset === 0 || loading} onClick={() => setOffset(Math.max(0, offset - pageSize))} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={offset + pageSize >= total || loading} onClick={() => setOffset(offset + pageSize)} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Next</button></div></div>
@@ -202,7 +224,7 @@ export function InvoiceHistoryPage() {
           <div><h3 className="text-lg font-semibold">{selected.invoiceNumber}</h3><p className="text-sm text-slate-500">{selected.channel} · {selected.saleId ? `Sale #${selected.saleId}` : selected.orderNumber || ''} · {money(selected.total)}</p><p className="mt-1 text-xs text-slate-500">Discounts: promotion {money(selected.promotionDiscount)} · manual {money(selected.manualDiscount)} · tender {selected.tenderMethod}</p></div>
           <div className="flex flex-wrap gap-2">{(['A4', 'THERMAL_80'] as const).map(format => <div key={format} className="flex gap-1 rounded-lg border border-slate-200 p-1"><button disabled={busy} onClick={() => void openPdf(selected, format, false)} className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs hover:bg-slate-100"><Download size={14} />{format === 'A4' ? 'A4 PDF' : '80mm PDF'}</button><button disabled={busy} onClick={() => void openPdf(selected, format, true)} aria-label={`Open ${format} invoice for printing`} className="rounded-md p-1.5 hover:bg-slate-100"><Printer size={14} /></button></div>)}</div>
           <div className="space-y-3"><h4 className="font-semibold">Delivery consent and history</h4>{renderConsentChannel('EMAIL')}{renderConsentChannel('WHATSAPP')}</div>
-          <div className="border-t border-slate-100 pt-3"><h4 className="font-semibold">Delivery attempts</h4>{deliveries.length === 0 ? <p className="mt-2 text-sm text-slate-500">No delivery attempts.</p> : <ul className="mt-2 space-y-2">{deliveries.map(item => <li key={item.id} className="rounded-lg bg-slate-50 p-3 text-xs"><div className="flex justify-between gap-2"><span className="font-semibold">{item.channel}</span><span>{item.status}</span></div><p className="mt-1 text-slate-500">Attempts: {item.attemptCount} · {new Date(item.updatedAt).toLocaleString('en-IN')}</p>{item.lastErrorSummary && <p className="mt-1 text-amber-800">{item.lastErrorSummary}</p>}</li>)}</ul>}</div>
+          <div className="border-t border-slate-100 pt-3"><h4 className="font-semibold">Delivery attempts</h4>{deliveries.length === 0 ? <p className="mt-2 text-sm text-slate-500">No delivery attempts.</p> : <ul className="mt-2 space-y-2">{deliveries.map(item => <li key={item.id} className="rounded-lg bg-slate-50 p-3 text-xs"><div className="flex justify-between gap-2"><span className="font-semibold">{item.channel}</span><span>{item.status}</span></div><p className="mt-1 text-slate-500">Attempts: {item.attemptCount} · {formatDate(item.updatedAt)}</p>{item.lastErrorSummary && <p className="mt-1 text-amber-800">{item.lastErrorSummary}</p>}</li>)}</ul>}</div>
         </>}
       </section>
     </div>

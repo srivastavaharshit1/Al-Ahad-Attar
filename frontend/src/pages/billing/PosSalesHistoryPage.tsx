@@ -5,7 +5,19 @@ import type { PosSaleHistoryItem } from '../../types/billing';
 import { BillingSectionNav } from './BillingSectionNav';
 
 const size = 25;
-const money = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value);
+const money = (value?: number | null) => {
+  const num = typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(num);
+};
+const formatDate = (dateStr?: string | null) => {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleString('en-IN');
+  } catch {
+    return '—';
+  }
+};
 
 export function PosSalesHistoryPage() {
   const [rows, setRows] = useState<PosSaleHistoryItem[]>([]);
@@ -24,8 +36,8 @@ export function PosSalesHistoryPage() {
     setMessage('');
     try {
       const page = await billingService.getPosSales({ ...filters, limit: size, offset });
-      setRows(page.content);
-      setTotal(page.totalElements);
+      setRows(page?.content || []);
+      setTotal(page?.totalElements || 0);
     } catch {
       setMessage('POS sales are unavailable. Confirm the Billing database migration and Admin authorization.');
     } finally { setLoading(false); }
@@ -52,7 +64,7 @@ export function PosSalesHistoryPage() {
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <div className="border-b px-4 py-3 text-sm"><strong>{total.toLocaleString()}</strong> completed POS sales</div>
       {loading ? <p className="p-6 text-sm text-slate-500">Loading POS sales…</p> : rows.length === 0 ? <p className="p-6 text-sm text-slate-500">No completed sales match these filters.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Sale / invoice</th><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Tender</th><th className="px-4 py-3 text-right">Discounts</th><th className="px-4 py-3 text-right">Payable</th><th className="px-4 py-3 text-right">Received</th><th className="px-4 py-3">Completed</th></tr></thead><tbody className="divide-y divide-slate-100">
-        {rows.map(row => <tr key={row.saleId} className="align-top"><td className="px-4 py-3"><span className="block font-semibold">Sale #{row.saleId}</span><span className="text-xs text-slate-500">{row.invoiceNumber || 'Invoice unavailable'}</span></td><td className="px-4 py-3"><span className="block">{row.customerName || 'Walk-in'}</span><span className="text-xs text-slate-500">{row.customerMobile || row.customerEmail || ''}</span></td><td className="px-4 py-3">{row.tenderMethod}{row.changeReturned > 0 && <span className="block text-xs text-slate-500">Change {money(row.changeReturned)}</span>}</td><td className="px-4 py-3 text-right">{money(row.promotionDiscount + row.manualDiscount)}<span className="block text-xs text-slate-500">Promo {money(row.promotionDiscount)} · Manual {money(row.manualDiscount)}</span></td><td className="px-4 py-3 text-right font-semibold">{money(row.payable)}</td><td className="px-4 py-3 text-right">{money(row.amountReceived)}</td><td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500">{new Date(row.completedAt).toLocaleString('en-IN')}</td></tr>)}
+        {rows.map(row => <tr key={row.saleId} className="align-top"><td className="px-4 py-3"><span className="block font-semibold">Sale #{row.saleId}</span><span className="text-xs text-slate-500">{row.invoiceNumber || 'Invoice unavailable'}</span></td><td className="px-4 py-3"><span className="block">{row.customerName || 'Walk-in'}</span><span className="text-xs text-slate-500">{row.customerMobile || row.customerEmail || ''}</span></td><td className="px-4 py-3">{row.tenderMethod}{row.changeReturned > 0 && <span className="block text-xs text-slate-500">Change {money(row.changeReturned)}</span>}</td><td className="px-4 py-3 text-right">{money((row.promotionDiscount ?? 0) + (row.manualDiscount ?? 0))}<span className="block text-xs text-slate-500">Promo {money(row.promotionDiscount)} · Manual {money(row.manualDiscount)}</span></td><td className="px-4 py-3 text-right font-semibold">{money(row.payable)}</td><td className="px-4 py-3 text-right">{money(row.amountReceived)}</td><td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500">{formatDate(row.completedAt)}</td></tr>)}
       </tbody></table></div>}
       <div className="flex items-center justify-between border-t p-3 text-sm"><span className="text-slate-500">Showing {total === 0 ? 0 : offset + 1}–{Math.min(offset + size, total)} of {total}</span><div className="flex gap-2"><button disabled={offset === 0 || loading} onClick={() => setOffset(Math.max(0, offset - size))} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={offset + size >= total || loading} onClick={() => setOffset(offset + size)} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Next</button></div></div>
     </section>

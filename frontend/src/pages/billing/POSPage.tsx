@@ -30,17 +30,35 @@ const catalogCurrency = new Intl.NumberFormat('en-IN', {
   style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2,
 });
 
-function quoteCurrency(value: string): string {
-  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value.trim());
-  if (!match) return `₹${value}`;
-  const [, sign, integerPart, fractionPart = ''] = match;
-  const groupedInteger = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 })
-    .format(BigInt(integerPart));
-  return `₹${sign}${groupedInteger}.${fractionPart.padEnd(2, '0').slice(0, 2)}`;
+function safeUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
-function isBakhoor(product: Product): boolean {
-  const catType = product.category?.type || (product as any).categoryType;
+function quoteCurrency(value?: string | null): string {
+  if (value === undefined || value === null || String(value).trim() === '') return '₹0.00';
+  const str = String(value).trim();
+  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(str);
+  if (!match) return `₹${str}`;
+  const [, sign, integerPart, fractionPart = ''] = match;
+  try {
+    const groupedInteger = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 })
+      .format(BigInt(integerPart));
+    return `₹${sign}${groupedInteger}.${fractionPart.padEnd(2, '0').slice(0, 2)}`;
+  } catch {
+    return `₹${str}`;
+  }
+}
+
+function isBakhoor(product?: Product | null): boolean {
+  if (!product) return false;
+  const catType = product.category?.type || (product as any)?.categoryType;
   const catName = product.category?.name || product.categoryName;
   return catType === 'BAKHOOR' || catName?.toLowerCase() === 'bakhoor';
 }
@@ -50,11 +68,17 @@ function requestErrorMessage(error: unknown): string {
   return response?.data?.message || 'The server could not calculate this quote. Review the draft and try again.';
 }
 
-function amountInPaise(value: string): bigint | null {
-  const match = /^(?:0|[1-9]\d*)(?:\.(\d{1,2}))?$/.exec(value.trim());
+function amountInPaise(value?: string | null): bigint | null {
+  if (value === undefined || value === null) return null;
+  const str = String(value).trim();
+  const match = /^(?:0|[1-9]\d*)(?:\.(\d{1,2}))?$/.exec(str);
   if (!match) return null;
-  const [whole, fraction = ''] = value.trim().split('.');
-  return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'));
+  const [whole, fraction = ''] = str.split('.');
+  try {
+    return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'));
+  } catch {
+    return null;
+  }
 }
 
 function paiseAsMoney(value: bigint): string {
@@ -89,6 +113,9 @@ export function POSPage() {
   const [quote, setQuote] = useState<PosQuoteResponse | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState('');
+  const [variantLoading, setVariantLoading] = useState(false);
+  const [variantError, setVariantError] = useState('');
+  const latestProductRequestId = useRef(0);
   const [finalizing, setFinalizing] = useState(false);
   const [finalizationUncertain, setFinalizationUncertain] = useState(false);
   const [finalizeError, setFinalizeError] = useState('');
@@ -145,19 +172,47 @@ export function POSPage() {
     && (selectedVariant.productType === 'ATTAR' || selectedVariant.productType === 'PERFUME'));
 
   const handleSelectProduct = async (product: Product) => {
+    const requestId = ++latestProductRequestId.current;
     setSelectedProductId(product.id);
     setSelectedBottleId('');
+    setVariantError('');
+
+    // Avoid duplicate requests when variants are already available
     if (product.variants && product.variants.length > 0) {
-      setSelectedVariantId(product.variants.find(variant => variant.active)?.id || '');
-    } else {
-      try {
-        const full = await productService.getProduct(product.id.toString());
-        if (full?.data) {
-          setProducts(current => current.map(p => p.id === product.id ? full.data! : p));
-          setSelectedVariantId(full.data.variants?.find(variant => variant.active)?.id || '');
-        }
-      } catch {
+      setVariantLoading(false);
+      const activeVariant = product.variants.find(variant => variant.active);
+      setSelectedVariantId(activeVariant?.id ?? '');
+      return;
+    }
+
+    // Fetch full product details asynchronously
+    setSelectedVariantId('');
+    setVariantLoading(true);
+
+    try {
+      const full = await productService.getProduct(product.id.toString());
+      const fullProduct = full?.data;
+
+      if (fullProduct) {
+        setProducts(current => current.map(p => p.id === product.id ? fullProduct : p));
+      }
+
+      // Prevent stale asynchronous responses from overwriting a subsequently selected product
+      if (latestProductRequestId.current !== requestId) {
+        return;
+      }
+
+      const variants = fullProduct?.variants || [];
+      const activeVariant = variants.find(variant => variant.active);
+      setSelectedVariantId(activeVariant?.id ?? '');
+    } catch {
+      if (latestProductRequestId.current === requestId) {
+        setVariantError('Unable to load product variants. Please try again.');
         setSelectedVariantId('');
+      }
+    } finally {
+      if (latestProductRequestId.current === requestId) {
+        setVariantLoading(false);
       }
     }
   };
@@ -168,7 +223,7 @@ export function POSPage() {
     if (bottleRequired && !bottle) return;
     invalidateQuote();
     setLines(current => [...current, {
-      key: crypto.randomUUID(), product: selectedProduct, variant: selectedVariant, quantity, bottle,
+      key: safeUUID(), product: selectedProduct, variant: selectedVariant, quantity, bottle,
     }]);
     setSelectedBottleId('');
     setQuantity(1);
@@ -194,7 +249,7 @@ export function POSPage() {
       || !discountReason.trim() || (discountScope === 'ITEM' && !discountLine)) return;
     invalidateQuote();
     setDiscounts(current => [...current, {
-      key: crypto.randomUUID(), scope: discountScope, type: discountType,
+      key: safeUUID(), scope: discountScope, type: discountType,
       lineKey: discountLine, value: discountValue, reason: discountReason.trim(),
     }]);
     setDiscountValue('');
@@ -249,7 +304,7 @@ export function POSPage() {
     if (!retry && (!quote || !quote.allLinesAvailable)) return;
     const pending = retry ? pendingFinalize.current : null;
     if (retry && !pending) return;
-    const key = pending?.key || idempotencyKey.current || crypto.randomUUID();
+    const key = pending?.key || idempotencyKey.current || safeUUID();
     const request = pending?.request || {
       quote: buildQuoteRequest(),
       tender: {
@@ -397,9 +452,34 @@ export function POSPage() {
               {!selectedProduct && <p className="mt-3 text-sm text-slate-500">Choose a product to view its active variants.</p>}
               {selectedProduct && <div className="mt-3 space-y-3">
                 <p className="font-medium">{selectedProduct.name}</p>
-                {availableVariants.length === 0 ? (
-                  <p className="py-4 text-center text-xs text-slate-500">Loading variant sizes…</p>
-                ) : (
+
+                {variantLoading && (
+                  <div className="flex items-center justify-center gap-2 py-6 text-sm text-slate-500">
+                    <LoaderCircle className="h-4 w-4 animate-spin text-amber-600" />
+                    <span>Loading active variants…</span>
+                  </div>
+                )}
+
+                {!variantLoading && variantError && (
+                  <div role="alert" className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                    <p>{variantError}</p>
+                    <button
+                      type="button"
+                      onClick={() => void handleSelectProduct(selectedProduct)}
+                      className="font-semibold text-red-800 underline hover:text-red-950 block"
+                    >
+                      Retry loading variants
+                    </button>
+                  </div>
+                )}
+
+                {!variantLoading && !variantError && availableVariants.length === 0 && (
+                  <p className="py-4 text-center text-xs text-slate-500">
+                    No active variants or bottle sizes are available for this product.
+                  </p>
+                )}
+
+                {!variantLoading && !variantError && availableVariants.length > 0 && (
                   <>
                     <label className="block text-xs font-medium text-slate-600">Variant
                       <select value={selectedVariantId} onChange={event => { setSelectedVariantId(Number(event.target.value)); setSelectedBottleId(''); }}
@@ -487,7 +567,7 @@ export function POSPage() {
             {quote && <div className="mt-4 space-y-4">
               {!quote.allLinesAvailable && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">One or more items exceed current stock. This quote does not reserve inventory.</p>}
               <ul className="divide-y divide-slate-100">
-                {quote.lines.map(line => <li key={line.lineKey} className="py-3 text-sm">
+                {(quote.lines || []).map(line => <li key={line.lineKey} className="py-3 text-sm">
                   <div className="flex justify-between gap-3"><span className="font-medium">{line.productName} · {line.variantSize} × {line.quantity}</span><span className="font-medium tabular-nums">{quoteCurrency(line.finalLineTotal)}</span></div>
                   {line.bottleName && <p className="mt-1 text-xs text-slate-500">Bottle: {line.bottleName}</p>}
                   <p className="mt-1 text-xs text-slate-500">Line {quoteCurrency(line.lineSubtotal)} · promotion −{quoteCurrency(line.promotionDiscount)} · manual −{quoteCurrency(line.manualDiscount)}</p>
@@ -500,9 +580,9 @@ export function POSPage() {
                 <div className="flex justify-between"><dt className="text-slate-600">Manual discounts</dt><dd className="tabular-nums">−{quoteCurrency(quote.manualDiscount)}</dd></div>
                 <div className="flex justify-between border-t border-slate-100 pt-3 text-lg font-semibold"><dt>Payable</dt><dd className="tabular-nums">{quoteCurrency(quote.payableAmount)}</dd></div>
               </dl>
-              {quote.appliedPromotions.length > 0 && <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Applied promotions</p><ul className="mt-1 space-y-1 text-sm">{quote.appliedPromotions.map(promotion => <li key={promotion.id}>{promotion.name}</li>)}</ul></div>}
-              {quote.messages.map((message, index) => <p key={`${index}-${message}`} className="text-xs text-amber-800">{message}</p>)}
-              {quote.freeRewardOptions.length > 0 && <div className="rounded-lg bg-emerald-50 p-3"><p className="text-xs font-semibold text-emerald-900">Eligible free item choices</p><div className="mt-2 space-y-2">{quote.freeRewardOptions.map(option => {
+              {(quote.appliedPromotions || []).length > 0 && <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Applied promotions</p><ul className="mt-1 space-y-1 text-sm">{quote.appliedPromotions.map(promotion => <li key={promotion.id}>{promotion.name}</li>)}</ul></div>}
+              {(quote.messages || []).map((message, index) => <p key={`${index}-${message}`} className="text-xs text-amber-800">{message}</p>)}
+              {(quote.freeRewardOptions || []).length > 0 && <div className="rounded-lg bg-emerald-50 p-3"><p className="text-xs font-semibold text-emerald-900">Eligible free item choices</p><div className="mt-2 space-y-2">{quote.freeRewardOptions.map(option => {
                 const selected = selectedFreeRewards.some(reward => reward.promotionId === option.promotionId && reward.variantId === option.variantId);
                 return <label key={`${option.promotionId}-${option.variantId}`} className="flex cursor-pointer items-start gap-2 text-sm text-emerald-900"><input type="checkbox" checked={selected} onChange={() => {
                   const next = selected
