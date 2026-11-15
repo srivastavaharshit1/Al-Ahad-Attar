@@ -188,3 +188,22 @@ cache:
   settings:
     ttl: 60
     max-size: 10
+
+billing:
+  invoice:
+    seller:
+      name: ${BILLING_SELLER_NAME:Al Ahad Attars}
+      address: ${BILLING_SELLER_ADDRESS:Al Ahad Attars, India}
+      phone: ${BILLING_SELLER_PHONE:+91 0000000000}
+      email: ${BILLING_SELLER_EMAIL:support@alahadattars.com}
+    pos-number-format: ${BILLING_POS_NUMBER_FORMAT:POS-{financialYear}-{sequence}}
+    online-number-format: ${BILLING_ONLINE_NUMBER_FORMAT:WEB-{financialYear}-{sequence}}
+    unregistered-notice: ${BILLING_UNREGISTERED_NOTICE:Commercial invoice issued by an unregistered supplier under GST composition / threshold limits. Not a tax invoice.}
+    financial-year: ${BILLING_FINANCIAL_YEAR:2026-27}
+  online-invoice:
+    worker:
+      enabled: ${BILLING_ONLINE_INVOICE_WORKER_ENABLED:false}
+  delivery:
+    worker:
+      enabled: ${BILLING_DELIVERY_WORKER_ENABLED:false}
+

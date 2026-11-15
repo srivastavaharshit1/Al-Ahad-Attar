@@ -2,6 +2,7 @@ package com.alahadattars.billing.pos;
 
 import com.alahadattars.billing.security.AuthenticatedBillingAdmin;
 import com.alahadattars.exception.ConflictException;
+import com.alahadattars.exception.ResourceNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -46,6 +47,29 @@ public class PosSaleFinalizationService {
             if (winner.isPresent()) return replayOrReject(winner.get(), requestHash, admin.userId());
             throw duplicateOrInvalidWrite;
         }
+    }
+
+    public PosSaleReconciliationResponse reconcileSale(String clientKey, AuthenticatedBillingAdmin admin) {
+        validateClientKey(clientKey);
+        Objects.requireNonNull(admin, "authenticated Admin is required");
+
+        String scopedKey = admin.userId() + ":" + clientKey.trim();
+        var existing = repository.findByIdempotencyKey(scopedKey);
+        if (existing.isPresent()) {
+            PosSaleJdbcRepository.ExistingSale sale = existing.get();
+            if (sale.adminId() != admin.userId()) {
+                throw new ConflictException("This idempotency key belongs to a different administrator.",
+                        "IDEMPOTENCY_KEY_REUSED");
+            }
+            return new PosSaleReconciliationResponse("COMMITTED", sale.response());
+        }
+        return new PosSaleReconciliationResponse("NOT_FOUND", null);
+    }
+
+    public PosSaleDetailResponse getSaleDetail(long saleId, AuthenticatedBillingAdmin admin) {
+        Objects.requireNonNull(admin, "authenticated Admin is required");
+        return repository.findSaleDetailById(saleId)
+                .orElseThrow(() -> new ResourceNotFoundException("POS sale not found with id: " + saleId));
     }
 
     static PosSaleFinalizeResponse replayOrReject(

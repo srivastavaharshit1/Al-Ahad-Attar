@@ -22,7 +22,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest
@@ -79,6 +81,66 @@ class PosSaleFinalizationAuthorizationTest {
                         .with(csrf())
                         .header("Idempotency-Key", "authorization-test-key-03")
                         .contentType("application/json").content(BODY))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void adminCanReachReconcileEndpoint() throws Exception {
+        PosSaleReconciliationResponse response = new PosSaleReconciliationResponse("NOT_FOUND", null);
+        when(finalizationService.reconcileSale(eq("reconcile-test-key-01"), any())).thenReturn(response);
+
+        mockMvc.perform(get("/api/billing/pos/sales/reconcile/reconcile-test-key-01")
+                        .with(adminAuthentication(RoleType.ADMIN)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("NOT_FOUND"));
+
+        verify(finalizationService).reconcileSale(eq("reconcile-test-key-01"), any());
+    }
+
+    @Test
+    void ordinaryUserIsDeniedFromReconcileEndpoint() throws Exception {
+        mockMvc.perform(get("/api/billing/pos/sales/reconcile/reconcile-test-key-02")
+                        .with(adminAuthentication(RoleType.USER)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void anonymousUserIsDeniedFromReconcileEndpoint() throws Exception {
+        mockMvc.perform(get("/api/billing/pos/sales/reconcile/reconcile-test-key-03"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void adminCanReachSaleDetailEndpoint() throws Exception {
+        PosSaleDetailResponse detail = new PosSaleDetailResponse(
+                42L, java.util.UUID.randomUUID(), "test-key-42", "COMPLETED",
+                "admin@example.test", java.time.Instant.now(), java.time.Instant.now(),
+                "Customer", "9876543210", "c@example.test",
+                new java.math.BigDecimal("250.00"), java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO,
+                new java.math.BigDecimal("250.00"), "abcdef123456",
+                null, null, java.util.List.of(), java.util.List.of(), java.util.List.of(), java.util.List.of()
+        );
+        when(finalizationService.getSaleDetail(eq(42L), any())).thenReturn(detail);
+
+        mockMvc.perform(get("/api/billing/pos/sales/42")
+                        .with(adminAuthentication(RoleType.ADMIN)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.saleId").value(42))
+                .andExpect(jsonPath("$.saleStatus").value("COMPLETED"));
+
+        verify(finalizationService).getSaleDetail(eq(42L), any());
+    }
+
+    @Test
+    void ordinaryUserIsDeniedFromSaleDetailEndpoint() throws Exception {
+        mockMvc.perform(get("/api/billing/pos/sales/42")
+                        .with(adminAuthentication(RoleType.USER)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void anonymousUserIsDeniedFromSaleDetailEndpoint() throws Exception {
+        mockMvc.perform(get("/api/billing/pos/sales/42"))
                 .andExpect(status().isUnauthorized());
     }
 

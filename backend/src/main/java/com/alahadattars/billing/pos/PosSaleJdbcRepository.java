@@ -7,6 +7,8 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -120,6 +122,155 @@ public class PosSaleJdbcRepository {
             return Optional.of(new ExistingSale(rawHash == null ? null : rawHash.trim(),
                     rs.getLong("created_by_user_id"), response));
         }, key);
+    }
+
+    public Optional<PosSaleDetailResponse> findSaleDetailById(long saleId) {
+        return jdbc.query("""
+                SELECT s.id AS sale_id, s.sale_key, s.idempotency_key, s.sale_status,
+                       s.created_by_email_snapshot, s.created_at, s.completed_at,
+                       s.customer_name, s.customer_mobile, s.customer_email,
+                       s.subtotal_amount, s.promotion_discount_amount, s.manual_discount_amount,
+                       s.payable_amount, s.confirmed_quote_fingerprint,
+                       t.tender_method, t.amount_received, t.change_returned, t.amount_applied,
+                       t.transaction_reference, t.recorded_at,
+                       i.id AS invoice_id, i.invoice_number, i.invoice_status, i.issued_at
+                FROM billing_pos_sale s
+                LEFT JOIN billing_pos_tender t ON t.sale_id = s.id
+                LEFT JOIN billing_invoice i ON i.source_type = 'POS_SALE' AND i.source_id = s.id
+                WHERE s.id = ?
+                """, rs -> {
+            if (!rs.next()) return Optional.empty();
+
+            long id = rs.getLong("sale_id");
+            UUID key = UUID.fromString(rs.getString("sale_key"));
+            String idempotency = rs.getString("idempotency_key");
+            String status = rs.getString("sale_status");
+            String adminEmail = rs.getString("created_by_email_snapshot");
+            Timestamp createdTs = rs.getTimestamp("created_at");
+            Instant created = createdTs == null ? null : createdTs.toInstant();
+            Timestamp completedTs = rs.getTimestamp("completed_at");
+            Instant completed = completedTs == null ? null : completedTs.toInstant();
+            String cName = rs.getString("customer_name");
+            String cMobile = rs.getString("customer_mobile");
+            String cEmail = rs.getString("customer_email");
+            BigDecimal subtotal = rs.getBigDecimal("subtotal_amount");
+            BigDecimal promoDiscount = rs.getBigDecimal("promotion_discount_amount");
+            BigDecimal manualDiscount = rs.getBigDecimal("manual_discount_amount");
+            BigDecimal payable = rs.getBigDecimal("payable_amount");
+            String fingerprint = rs.getString("confirmed_quote_fingerprint");
+
+            // Tender
+            String tenderMethod = rs.getString("tender_method");
+            BigDecimal received = rs.getBigDecimal("amount_received");
+            BigDecimal change = rs.getBigDecimal("change_returned");
+            BigDecimal applied = rs.getBigDecimal("amount_applied");
+            String txRef = rs.getString("transaction_reference");
+            Timestamp recTs = rs.getTimestamp("recorded_at");
+            Instant recorded = recTs == null ? null : recTs.toInstant();
+            PosSaleDetailResponse.TenderDetail tender = tenderMethod == null ? null :
+                    new PosSaleDetailResponse.TenderDetail(tenderMethod, payable, received, change, applied, txRef, recorded);
+
+            // Invoice
+            long invId = rs.getLong("invoice_id");
+            boolean hasInv = !rs.wasNull();
+            String invNumber = rs.getString("invoice_number");
+            String invStatus = rs.getString("invoice_status");
+            Timestamp issuedTs = rs.getTimestamp("issued_at");
+            Instant issued = issuedTs == null ? null : issuedTs.toInstant();
+            PosSaleDetailResponse.InvoiceDetail invoice = hasInv ?
+                    new PosSaleDetailResponse.InvoiceDetail(invId, invNumber, invStatus, issued) : null;
+
+            // Lines
+            List<PosSaleDetailResponse.LineDetail> lines = jdbc.query("""
+                    SELECT id, line_key, product_id, variant_id, product_name_snapshot,
+                           variant_size_snapshot, quantity, unit_price_snapshot, bottle_id,
+                           bottle_name_snapshot, bottle_price_snapshot, promotion_discount_amount,
+                           manual_discount_amount, line_total_amount, is_free_item, free_promotion_id
+                    FROM billing_pos_sale_line
+                    WHERE sale_id = ?
+                    ORDER BY id ASC
+                    """, (lrs, rowNum) -> new PosSaleDetailResponse.LineDetail(
+                    lrs.getLong("id"),
+                    lrs.getString("line_key"),
+                    (Long) lrs.getObject("product_id"),
+                    (Long) lrs.getObject("variant_id"),
+                    lrs.getString("product_name_snapshot"),
+                    lrs.getString("variant_size_snapshot"),
+                    lrs.getInt("quantity"),
+                    lrs.getBigDecimal("unit_price_snapshot"),
+                    (Long) lrs.getObject("bottle_id"),
+                    lrs.getString("bottle_name_snapshot"),
+                    lrs.getBigDecimal("bottle_price_snapshot"),
+                    lrs.getBigDecimal("promotion_discount_amount"),
+                    lrs.getBigDecimal("manual_discount_amount"),
+                    lrs.getBigDecimal("line_total_amount"),
+                    lrs.getBoolean("is_free_item"),
+                    (Long) lrs.getObject("free_promotion_id")
+            ), id);
+
+            // Promotions
+            List<PosSaleDetailResponse.PromotionDetail> promotions = jdbc.query("""
+                    SELECT promotion_id, promotion_name_snapshot, promotion_code_snapshot, promotion_type_snapshot
+                    FROM billing_pos_sale_promotion
+                    WHERE sale_id = ?
+                    ORDER BY id ASC
+                    """, (prs, rowNum) -> new PosSaleDetailResponse.PromotionDetail(
+                    prs.getLong("promotion_id"),
+                    prs.getString("promotion_name_snapshot"),
+                    prs.getString("promotion_code_snapshot"),
+                    prs.getString("promotion_type_snapshot")
+            ), id);
+
+            // Discounts
+            List<PosSaleDetailResponse.DiscountDetail> discounts = jdbc.query("""
+                    SELECT scope, discount_type, requested_value, applied_amount, reason
+                    FROM billing_discount_application
+                    WHERE sale_id = ?
+                    ORDER BY id ASC
+                    """, (drs, rowNum) -> new PosSaleDetailResponse.DiscountDetail(
+                    drs.getString("scope"),
+                    drs.getString("discount_type"),
+                    drs.getBigDecimal("requested_value"),
+                    drs.getBigDecimal("applied_amount"),
+                    drs.getString("reason")
+            ), id);
+
+            // Timeline
+            List<PosSaleDetailResponse.TimelineDetail> timeline = new ArrayList<>();
+            timeline.add(new PosSaleDetailResponse.TimelineDetail(
+                    "INITIATED", "Sale Draft Created", created, "COMPLETED",
+                    "POS sale initiated" + (adminEmail != null ? " by " + adminEmail : "")));
+            if (fingerprint != null) {
+                timeline.add(new PosSaleDetailResponse.TimelineDetail(
+                        "QUOTED", "Server Quote Confirmed", created, "COMPLETED",
+                        "Authoritative price and discount calculations verified (Fingerprint: "
+                                + fingerprint.substring(0, Math.min(12, fingerprint.length())) + "…)"));
+            }
+            timeline.add(new PosSaleDetailResponse.TimelineDetail(
+                    "INVENTORY_DEDUCTED", "Inventory Deducted", completed != null ? completed : created, "COMPLETED",
+                    "Stock deducted atomically for " + lines.size() + " line item(s)"));
+            if (tender != null) {
+                timeline.add(new PosSaleDetailResponse.TimelineDetail(
+                        "TENDER_RECORDED", "Payment Recorded", recorded != null ? recorded : completed, "COMPLETED",
+                        tender.tenderMethod() + " tender processed. Payable: ₹" + payable + ", Received: ₹" + received
+                                + (change != null && change.compareTo(BigDecimal.ZERO) > 0 ? ", Change: ₹" + change : "")
+                                + (txRef != null && !txRef.isBlank() ? " [Ref: " + txRef + "]" : "")));
+            }
+            if (invoice != null) {
+                timeline.add(new PosSaleDetailResponse.TimelineDetail(
+                        "INVOICE_GENERATED", "Invoice Issued", issued != null ? issued : completed, "COMPLETED",
+                        "Immutable legal invoice " + invoice.invoiceNumber() + " generated"));
+            }
+            timeline.add(new PosSaleDetailResponse.TimelineDetail(
+                    "COMPLETED", "Sale Finalized", completed != null ? completed : created, status,
+                    "Transaction successfully finalized and committed to database"));
+
+            return Optional.of(new PosSaleDetailResponse(
+                    id, key, idempotency, status, adminEmail, created, completed,
+                    cName, cMobile, cEmail, subtotal, promoDiscount, manualDiscount,
+                    payable, fingerprint, tender, invoice, lines, promotions, discounts, timeline
+            ));
+        }, saleId);
     }
 
     private static String clean(String value) {

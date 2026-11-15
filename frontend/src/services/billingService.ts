@@ -3,7 +3,8 @@ import type {
   InvoiceConsentPolicy, InvoiceConsentStatus, InvoiceDelivery, InvoiceConsent,
   InvoiceDeliveryChannel, InvoiceHistoryItem, InvoicePaperFormat,
   PosQuoteRequest, PosQuoteResponse, PosSaleFinalizeRequest, PosSaleFinalizeResponse,
-  BillingPage, BillingSalesSummary, PosSaleHistoryItem, OnlineInvoiceJob,
+  PosSaleReconciliationResponse,
+  BillingPage, BillingSalesSummary, PosSaleHistoryItem, PosSaleDetail, OnlineInvoiceJob,
 } from '../types/billing';
 
 export interface BillingHistoryFilters {
@@ -34,10 +35,18 @@ export const billingService = {
     (await apiClient.post<PosSaleFinalizeResponse>('/billing/pos/sales/finalize', request, {
       headers: { 'Idempotency-Key': idempotencyKey, 'Cache-Control': 'no-store' },
     })).data,
+  reconcilePosSale: async (idempotencyKey: string) =>
+    (await apiClient.get<PosSaleReconciliationResponse>(`/billing/pos/sales/reconcile/${idempotencyKey}`, {
+      headers: { 'Cache-Control': 'no-store' },
+    })).data,
   getInvoices: async (filters: BillingHistoryFilters = {}) =>
     (await apiClient.get<BillingPage<InvoiceHistoryItem>>('/billing/invoices/history', { params: { limit: 25, offset: 0, ...filters } })).data,
   getPosSales: async (filters: PosSaleFilters = {}) =>
     (await apiClient.get<BillingPage<PosSaleHistoryItem>>('/billing/pos/sales', { params: { limit: 25, offset: 0, ...filters } })).data,
+  getPosSaleDetail: async (saleId: number) =>
+    (await apiClient.get<PosSaleDetail>(`/billing/pos/sales/${saleId}`, {
+      headers: { 'Cache-Control': 'no-store' },
+    })).data,
   getSalesSummary: async (from: string, to: string) =>
     (await apiClient.get<BillingSalesSummary>('/billing/reports/summary', { params: { from, to } })).data,
   getOnlineInvoiceJobs: async (status?: string) =>

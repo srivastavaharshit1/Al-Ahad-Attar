@@ -7,7 +7,16 @@ import type { PosQuoteRequest, PosQuoteResponse, PosSaleFinalizeRequest, PosSale
 import { productService } from '../../services/productService';
 import type { Product } from '../../types/product';
 import type { Variant } from '../../types/variant';
+import { storage } from '../../utils/storage';
 import { BillingSectionNav } from './BillingSectionNav';
+
+interface PendingFinalizeState {
+  key: string;
+  request: PosSaleFinalizeRequest;
+  timestamp: number;
+}
+
+const PENDING_SALE_STORAGE_KEY = 'al_ahad_pos_pending_sale_v1';
 
 interface DraftLine {
   key: string;
@@ -117,7 +126,9 @@ export function POSPage() {
   const [variantError, setVariantError] = useState('');
   const latestProductRequestId = useRef(0);
   const [finalizing, setFinalizing] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
   const [finalizationUncertain, setFinalizationUncertain] = useState(false);
+  const [uncommittedConfirmed, setUncommittedConfirmed] = useState(false);
   const [finalizeError, setFinalizeError] = useState('');
   const [finalSale, setFinalSale] = useState<PosSaleFinalizeResponse | null>(null);
   const quoteRequestSequence = useRef(0);
@@ -128,7 +139,17 @@ export function POSPage() {
     if (!finalizationUncertain) {
       idempotencyKey.current = null;
       pendingFinalize.current = null;
+      storage.remove(PENDING_SALE_STORAGE_KEY);
     }
+  };
+
+  const discardUncertainDraft = () => {
+    storage.remove(PENDING_SALE_STORAGE_KEY);
+    pendingFinalize.current = null;
+    idempotencyKey.current = null;
+    setFinalizationUncertain(false);
+    setUncommittedConfirmed(false);
+    setFinalizeError('');
   };
 
   const invalidateQuote = () => {
@@ -138,6 +159,38 @@ export function POSPage() {
     setQuoteError('');
     setQuoteLoading(false);
   };
+
+  // Restore and reconcile any pending/uncertain sale from storage on page load
+  useEffect(() => {
+    const saved = storage.get<PendingFinalizeState | null>(PENDING_SALE_STORAGE_KEY, null);
+    if (!saved || !saved.key || !saved.request) return;
+
+    idempotencyKey.current = saved.key;
+    pendingFinalize.current = { key: saved.key, request: saved.request };
+    setFinalizationUncertain(true);
+    setReconciling(true);
+    setFinalizeError('A previous sale confirmation was in progress. Checking its status with the server…');
+
+    billingService.reconcilePosSale(saved.key)
+      .then((recon) => {
+        if (recon.status === 'COMMITTED' && recon.sale) {
+          storage.remove(PENDING_SALE_STORAGE_KEY);
+          pendingFinalize.current = null;
+          setFinalizationUncertain(false);
+          setFinalSale(recon.sale);
+        } else {
+          setUncommittedConfirmed(true);
+          setFinalizeError('The previous sale was not committed to the database. You can safely retry confirmation or discard this draft.');
+        }
+      })
+      .catch((err) => {
+        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || (err as Error).message;
+        setFinalizeError(`Could not reach the server to verify sale status: ${msg}. You can click retry to check again.`);
+      })
+      .finally(() => {
+        setReconciling(false);
+      });
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -300,10 +353,20 @@ export function POSPage() {
   };
 
   const submitFinalization = async (retry: boolean) => {
-    if (finalizing || finalSale) return;
+    if (finalizing || reconciling || finalSale) return;
     if (!retry && (!quote || !quote.allLinesAvailable)) return;
-    const pending = retry ? pendingFinalize.current : null;
-    if (retry && !pending) return;
+
+    const pending = retry
+      ? (pendingFinalize.current || storage.get<PendingFinalizeState | null>(PENDING_SALE_STORAGE_KEY, null))
+      : null;
+
+    if (retry && !pending) {
+      setFinalizeError('No pending sale was found to retry. Please start a new sale.');
+      setFinalizationUncertain(false);
+      setUncommittedConfirmed(false);
+      return;
+    }
+
     const key = pending?.key || idempotencyKey.current || safeUUID();
     const request = pending?.request || {
       quote: buildQuoteRequest(),
@@ -314,32 +377,74 @@ export function POSPage() {
       },
       confirmedQuoteFingerprint: quote!.quoteFingerprint,
     } satisfies PosSaleFinalizeRequest;
+
     idempotencyKey.current = key;
     pendingFinalize.current = { key, request };
+    storage.set(PENDING_SALE_STORAGE_KEY, { key, request, timestamp: Date.now() });
+
     setFinalizing(true);
     setFinalizeError('');
+
     try {
+      if (retry) {
+        setReconciling(true);
+        // Step 1: Inquire status with the read-only reconciliation endpoint first
+        try {
+          const recon = await billingService.reconcilePosSale(key);
+          if (recon.status === 'COMMITTED' && recon.sale) {
+            storage.remove(PENDING_SALE_STORAGE_KEY);
+            pendingFinalize.current = null;
+            setFinalizationUncertain(false);
+            setUncommittedConfirmed(false);
+            setFinalSale(recon.sale);
+            return;
+          }
+          // If status is NOT_FOUND, it definitely did not commit; proceed to re-execute finalization below
+          setUncommittedConfirmed(true);
+        } catch (reconError) {
+          console.warn('Reconcile check error before retry:', reconError);
+        } finally {
+          setReconciling(false);
+        }
+      }
+
+      // Step 2: Finalize the sale with the exact same idempotency key and request
       const result = await billingService.finalizePosSale(request, key);
+      storage.remove(PENDING_SALE_STORAGE_KEY);
       pendingFinalize.current = null;
       setFinalizationUncertain(false);
+      setUncommittedConfirmed(false);
       setFinalSale(result);
     } catch (error) {
-      const response = (error as { response?: { status?: number; data?: { code?: string; message?: string; updatedQuote?: PosQuoteResponse } } })?.response;
+      const axiosErr = error as { code?: string; message?: string; response?: { status?: number; data?: { code?: string; message?: string; updatedQuote?: PosQuoteResponse } } };
+      const response = axiosErr?.response;
       const changedQuote = response?.data?.code === 'QUOTE_CHANGED' ? response.data.updatedQuote : undefined;
+
       if (changedQuote) {
-        setQuote(changedQuote);
+        storage.remove(PENDING_SALE_STORAGE_KEY);
         pendingFinalize.current = null;
+        setQuote(changedQuote);
+        setFinalizationUncertain(false);
+        setUncommittedConfirmed(false);
         setFinalizeError('The quote changed. Review the updated lines and payable amount, then confirm again.');
-      } else if (!response || (response.status ?? 0) >= 500) {
+      } else if (!response || axiosErr.code === 'ECONNABORTED' || response.status === 504) {
+        // Genuinely inconclusive network error (client timeout, connection dropped, 504 gateway timeout)
         setFinalizationUncertain(true);
-        setFinalizeError('The server response was not conclusive. Retry the exact same request to safely resolve the sale status.');
+        setFinalizeError('The server response was not conclusive (connection timed out). The transaction may be processing or uncommitted. Retry the exact same request to safely resolve the sale status.');
       } else {
+        // Definite HTTP failure (400, 401, 403, 404, 409, 500, 503 with error body)
+        // Transaction was aborted and definitely did NOT commit
+        storage.remove(PENDING_SALE_STORAGE_KEY);
         pendingFinalize.current = null;
         idempotencyKey.current = null;
-        setFinalizeError(response.data?.message || 'The sale could not be finalized. Review the error and refresh the quote.');
+        setFinalizationUncertain(false);
+        setUncommittedConfirmed(false);
+        const serverMsg = response.data?.message || axiosErr.message || 'The sale could not be finalized. Review the error and try again.';
+        setFinalizeError(serverMsg);
       }
     } finally {
       setFinalizing(false);
+      setReconciling(false);
     }
   };
 
@@ -625,7 +730,58 @@ export function POSPage() {
           </section>
         </div>
       </div>
-      {(finalizing || finalizationUncertain) && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="pos-finalization-status"><div className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-xl"><h2 id="pos-finalization-status" className="text-xl font-semibold">{finalizationUncertain ? 'Sale status needs confirmation' : 'Finalizing sale'}</h2><p className="text-sm text-slate-600">{finalizeError || 'Keep this page open while the database confirms the sale.'}</p>{finalizationUncertain && <button type="button" onClick={() => void submitFinalization(true)} disabled={finalizing} className="w-full rounded-lg bg-amber-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">Retry the same request safely</button>}</div></div>}
+      {(finalizing || finalizationUncertain) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="pos-finalization-status">
+          <div className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-center gap-3">
+              {(finalizing || reconciling) ? (
+                <LoaderCircle className="h-6 w-6 animate-spin text-amber-600 shrink-0" />
+              ) : (
+                <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0" />
+              )}
+              <h2 id="pos-finalization-status" className="text-xl font-semibold">
+                {reconciling ? 'Verifying sale status…' : (finalizationUncertain ? 'Sale status needs confirmation' : 'Finalizing sale')}
+              </h2>
+            </div>
+            <p className="text-sm text-slate-600">
+              {finalizeError || (reconciling ? 'Checking whether the sale was already recorded on the server…' : 'Keep this page open while the database confirms the sale.')}
+            </p>
+            {finalizationUncertain && (
+              <div className="space-y-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => void submitFinalization(true)}
+                  disabled={finalizing || reconciling}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-700 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-800 disabled:opacity-50"
+                >
+                  {(finalizing || reconciling) && <LoaderCircle className="h-4 w-4 animate-spin" />}
+                  <span>{reconciling ? 'Verifying status…' : (finalizing ? 'Retrying confirmation…' : 'Retry the same request safely')}</span>
+                </button>
+                {uncommittedConfirmed && (
+                  <button
+                    type="button"
+                    onClick={discardUncertainDraft}
+                    disabled={finalizing || reconciling}
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Discard uncommitted draft & edit sale
+                  </button>
+                )}
+                <div className="text-center">
+                  <a
+                    href="/admin/billing/invoices"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-amber-800 underline hover:text-amber-950"
+                  >
+                    Open invoice history in new tab to verify
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

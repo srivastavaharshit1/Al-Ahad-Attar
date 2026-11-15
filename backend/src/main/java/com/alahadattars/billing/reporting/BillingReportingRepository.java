@@ -73,8 +73,9 @@ public class BillingReportingRepository {
 
     public BillingPage<PosSaleHistoryRecord> posSales(String search, String tenderMethod, LocalDate from,
                                                        LocalDate to, int limit, int offset) {
-        StringBuilder where = new StringBuilder(" WHERE s.sale_status = 'COMPLETED' ");
+        StringBuilder where = new StringBuilder(" WHERE 1=1 ");
         List<Object> parameters = new ArrayList<>();
+        where.append(" AND s.sale_status = 'COMPLETED' ");
         if (tenderMethod != null && !tenderMethod.isBlank()) {
             where.append(" AND t.tender_method = ? "); parameters.add(tenderMethod.toUpperCase());
         }
@@ -82,28 +83,47 @@ public class BillingReportingRepository {
         if (search != null && !search.isBlank()) {
             where.append(" AND (LOWER(CAST(s.id AS VARCHAR)) LIKE ? OR LOWER(CAST(s.sale_key AS VARCHAR)) LIKE ? "
                     + "OR LOWER(COALESCE(i.invoice_number, '')) LIKE ? OR LOWER(COALESCE(s.customer_name, '')) LIKE ? "
-                    + "OR LOWER(COALESCE(s.customer_mobile, '')) LIKE ? OR LOWER(COALESCE(s.customer_email, '')) LIKE ?)");
+                    + "OR LOWER(COALESCE(s.customer_mobile, '')) LIKE ? OR LOWER(COALESCE(s.customer_email, '')) LIKE ? "
+                    + "OR LOWER(COALESCE(t.transaction_reference, '')) LIKE ?)");
             String pattern = "%" + search.trim().toLowerCase() + "%";
-            for (int i = 0; i < 6; i++) parameters.add(pattern);
+            for (int i = 0; i < 7; i++) parameters.add(pattern);
         }
         String joins = " FROM billing_pos_sale s JOIN billing_pos_tender t ON t.sale_id = s.id "
                 + "LEFT JOIN billing_invoice i ON i.source_type = 'POS_SALE' AND i.source_id = s.id ";
         Long count = jdbc.queryForObject("SELECT COUNT(*)" + joins + where, Long.class, parameters.toArray());
         String sql = """
-                SELECT s.id AS sale_id, s.sale_key, i.invoice_number, s.customer_name, s.customer_mobile,
-                       s.customer_email, s.subtotal_amount, s.promotion_discount_amount,
-                       s.manual_discount_amount, s.payable_amount, t.tender_method, t.amount_received,
-                       t.change_returned, s.completed_at
+                SELECT s.id AS sale_id, s.sale_key, s.sale_status, i.id AS invoice_id, i.invoice_number,
+                       s.customer_name, s.customer_mobile, s.customer_email, s.subtotal_amount,
+                       s.promotion_discount_amount, s.manual_discount_amount, s.payable_amount,
+                       t.tender_method, t.amount_received, t.change_returned, t.transaction_reference,
+                       s.completed_at
                 """ + joins + where + " ORDER BY s.completed_at DESC, s.id DESC LIMIT ? OFFSET ?";
         parameters.add(limit);
         parameters.add(offset);
-        List<PosSaleHistoryRecord> rows = jdbc.query(sql, (rs, rowNum) -> new PosSaleHistoryRecord(
-                rs.getLong("sale_id"), UUID.fromString(rs.getString("sale_key")), rs.getString("invoice_number"),
-                rs.getString("customer_name"), rs.getString("customer_mobile"), rs.getString("customer_email"),
-                rs.getBigDecimal("subtotal_amount"), rs.getBigDecimal("promotion_discount_amount"),
-                rs.getBigDecimal("manual_discount_amount"), rs.getBigDecimal("payable_amount"),
-                rs.getString("tender_method"), rs.getBigDecimal("amount_received"),
-                rs.getBigDecimal("change_returned"), rs.getTimestamp("completed_at").toInstant()), parameters.toArray());
+        List<PosSaleHistoryRecord> rows = jdbc.query(sql, (rs, rowNum) -> {
+            long invId = rs.getLong("invoice_id");
+            Long invoiceId = rs.wasNull() ? null : invId;
+            Timestamp completed = rs.getTimestamp("completed_at");
+            return new PosSaleHistoryRecord(
+                    rs.getLong("sale_id"),
+                    UUID.fromString(rs.getString("sale_key")),
+                    rs.getString("sale_status"),
+                    invoiceId,
+                    rs.getString("invoice_number"),
+                    rs.getString("customer_name"),
+                    rs.getString("customer_mobile"),
+                    rs.getString("customer_email"),
+                    rs.getBigDecimal("subtotal_amount"),
+                    rs.getBigDecimal("promotion_discount_amount"),
+                    rs.getBigDecimal("manual_discount_amount"),
+                    rs.getBigDecimal("payable_amount"),
+                    rs.getString("tender_method"),
+                    rs.getBigDecimal("amount_received"),
+                    rs.getBigDecimal("change_returned"),
+                    rs.getString("transaction_reference"),
+                    completed == null ? null : completed.toInstant()
+            );
+        }, parameters.toArray());
         return new BillingPage<>(rows, count == null ? 0 : count, limit, offset);
     }
 
