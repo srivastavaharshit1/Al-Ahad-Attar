@@ -57,6 +57,18 @@ export const billingService = {
     }),
   getDeliveries: async (invoiceId: number) =>
     (await apiClient.get<InvoiceDelivery[]>(`/billing/invoices/${invoiceId}/delivery`)).data,
+  sendWhatsAppInvoice: async (invoiceId: number, phone?: string, idempotencyKey?: string) =>
+    (await apiClient.post<InvoiceDelivery>(
+      `/billing/invoices/${invoiceId}/delivery/whatsapp/send`,
+      undefined,
+      {
+        params: phone ? { phone } : undefined,
+        headers: {
+          'Idempotency-Key': idempotencyKey || crypto.randomUUID(),
+          'Cache-Control': 'no-store',
+        },
+      },
+    )).data,
   getConsents: async (invoiceId: number) =>
     (await apiClient.get<InvoiceConsent[]>(`/billing/invoices/${invoiceId}/consent`)).data,
   getConsentPolicies: async () =>

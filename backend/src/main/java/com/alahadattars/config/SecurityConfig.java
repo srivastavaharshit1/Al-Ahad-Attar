@@ -57,6 +57,9 @@ public class SecurityConfig {
                 // the X-Razorpay-Signature check inside PaymentController/handleWebhookEvent, not
                 // from Spring Security's auth layer.
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/payment/webhook").permitAll()
+                // WhatsApp Cloud API calls this directly — authenticity comes from hub.verify_token (GET)
+                // and X-Hub-Signature-256 HMAC-SHA256 check (POST) inside WhatsAppWebhookController.
+                .requestMatchers("/api/billing/webhooks/whatsapp").permitAll()
                 .requestMatchers("/api/sitemap.xml").permitAll()
                 .requestMatchers("/cleanup-sizes").permitAll();
 

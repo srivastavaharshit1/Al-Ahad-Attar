@@ -140,7 +140,7 @@ public class InvoiceDeliveryJdbcRepository {
                 """, (rs, rowNum) -> mapView(rs), invoiceId, channel.name()).stream().findFirst();
     }
 
-    private Optional<StoredDelivery> findByIdempotencyKey(String idempotencyKey) {
+    public Optional<StoredDelivery> findByIdempotencyKey(String idempotencyKey) {
         return jdbcTemplate.query("""
                 SELECT id, delivery_key, channel, status, attempt_count, destination_snapshot,
                        provider_message_id, last_error_code, last_error_summary, created_at, updated_at,
@@ -304,11 +304,105 @@ public class InvoiceDeliveryJdbcRepository {
                 rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant());
     }
 
+    @Transactional
+    public InvoiceDeliveryView recordBlockedConfiguration(long invoiceId, InvoiceDeliveryChannel channel,
+                                                          String destination, long actorUserId,
+                                                          String idempotencyKey, String errorCode, String errorSummary) {
+        Optional<StoredDelivery> existing = findByIdempotencyKey(idempotencyKey);
+        if (existing.isPresent()) {
+            return existing.get().view();
+        }
+        UUID deliveryKey = UUID.randomUUID();
+        jdbcTemplate.update("""
+                INSERT INTO billing_invoice_delivery (
+                    delivery_key, idempotency_key, invoice_id, channel, destination_snapshot, status,
+                    attempt_count, last_error_code, last_error_summary, requested_by_user_id,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 'BLOCKED_CONFIGURATION', 0, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT (idempotency_key) DO NOTHING
+                """, deliveryKey, idempotencyKey, invoiceId, channel.name(), destination,
+                errorCode, truncate(errorSummary, 500), actorUserId);
+        return findByIdempotencyKey(idempotencyKey).orElseThrow().view();
+    }
+
+    @Transactional
+    public InvoiceDeliveryView recordFailedDelivery(long invoiceId, InvoiceDeliveryChannel channel,
+                                                    String destination, long actorUserId,
+                                                    String idempotencyKey, String errorCode, String errorSummary) {
+        Optional<StoredDelivery> existing = findByIdempotencyKey(idempotencyKey);
+        if (existing.isPresent()) {
+            return existing.get().view();
+        }
+        UUID deliveryKey = UUID.randomUUID();
+        jdbcTemplate.update("""
+                INSERT INTO billing_invoice_delivery (
+                    delivery_key, idempotency_key, invoice_id, channel, destination_snapshot, status,
+                    attempt_count, last_error_code, last_error_summary, requested_by_user_id,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 'FAILED', 1, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT (idempotency_key) DO NOTHING
+                """, deliveryKey, idempotencyKey, invoiceId, channel.name(), destination,
+                errorCode, truncate(errorSummary, 500), actorUserId);
+        return findByIdempotencyKey(idempotencyKey).orElseThrow().view();
+    }
+
+    @Transactional
+    public InvoiceDeliveryJob createOrClaimImmediateJob(long invoiceId, InvoiceDeliveryChannel channel,
+                                                         String destination, long actorUserId,
+                                                         String idempotencyKey, InvoiceListItem invoice) {
+        Optional<StoredDelivery> existing = findByIdempotencyKey(idempotencyKey);
+        Long deliveryId;
+        UUID deliveryKey;
+        int attemptCount = 1;
+        Instant startedAt = Instant.now();
+
+        if (existing.isPresent()) {
+            deliveryId = existing.get().view().id();
+            deliveryKey = existing.get().view().deliveryKey();
+            attemptCount = existing.get().view().attemptCount() + 1;
+            jdbcTemplate.update("""
+                    UPDATE billing_invoice_delivery
+                    SET status = 'PROCESSING', attempt_count = ?, processing_started_at = CURRENT_TIMESTAMP,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """, attemptCount, deliveryId);
+        } else {
+            deliveryKey = UUID.randomUUID();
+            jdbcTemplate.update("""
+                    INSERT INTO billing_invoice_delivery (
+                        delivery_key, idempotency_key, invoice_id, channel, destination_snapshot, status,
+                        attempt_count, processing_started_at, requested_by_user_id, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, 'PROCESSING', 1, CURRENT_TIMESTAMP, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """, deliveryKey, idempotencyKey, invoiceId, channel.name(), destination, actorUserId);
+            deliveryId = jdbcTemplate.queryForObject(
+                    "SELECT id FROM billing_invoice_delivery WHERE idempotency_key = ?", Long.class, idempotencyKey);
+        }
+        return new InvoiceDeliveryJob(deliveryId, deliveryKey, invoiceId, channel, destination,
+                attemptCount, startedAt, invoice);
+    }
+
+    @Transactional
+    public boolean updateStatusByProviderMessageId(String providerMessageId, InvoiceDeliveryStatus status,
+                                                   String errorCode, String errorSummary) {
+        if (providerMessageId == null || providerMessageId.isBlank()) {
+            return false;
+        }
+        int updated = jdbcTemplate.update("""
+                UPDATE billing_invoice_delivery
+                SET status = ?,
+                    last_error_code = CASE WHEN ? = 'DELIVERED' THEN NULL ELSE COALESCE(?, last_error_code) END,
+                    last_error_summary = CASE WHEN ? = 'DELIVERED' THEN NULL ELSE COALESCE(?, last_error_summary) END,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE provider_message_id = ?
+                """, status.name(), status.name(), errorCode, status.name(), truncate(errorSummary, 500), providerMessageId);
+        return updated > 0;
+    }
+
     private static String truncate(String value, int max) {
         return value == null || value.length() <= max ? value : value.substring(0, max);
     }
 
-    private record StoredDelivery(InvoiceDeliveryView view, long invoiceId, long actorUserId) { }
+    public record StoredDelivery(InvoiceDeliveryView view, long invoiceId, long actorUserId) { }
     private record RetryTarget(InvoiceDeliveryStatus status, InvoiceDeliveryChannel channel, String destination) { }
     private record Claimed(long id, UUID deliveryKey, long invoiceId, InvoiceDeliveryChannel channel,
                            String destination, int attemptNumber, Instant startedAt) { }

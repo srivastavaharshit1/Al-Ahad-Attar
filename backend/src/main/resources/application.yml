@@ -206,4 +206,23 @@ billing:
   delivery:
     worker:
       enabled: ${BILLING_DELIVERY_WORKER_ENABLED:false}
+    whatsapp:
+      enabled: ${WHATSAPP_ENABLED:false}
+      api-version: ${WHATSAPP_API_VERSION:v21.0}
+      phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:}
+      access-token: ${WHATSAPP_ACCESS_TOKEN:}
+      template-name: ${WHATSAPP_TEMPLATE_NAME:pos_invoice_delivery}
+      template-language: ${WHATSAPP_TEMPLATE_LANGUAGE:en_US}
+      document-header-approved: ${WHATSAPP_DOCUMENT_HEADER_APPROVED:false}
+      webhook:
+        verify-token: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:}
+        app-secret: ${WHATSAPP_WEBHOOK_APP_SECRET:}
+    consent:
+      whatsapp:
+        version: ${WHATSAPP_CONSENT_VERSION:v1_pos_counter}
+        wording: ${WHATSAPP_CONSENT_WORDING:Customer verbally agreed at store counter to receive invoice PDF via WhatsApp.}
+      email:
+        version: ${EMAIL_CONSENT_VERSION:v1_pos_counter}
+        wording: ${EMAIL_CONSENT_WORDING:Customer verbally agreed at store counter to receive invoice PDF via Email.}
+
 

@@ -81,6 +81,109 @@ public class InvoiceDeliveryService {
         return deliveryRepository.findConsents(invoiceId);
     }
 
+    @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
+    public InvoiceDeliveryView sendImmediate(
+            AuthenticatedBillingAdmin actor,
+            long invoiceId,
+            InvoiceDeliveryChannel channel,
+            String idempotencyKey,
+            String phoneOverride) {
+        requireInvoice(invoiceId);
+        if (channel != InvoiceDeliveryChannel.WHATSAPP) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Immediate sending is currently supported for WhatsApp");
+        }
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 160) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A valid delivery idempotency key is required");
+        }
+
+        String destination = resolveAndValidateDestination(invoiceId, phoneOverride);
+        recordConsentIfMissing(actor, invoiceId, channel, destination);
+
+        Optional<InvoiceDeliveryJdbcRepository.StoredDelivery> existing = deliveryRepository.findByIdempotencyKey(idempotencyKey);
+        if (existing.isPresent()) {
+            InvoiceDeliveryView existingView = existing.get().view();
+            if (existingView.status() == InvoiceDeliveryStatus.PROVIDER_ACCEPTED
+                    || existingView.status() == InvoiceDeliveryStatus.DELIVERED
+                    || existingView.status() == InvoiceDeliveryStatus.PROCESSING) {
+                return existingView;
+            }
+        }
+
+        InvoiceChannelSender sender = senders.get(channel);
+        if (sender == null || !sender.isAvailable()) {
+            return deliveryRepository.recordBlockedConfiguration(invoiceId, channel, destination,
+                    actor.userId(), idempotencyKey, "WHATSAPP_NOT_CONFIGURED",
+                    "Invoice WhatsApp delivery is not configured on the server");
+        }
+
+        InvoicePdfDocument pdf = invoiceRepository.findPdf(invoiceId, InvoicePaperFormat.A4).orElse(null);
+        if (pdf == null) {
+            return deliveryRepository.recordFailedDelivery(invoiceId, channel, destination,
+                    actor.userId(), idempotencyKey, "A4_PDF_NOT_FOUND", "The stored A4 invoice PDF is missing");
+        }
+
+        InvoiceListItem invoice = invoiceRepository.findHistoryItem(invoiceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invoice not found"));
+
+        InvoiceDeliveryJob job = deliveryRepository.createOrClaimImmediateJob(invoiceId, channel, destination,
+                actor.userId(), idempotencyKey, invoice);
+
+        try {
+            String providerId = sender.send(invoice, destination, pdf.content(), job.deliveryKey().toString());
+            deliveryRepository.complete(job, InvoiceDeliveryStatus.PROVIDER_ACCEPTED, providerId, null, null, null);
+            return deliveryRepository.findLatest(invoiceId, channel).orElseThrow();
+        } catch (InvoiceDeliveryException failure) {
+            InvoiceDeliveryStatus failStatus = failure.kind() == DeliveryFailureKind.BLOCKED_CONFIGURATION
+                    ? InvoiceDeliveryStatus.BLOCKED_CONFIGURATION : InvoiceDeliveryStatus.FAILED;
+            deliveryRepository.complete(job, failStatus, null, failure.errorCode(), failure.getMessage(), null);
+            return deliveryRepository.findLatest(invoiceId, channel).orElseThrow();
+        } catch (RuntimeException failure) {
+            deliveryRepository.complete(job, InvoiceDeliveryStatus.AMBIGUOUS, null,
+                    "UNCLASSIFIED_FAILURE", "Delivery outcome is uncertain; manual review is required", null);
+            return deliveryRepository.findLatest(invoiceId, channel).orElseThrow();
+        }
+    }
+
+    @Transactional
+    public void updateStatusFromWebhook(String providerMessageId, InvoiceDeliveryStatus status,
+                                        String errorCode, String errorSummary) {
+        deliveryRepository.updateStatusByProviderMessageId(providerMessageId, status, errorCode, errorSummary);
+    }
+
+    private String resolveAndValidateDestination(long invoiceId, String phoneOverride) {
+        String raw = phoneOverride;
+        if (raw == null || raw.isBlank()) {
+            Optional<String> consentDest = deliveryRepository.findConsents(invoiceId).stream()
+                    .filter(c -> c.channel() == InvoiceDeliveryChannel.WHATSAPP && c.status() == InvoiceConsentStatus.GRANTED)
+                    .map(InvoiceConsentView::destination)
+                    .findFirst();
+            if (consentDest.isPresent() && !consentDest.get().isBlank()) {
+                raw = consentDest.get();
+            }
+        }
+        if (raw == null || raw.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A customer WhatsApp mobile number is required to send the invoice");
+        }
+        String normalized = MetaWhatsAppInvoiceSender.normalizePhone(raw);
+        return "+" + normalized;
+    }
+
+    private void recordConsentIfMissing(AuthenticatedBillingAdmin actor, long invoiceId,
+                                        InvoiceDeliveryChannel channel, String destination) {
+        if (!deliveryRepository.consentStillGranted(invoiceId, channel, destination)) {
+            String version = consentPolicyProvider.policies().stream()
+                    .filter(p -> p.channel() == channel)
+                    .map(InvoiceConsentPolicy::wordingVersion)
+                    .filter(v -> !v.isBlank())
+                    .findFirst()
+                    .orElse("v1_pos_counter");
+            deliveryRepository.saveConsent(invoiceId, channel, destination,
+                    InvoiceConsentStatus.GRANTED, version, actor.userId());
+        }
+    }
+
     @PreAuthorize("hasRole('ADMIN')")
     public Optional<InvoicePdfDocument> findPdf(long invoiceId, InvoicePaperFormat format) {
         requireInvoice(invoiceId);
