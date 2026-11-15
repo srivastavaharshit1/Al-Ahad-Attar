@@ -121,7 +121,7 @@ export interface PosQuoteLineRequest {
   variantId: number;
   bottleId?: number | null;
   quantity: number;
-  productPrice: string;
+  productPrice?: string | null;
   bottleCharge?: string | null;
   giftBoxCharge?: string | null;
   manualDiscount?: string | null;

@@ -67,6 +67,7 @@ const AdminBottles = React.lazy(() => import('../pages/admin/Bottles').then(m =>
 const AdminReviews = React.lazy(() => import('../pages/admin/Reviews').then(m => ({ default: m.Reviews })));
 const AdminBulkPricing = React.lazy(() => import('../pages/admin/BulkPricing').then(m => ({ default: m.BulkPricing })));
 const AdminAboutUs = React.lazy(() => import('../pages/admin/AdminAboutUs').then(m => ({ default: m.AdminAboutUs })));
+const ShopCounterPOS = React.lazy(() => import('../pages/billing/ShopCounterPage').then(m => ({ default: m.ShopCounterPage })));
 const BillingPOS = React.lazy(() => import('../pages/billing/POSPage').then(m => ({ default: m.POSPage })));
 const BillingInvoices = React.lazy(() => import('../pages/billing/InvoiceHistoryPage').then(m => ({ default: m.InvoiceHistoryPage })));
 const BillingSales = React.lazy(() => import('../pages/billing/PosSalesHistoryPage').then(m => ({ default: m.PosSalesHistoryPage })));
@@ -152,6 +153,7 @@ export const AppRoutes: React.FC = () => {
               role), and the component has no customer-specific assumptions, so it renders fine
               inside AdminLayout without duplicating the form. */}
           <Route path="account" element={<Profile />} />
+          <Route path="shop-counter" element={<ShopCounterPOS />} />
           <Route path="billing" element={<BillingPOS />} />
           <Route path="billing/sales" element={<BillingSales />} />
           <Route path="billing/invoices" element={<BillingInvoices />} />
