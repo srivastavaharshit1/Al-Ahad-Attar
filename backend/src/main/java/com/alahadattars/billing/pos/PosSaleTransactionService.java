@@ -148,7 +148,7 @@ public class PosSaleTransactionService {
         String invoiceNumber = invoiceConfiguration.format(number);
         UUID invoiceKey = UUID.randomUUID();
         Instant issuedAt = Instant.now();
-        InvoiceSnapshot snapshot = invoiceSnapshot(invoiceKey, invoiceNumber, saleId, issuedAt, quote, request.quote());
+        InvoiceSnapshot snapshot = invoiceSnapshot(invoiceKey, invoiceNumber, saleId, issuedAt, quote, request.quote(), tender);
         long invoiceId = invoiceDocumentService.generateAndStore(snapshot, number.financialYear());
         saleRepository.insertTender(saleId, tender.method(), tender.salePayable(), tender.amountReceived(),
                 tender.changeReturned(), tender.amountApplied(), tender.transactionReference(), admin.userId());
@@ -315,7 +315,7 @@ public class PosSaleTransactionService {
 
     private InvoiceSnapshot invoiceSnapshot(UUID invoiceKey, String invoiceNumber, long saleId,
                                            Instant issuedAt, PosQuoteResponse quote,
-                                           PosQuoteRequest request) {
+                                           PosQuoteRequest request, PosTenderSnapshot tender) {
         List<InvoiceLineSnapshot> lines = new ArrayList<>(quote.lines().size());
         int lineNumber = 1;
         for (PosQuoteResponse.Line line : quote.lines()) {
@@ -340,7 +340,7 @@ public class PosSaleTransactionService {
         return new InvoiceSnapshot(invoiceKey, invoiceNumber, InvoiceChannel.POS, InvoiceSourceType.POS_SALE,
                 saleId, issuedAt, invoiceConfiguration.sellerSnapshot(), customer, lines, quote.subtotal(),
                 quote.totalPromotionDiscount(), quote.manualDiscount(), quote.payableAmount(),
-                InvoiceTaxSnapshot.noGst(), invoiceConfiguration.unregisteredNotice());
+                InvoiceTaxSnapshot.noGst(), invoiceConfiguration.unregisteredNotice(), tender);
     }
 
     private static void validateMoneyPrecision(PosQuoteResponse quote) {

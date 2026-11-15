@@ -137,6 +137,8 @@ export function ShopCounterPage() {
   const [uncommittedConfirmed, setUncommittedConfirmed] = useState(false);
   const [finalizeError, setFinalizeError] = useState('');
   const [finalSale, setFinalSale] = useState<PosSaleFinalizeResponse | null>(null);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareStatus, setShareStatus] = useState<{ type: 'success' | 'fallback' | 'info' | 'error'; message: string } | null>(null);
 
   const quoteRequestSequence = useRef(0);
   const idempotencyKey = useRef<string | null>(null);
@@ -224,9 +226,6 @@ export function ShopCounterPage() {
   const availableBottles = bottles.filter(bottle => !bottle.applicability || bottle.applicability === 'BOTH'
     || (selectedVariant?.productType === 'ATTAR' && bottle.applicability === 'ATTAR')
     || (selectedVariant?.productType === 'PERFUME' && bottle.applicability === 'PERFUME'));
-  const bottleRequired = Boolean(selectedProduct && selectedVariant
-    && !isBakhoor(selectedProduct)
-    && (selectedVariant.productType === 'ATTAR' || selectedVariant.productType === 'PERFUME'));
 
   const handleSelectProduct = async (product: Product) => {
     const requestId = ++latestProductRequestId.current;
@@ -276,7 +275,6 @@ export function ShopCounterPage() {
     if (!productPrice || !Number.isFinite(priceNum) || priceNum <= 0) return;
 
     const bottle = availableBottles.find(item => item.id === selectedBottleId) || null;
-    if (bottleRequired && !bottle) return;
 
     const bChargeNum = bottleCharge.trim() ? Number(bottleCharge) : 0;
     const gChargeNum = giftBoxCharge.trim() ? Number(giftBoxCharge) : 0;
@@ -523,22 +521,97 @@ export function ShopCounterPage() {
     }
   };
 
-  const shareViaWhatsApp = () => {
-    const phone = customerMobile.replace(/\D/g, '');
-    const invoiceNum = finalSale?.invoiceNumber || '';
-    const amount = quoteCurrency(finalSale?.payableAmount);
-    const msg = `Dear Customer, thank you for shopping at Al Ahad Attars! Your store invoice #${invoiceNum} for ${amount} has been issued. Please find your invoice PDF copy attached. Have a blessed day!`;
+  const shareViaWhatsApp = async () => {
+    if (!finalSale || shareLoading) return;
+    setShareLoading(true);
+    setShareStatus(null);
 
-    if (phone && phone.length >= 10) {
-      const formatted = phone.startsWith('91') && phone.length === 12 ? phone : (phone.length === 10 ? `91${phone}` : phone);
-      window.open(`https://api.whatsapp.com/send?phone=${formatted}&text=${encodeURIComponent(msg)}`, '_blank');
-    } else {
-      const manualPhone = window.prompt('Enter customer WhatsApp mobile number (10 digits):');
-      if (manualPhone) {
-        const clean = manualPhone.replace(/\D/g, '');
-        const formatted = clean.startsWith('91') && clean.length === 12 ? clean : (clean.length === 10 ? `91${clean}` : clean);
-        window.open(`https://api.whatsapp.com/send?phone=${formatted}&text=${encodeURIComponent(msg)}`, '_blank');
+    const phone = customerMobile.replace(/\D/g, '');
+    const invoiceNum = finalSale.invoiceNumber || String(finalSale.invoiceId);
+    const amount = quoteCurrency(finalSale.payableAmount);
+    const fileName = `Invoice-${invoiceNum}-A4.pdf`;
+    const shareText = `Dear Customer, thank you for shopping at Al Ahad Attars! Your store invoice #${invoiceNum} for ${amount} has been issued. Have a blessed day!`;
+
+    try {
+      // 1. Fetch authoritative A4 PDF blob from backend
+      const pdfBlob = await billingService.downloadInvoice(finalSale.invoiceId, 'A4');
+      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+      // 2. Check if Web Share API with file support is available
+      let canShareFiles = false;
+      try {
+        if (typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && typeof navigator.share === 'function') {
+          canShareFiles = navigator.canShare({ files: [pdfFile] });
+        }
+      } catch {
+        canShareFiles = false;
       }
+
+      if (canShareFiles) {
+        try {
+          await navigator.share({
+            title: `Al Ahad Attars Invoice #${invoiceNum}`,
+            text: shareText,
+            files: [pdfFile],
+          });
+          setShareStatus({
+            type: 'success',
+            message: 'Invoice PDF shared via system share sheet.',
+          });
+          return;
+        } catch (shareErr) {
+          const errName = (shareErr as Error)?.name;
+          if (errName === 'AbortError') {
+            setShareStatus({
+              type: 'info',
+              message: 'Share sheet was closed without sending.',
+            });
+            return;
+          }
+          console.warn('Web Share failed, falling back to download + WhatsApp link:', shareErr);
+        }
+      }
+
+      // 3. Fallback for desktop / browsers lacking Web Share file support:
+      // Trigger authoritative PDF download directly to disk
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+
+      // Open WhatsApp chat directly with pre-composed customer greeting
+      const promptOrPhone = phone && phone.length >= 10
+        ? phone
+        : (window.prompt('Enter customer WhatsApp mobile number (10 digits):') || '').replace(/\D/g, '');
+
+      if (promptOrPhone && promptOrPhone.length >= 10) {
+        const formatted = promptOrPhone.startsWith('91') && promptOrPhone.length === 12
+          ? promptOrPhone
+          : (promptOrPhone.length === 10 ? `91${promptOrPhone}` : promptOrPhone);
+        const chatMsg = `${shareText} Please find your invoice PDF (${fileName}) attached.`;
+        window.open(`https://api.whatsapp.com/send?phone=${formatted}&text=${encodeURIComponent(chatMsg)}`, '_blank');
+        setShareStatus({
+          type: 'fallback',
+          message: `Invoice PDF downloaded (${fileName}) and WhatsApp chat opened. Please attach the downloaded PDF in the customer conversation.`,
+        });
+      } else {
+        setShareStatus({
+          type: 'fallback',
+          message: `Invoice PDF downloaded (${fileName}). Enter a valid customer mobile number to open the WhatsApp chat.`,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to prepare or share invoice PDF:', err);
+      setShareStatus({
+        type: 'error',
+        message: 'Could not retrieve invoice PDF for sharing. You can use the Download A4 PDF button instead.',
+      });
+    } finally {
+      setShareLoading(false);
     }
   };
 
@@ -546,6 +619,8 @@ export function ShopCounterPage() {
     setLines([]);
     setQuote(null);
     setFinalSale(null);
+    setShareStatus(null);
+    setShareLoading(false);
     setCustomerName('');
     setCustomerMobile('');
     setCashReceived('');
@@ -625,10 +700,12 @@ export function ShopCounterPage() {
               </button>
               <button
                 type="button"
-                onClick={shareViaWhatsApp}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 shadow-sm"
+                onClick={() => void shareViaWhatsApp()}
+                disabled={shareLoading}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 shadow-sm"
               >
-                <Share2 className="h-4 w-4" /> WhatsApp Invoice
+                {shareLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+                <span>{shareLoading ? 'Sharing PDF…' : 'WhatsApp Invoice'}</span>
               </button>
             </div>
             <button
@@ -640,10 +717,32 @@ export function ShopCounterPage() {
             </button>
           </div>
 
+          {shareStatus && (
+            <div className={`rounded-xl border p-3 text-xs flex items-start gap-2.5 ${
+              shareStatus.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' :
+              shareStatus.type === 'fallback' ? 'border-blue-200 bg-blue-50 text-blue-900' :
+              shareStatus.type === 'info' ? 'border-slate-200 bg-slate-50 text-slate-700' :
+              'border-red-200 bg-red-50 text-red-800'
+            }`}>
+              {shareStatus.type === 'success' && <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />}
+              {shareStatus.type === 'fallback' && <Download className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />}
+              {shareStatus.type === 'info' && <AlertTriangle className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />}
+              {shareStatus.type === 'error' && <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />}
+              <div>
+                <p className="font-semibold">{
+                  shareStatus.type === 'success' ? 'Invoice PDF Shared' :
+                  shareStatus.type === 'fallback' ? 'Invoice Downloaded · Attach in WhatsApp' :
+                  shareStatus.type === 'info' ? 'Share Cancelled' : 'Share Error'
+                }</p>
+                <p className="mt-0.5">{shareStatus.message}</p>
+              </div>
+            </div>
+          )}
+
           <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-900 flex items-start gap-2.5">
-            <span className="font-semibold shrink-0">WhatsApp PDF Workflow:</span>
+            <span className="font-semibold shrink-0">WhatsApp Invoice Workflow:</span>
             <span>
-              Click <strong>Download A4 PDF</strong> to save the official invoice to this device, then click <strong>WhatsApp Invoice</strong> to open the customer conversation and manually attach the downloaded PDF. (Opens directly in WhatsApp Web / App; no automated bots or background credentials are used).
+              Click <strong>WhatsApp Invoice</strong> to share the official A4 PDF directly via the device share sheet (on mobile/supported browsers). On desktop, the authoritative invoice PDF downloads automatically and the customer's WhatsApp conversation opens so you can attach it directly. (No credentials or automated bots are used).
             </span>
           </div>
         </div>
@@ -770,7 +869,7 @@ export function ShopCounterPage() {
                   </label>
 
                   <label className="block text-[11px] font-medium text-slate-600">
-                    Bottle {bottleRequired ? '(Required)' : '(Optional)'}
+                    Bottle (Optional)
                     <select
                       value={selectedBottleId}
                       onChange={e => setSelectedBottleId(e.target.value ? Number(e.target.value) : '')}
@@ -814,7 +913,7 @@ export function ShopCounterPage() {
                   <div className="col-span-3">
                     <button
                       type="button"
-                      disabled={!selectedVariant || (bottleRequired && !selectedBottleId) || !productPrice || Number(productPrice) <= 0 || lines.length >= 50}
+                      disabled={!selectedVariant || !productPrice || Number(productPrice) <= 0 || lines.length >= 50}
                       onClick={addDraftLine}
                       className="w-full rounded bg-slate-900 py-1.5 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-40 transition shadow-sm"
                     >
@@ -826,7 +925,7 @@ export function ShopCounterPage() {
                 {/* Optional Charges & Discount */}
                 <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
                   <label className="block text-[10px] font-medium text-slate-500">
-                    Bottle Charge (₹)
+                    Bottle Charge (Optional, ₹)
                     <input
                       type="number"
                       step="0.01"
@@ -834,12 +933,11 @@ export function ShopCounterPage() {
                       value={bottleCharge}
                       onChange={e => setBottleCharge(e.target.value)}
                       placeholder="0.00"
-                      disabled={!selectedBottleId}
-                      className="mt-0.5 w-full rounded border border-slate-200 px-2 py-0.5 text-xs disabled:bg-slate-50"
+                      className="mt-0.5 w-full rounded border border-slate-200 px-2 py-0.5 text-xs"
                     />
                   </label>
                   <label className="block text-[10px] font-medium text-slate-500">
-                    Gift Box (₹)
+                    Gift Box (Optional, ₹)
                     <input
                       type="number"
                       step="0.01"
@@ -851,7 +949,7 @@ export function ShopCounterPage() {
                     />
                   </label>
                   <label className="block text-[10px] font-medium text-slate-500">
-                    Item Discount (₹)
+                    Item Discount (Optional, ₹)
                     <input
                       type="number"
                       step="0.01"
@@ -901,7 +999,7 @@ export function ShopCounterPage() {
                         </p>
                         <p className="text-[10px] text-slate-500 truncate">
                           ₹{line.productPrice} × {line.quantity}
-                          {line.bottle ? ` · ${line.bottle.name} (+₹${line.bottleCharge})` : ''}
+                          {line.bottle ? (bCharge > 0 ? ` · ${line.bottle.name} (+₹${line.bottleCharge})` : ` · ${line.bottle.name}`) : (bCharge > 0 ? ` · Bottle (+₹${line.bottleCharge})` : '')}
                           {gCharge > 0 ? ` · Box (+₹${line.giftBoxCharge})` : ''}
                           {mDisc > 0 ? ` · Disc (−₹${line.manualDiscount})` : ''}
                         </p>
@@ -1001,7 +1099,7 @@ export function ShopCounterPage() {
               <div className="grid grid-cols-3 gap-1">
                 <button
                   type="button"
-                  onClick={() => { setTender('CASH'); invalidateQuote(); }}
+                  onClick={() => setTender('CASH')}
                   className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition ${
                     tender === 'CASH' ? 'bg-amber-800 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                   }`}
@@ -1010,7 +1108,7 @@ export function ShopCounterPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setTender('UPI'); invalidateQuote(); }}
+                  onClick={() => setTender('UPI')}
                   className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition ${
                     tender === 'UPI' ? 'bg-amber-800 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                   }`}
@@ -1019,7 +1117,7 @@ export function ShopCounterPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setTender('CARD'); invalidateQuote(); }}
+                  onClick={() => setTender('CARD')}
                   className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition ${
                     tender === 'CARD' ? 'bg-amber-800 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                   }`}
@@ -1033,7 +1131,7 @@ export function ShopCounterPage() {
                   <input
                     inputMode="decimal"
                     value={cashReceived}
-                    onChange={e => { setCashReceived(e.target.value); invalidateQuote(); }}
+                    onChange={e => setCashReceived(e.target.value)}
                     placeholder="Enter cash received (₹)"
                     className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:border-amber-600 focus:outline-none font-mono"
                   />
@@ -1049,7 +1147,7 @@ export function ShopCounterPage() {
               ) : (
                 <input
                   value={transactionReference}
-                  onChange={e => { setTransactionReference(e.target.value); invalidateQuote(); }}
+                  onChange={e => setTransactionReference(e.target.value)}
                   placeholder="Txn reference (optional)"
                   maxLength={200}
                   className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:border-amber-600 focus:outline-none"

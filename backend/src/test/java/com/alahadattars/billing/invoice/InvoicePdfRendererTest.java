@@ -25,11 +25,14 @@ class InvoicePdfRendererTest {
         try (PDDocument document = Loader.loadPDF(bytes)) {
             assertEquals(1, document.getNumberOfPages());
             String text = new PDFTextStripper().getText(document);
-            assertTrue(text.contains("INVOICE POS-0001"));
+            assertTrue(text.contains("AL AHAD ATTARS"));
+            assertTrue(text.contains("POS-0001"));
             assertTrue(text.contains("Rose Attar"));
-            assertTrue(text.contains("TOTAL: INR 900.00"));
-            assertTrue(text.contains("GST status: UNREGISTERED; tax mode: NO_GST."));
-            assertTrue(text.contains("Invoice wording approved for the test."));
+            assertTrue(text.contains("INR 900.00"));
+            assertTrue(text.contains("Thank you for shopping at Al Ahad Attars"));
+            assertFalse(text.contains("GST status"));
+            assertFalse(text.contains("tax mode"));
+            assertFalse(text.contains("Not a tax invoice"));
             assertFalse(text.contains("GST tax invoice"));
         }
     }
@@ -40,7 +43,12 @@ class InvoicePdfRendererTest {
 
         try (PDDocument document = Loader.loadPDF(bytes)) {
             assertEquals(1, document.getNumberOfPages());
-            assertTrue(new PDFTextStripper().getText(document).contains("Invoice wording approved"));
+            String text = new PDFTextStripper().getText(document);
+            assertTrue(text.contains("AL AHAD ATTARS"));
+            assertTrue(text.contains("POS-0001"));
+            assertTrue(text.contains("Rose Attar"));
+            assertFalse(text.contains("GST"));
+            assertFalse(text.contains("Not a tax invoice"));
             assertTrue(document.getPage(0).getMediaBox().getWidth() > 225f);
             assertTrue(document.getPage(0).getMediaBox().getWidth() < 228f);
         }

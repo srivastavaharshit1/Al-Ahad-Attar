@@ -160,7 +160,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="billing/reports" element={<BillingReports />} />
         </Route>
 
-        <Route path="/billing/*" element={<Navigate to="/admin/billing" replace />} />
+        <Route path="/billing/*" element={<Navigate to="/admin/shop-counter" replace />} />
       </Routes>
     </Suspense>
   );

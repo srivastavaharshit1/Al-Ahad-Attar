@@ -143,7 +143,7 @@ public class PosQuoteService {
             }
 
             Bottle bottle = line.bottleId() == null ? null : bottles.get(line.bottleId());
-            validateBottle(variant, product, bottle);
+            validateShopCounterBottle(variant, product, bottle);
 
             variantDemand.merge(variant.getId(), line.quantity(), Math::addExact);
             if (bottle != null) {
@@ -566,6 +566,27 @@ public class PosQuoteService {
     // =========================================================================
     // SHARED UTILITIES & VALIDATION
     // =========================================================================
+    private static void validateShopCounterBottle(ProductVariant variant, Product product, Bottle bottle) {
+        if (bottle == null) {
+            return; // In physical Shop Counter POS, bottle selection is strictly optional
+        }
+        if (!bottle.isActive()) {
+            throw new BadRequestException("Selected bottle is inactive.");
+        }
+        BottleApplicability applicability = bottle.getApplicability();
+        if (applicability == null) {
+            throw new BadRequestException("Selected bottle applicability is unavailable.");
+        }
+        if (applicability != BottleApplicability.BOTH) {
+            if (variant.getProductType() == ProductType.ATTAR && applicability != BottleApplicability.ATTAR) {
+                throw new BadRequestException("This bottle is not applicable for Attars.");
+            }
+            if (variant.getProductType() == ProductType.PERFUME && applicability != BottleApplicability.PERFUME) {
+                throw new BadRequestException("This bottle is not applicable for Perfumes.");
+            }
+        }
+    }
+
     private static void validateBottle(ProductVariant variant, Product product, Bottle bottle) {
         if (bottle == null) {
             if (requiresBottle(variant, product)) {
