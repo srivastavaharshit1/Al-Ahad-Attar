@@ -122,6 +122,88 @@ class InvoiceDeliveryJdbcRepositoryH2Test {
     }
 
     @Test
+    void checkConsentEligibility_evaluatesPriorOptInAndStatusCorrectly() {
+        // 1. No consent record -> Ineligible (CONSENT_REQUIRED)
+        var noConsent = repository.checkConsentEligibility(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210");
+        assertThat(noConsent).isInstanceOf(InvoiceDeliveryJdbcRepository.ConsentEligibility.Ineligible.class);
+        assertThat(((InvoiceDeliveryJdbcRepository.ConsentEligibility.Ineligible) noConsent).errorCode()).isEqualTo("CONSENT_REQUIRED");
+
+        // 2. Valid prior opt-in exists on earlier invoice (invoice 10)
+        jdbcTemplate.execute("INSERT INTO billing_invoice (id, invoice_number) VALUES (10, 'POS-2026-27-00010')");
+        jdbcTemplate.update("""
+                INSERT INTO billing_invoice_delivery_consent (
+                    invoice_id, channel, destination, consent_status, wording_version, captured_by_user_id
+                ) VALUES (10, 'WHATSAPP', '+919876543210', 'GRANTED', 'v1_pos_counter', 1)
+                """);
+
+        // Invoice 42 has no invoice-level row, but destination has valid prior opt-in
+        var priorOptIn = repository.checkConsentEligibility(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210");
+        assertThat(priorOptIn).isInstanceOf(InvoiceDeliveryJdbcRepository.ConsentEligibility.Eligible.class);
+
+        // Opt-in for a different destination -> Ineligible
+        var diffDest = repository.checkConsentEligibility(42L, InvoiceDeliveryChannel.WHATSAPP, "+919999999999");
+        assertThat(diffDest).isInstanceOf(InvoiceDeliveryJdbcRepository.ConsentEligibility.Ineligible.class);
+        assertThat(((InvoiceDeliveryJdbcRepository.ConsentEligibility.Ineligible) diffDest).errorCode()).isEqualTo("CONSENT_REQUIRED");
+
+        // 3. Explicit revocation on invoice 42 -> Ineligible (CONSENT_REVOKED)
+        jdbcTemplate.update("""
+                INSERT INTO billing_invoice_delivery_consent (
+                    invoice_id, channel, destination, consent_status, wording_version, captured_by_user_id
+                ) VALUES (42, 'WHATSAPP', '+919876543210', 'REVOKED', 'v1_pos_counter', 1)
+                """);
+        var revoked = repository.checkConsentEligibility(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210");
+        assertThat(revoked).isInstanceOf(InvoiceDeliveryJdbcRepository.ConsentEligibility.Ineligible.class);
+        assertThat(((InvoiceDeliveryJdbcRepository.ConsentEligibility.Ineligible) revoked).errorCode()).isEqualTo("CONSENT_REVOKED");
+
+        // 4. Declined consent on invoice 42 -> Ineligible (CONSENT_DECLINED)
+        jdbcTemplate.update("""
+                UPDATE billing_invoice_delivery_consent
+                SET consent_status = 'DECLINED'
+                WHERE invoice_id = 42 AND channel = 'WHATSAPP'
+                """);
+        var declined = repository.checkConsentEligibility(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210");
+        assertThat(declined).isInstanceOf(InvoiceDeliveryJdbcRepository.ConsentEligibility.Ineligible.class);
+        assertThat(((InvoiceDeliveryJdbcRepository.ConsentEligibility.Ineligible) declined).errorCode()).isEqualTo("CONSENT_DECLINED");
+
+        // 5. Invoice 42 granted for a different destination -> Ineligible (CONSENT_DESTINATION_MISMATCH)
+        jdbcTemplate.update("""
+                UPDATE billing_invoice_delivery_consent
+                SET consent_status = 'GRANTED', destination = '+911111111111'
+                WHERE invoice_id = 42 AND channel = 'WHATSAPP'
+                """);
+        var mismatch = repository.checkConsentEligibility(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210");
+        assertThat(mismatch).isInstanceOf(InvoiceDeliveryJdbcRepository.ConsentEligibility.Ineligible.class);
+        assertThat(((InvoiceDeliveryJdbcRepository.ConsentEligibility.Ineligible) mismatch).errorCode()).isEqualTo("CONSENT_DESTINATION_MISMATCH");
+    }
+
+    @Test
+    void prepareImmediateJob_enforcesConsentEligibilityBeforeClaimingJob() {
+        // 1. Missing consent -> prepareImmediateJob returns Terminal with SKIPPED_NO_CONSENT
+        var res1 = repository.prepareImmediateJob(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210",
+                1L, "idem-prep-1", true, true, sampleInvoice());
+        assertThat(res1).isInstanceOf(InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Terminal.class);
+        var view1 = ((InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Terminal) res1).view();
+        assertThat(view1.status()).isEqualTo(InvoiceDeliveryStatus.SKIPPED_NO_CONSENT);
+        assertThat(view1.lastErrorCode()).isEqualTo("CONSENT_REQUIRED");
+
+        // 2. Insert valid prior opt-in on invoice 10 for +919876543210
+        jdbcTemplate.execute("INSERT INTO billing_invoice (id, invoice_number) VALUES (10, 'POS-2026-27-00010')");
+        jdbcTemplate.update("""
+                INSERT INTO billing_invoice_delivery_consent (
+                    invoice_id, channel, destination, consent_status, wording_version, captured_by_user_id
+                ) VALUES (10, 'WHATSAPP', '+919876543210', 'GRANTED', 'v1_pos_counter', 1)
+                """);
+
+        // 3. Now prepareImmediateJob with prior opt-in successfully claims the job
+        var res2 = repository.prepareImmediateJob(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210",
+                1L, "idem-prep-2", true, true, sampleInvoice());
+        assertThat(res2).isInstanceOf(InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Claimed.class);
+        var job = ((InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Claimed) res2).job();
+        assertThat(job.invoiceId()).isEqualTo(42L);
+        assertThat(job.destination()).isEqualTo("+919876543210");
+    }
+
+    @Test
     void consentStillGranted_checksStatusAndDestination() {
         // 1. Missing consent -> false
         assertThat(repository.consentStillGranted(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210")).isFalse();
@@ -156,7 +238,7 @@ class InvoiceDeliveryJdbcRepositoryH2Test {
 
     @Test
     void isConsentExplicitlyRevokedOrDeclined_checksRevocation() {
-        // 1. No consent record -> false (eligible for transactional utility dispatch)
+        // 1. No consent record -> false (not revoked or declined; missing opt-in)
         assertThat(repository.isConsentExplicitlyRevokedOrDeclined(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210")).isFalse();
 
         // 2. Insert GRANTED consent -> false

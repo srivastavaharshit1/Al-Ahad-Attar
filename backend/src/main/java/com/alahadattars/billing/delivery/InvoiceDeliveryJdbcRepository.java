@@ -265,22 +265,84 @@ public class InvoiceDeliveryJdbcRepository {
         return jobs;
     }
 
+    public sealed interface ConsentEligibility {
+        record Eligible() implements ConsentEligibility {}
+        record Ineligible(String errorCode, String reason) implements ConsentEligibility {}
+    }
+
+    public ConsentEligibility checkConsentEligibility(long invoiceId, InvoiceDeliveryChannel channel, String destination) {
+        // 1. Check invoice-level consent record first
+        List<ConsentRecord> invoiceConsents = jdbcTemplate.query("""
+                SELECT consent_status, destination FROM billing_invoice_delivery_consent
+                WHERE invoice_id = ? AND channel = ?
+                """, (rs, rowNum) -> new ConsentRecord(rs.getString("consent_status"), rs.getString("destination")),
+                invoiceId, channel.name());
+
+        if (!invoiceConsents.isEmpty()) {
+            ConsentRecord record = invoiceConsents.get(0);
+            if ("REVOKED".equals(record.status())) {
+                return new ConsentEligibility.Ineligible("CONSENT_REVOKED",
+                        "Customer has explicitly revoked WhatsApp delivery consent for this invoice");
+            }
+            if ("DECLINED".equals(record.status())) {
+                return new ConsentEligibility.Ineligible("CONSENT_DECLINED",
+                        "Customer has explicitly declined WhatsApp delivery consent for this invoice");
+            }
+            if ("GRANTED".equals(record.status())) {
+                if (destination != null && !destination.isBlank() && !destination.equals(record.destination())) {
+                    return new ConsentEligibility.Ineligible("CONSENT_DESTINATION_MISMATCH",
+                            "WhatsApp opt-in was recorded for a different destination number");
+                }
+                return new ConsentEligibility.Eligible();
+            }
+            return new ConsentEligibility.Ineligible("CONSENT_NOT_ACTIVE", "Consent is not currently active");
+        }
+
+        // 2. If no record for this invoice, check for a valid prior opt-in for this destination across previous records
+        if (destination != null && !destination.isBlank()) {
+            List<ConsentRecord> priorConsents = jdbcTemplate.query("""
+                    SELECT consent_status, destination FROM billing_invoice_delivery_consent
+                    WHERE channel = ? AND destination = ?
+                    ORDER BY captured_at DESC, id DESC
+                    LIMIT 1
+                    """, (rs, rowNum) -> new ConsentRecord(rs.getString("consent_status"), rs.getString("destination")),
+                    channel.name(), destination);
+
+            if (!priorConsents.isEmpty()) {
+                ConsentRecord record = priorConsents.get(0);
+                if ("REVOKED".equals(record.status())) {
+                    return new ConsentEligibility.Ineligible("CONSENT_REVOKED",
+                            "Customer has explicitly revoked WhatsApp delivery consent for this destination");
+                }
+                if ("DECLINED".equals(record.status())) {
+                    return new ConsentEligibility.Ineligible("CONSENT_DECLINED",
+                            "Customer has explicitly declined WhatsApp delivery consent for this destination");
+                }
+                if ("GRANTED".equals(record.status())) {
+                    return new ConsentEligibility.Eligible();
+                }
+                return new ConsentEligibility.Ineligible("CONSENT_NOT_ACTIVE", "Consent is not currently active");
+            }
+        }
+
+        // 3. No consent record exists for this invoice or destination
+        return new ConsentEligibility.Ineligible("CONSENT_REQUIRED",
+                "Explicit affirmative customer consent is required before sending WhatsApp invoice");
+    }
+
     public boolean consentStillGranted(long invoiceId, InvoiceDeliveryChannel channel, String destination) {
-        Integer count = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*) FROM billing_invoice_delivery_consent
-                WHERE invoice_id = ? AND channel = ? AND consent_status = 'GRANTED' AND destination = ?
-                """, Integer.class, invoiceId, channel.name(), destination);
-        return count != null && count > 0;
+        return checkConsentEligibility(invoiceId, channel, destination) instanceof ConsentEligibility.Eligible;
     }
 
     public boolean isConsentExplicitlyRevokedOrDeclined(long invoiceId, InvoiceDeliveryChannel channel, String destination) {
-        Integer count = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*) FROM billing_invoice_delivery_consent
-                WHERE invoice_id = ? AND channel = ? AND consent_status IN ('REVOKED', 'DECLINED')
-                  AND (destination = ? OR destination = '')
-                """, Integer.class, invoiceId, channel.name(), destination);
-        return count != null && count > 0;
+        ConsentEligibility eligibility = checkConsentEligibility(invoiceId, channel, destination);
+        if (eligibility instanceof ConsentEligibility.Ineligible ineligible) {
+            return "CONSENT_REVOKED".equals(ineligible.errorCode()) || "CONSENT_DECLINED".equals(ineligible.errorCode());
+        }
+        return false;
     }
+
+    private record ConsentRecord(String status, String destination) {}
 
     @Transactional
     public void complete(InvoiceDeliveryJob job, InvoiceDeliveryStatus status, String providerMessageId,
@@ -322,15 +384,18 @@ public class InvoiceDeliveryJdbcRepository {
             return existing.get().view();
         }
         UUID deliveryKey = UUID.randomUUID();
-        jdbcTemplate.update("""
-                INSERT INTO billing_invoice_delivery (
-                    delivery_key, idempotency_key, invoice_id, channel, destination_snapshot, status,
-                    attempt_count, last_error_code, last_error_summary, requested_by_user_id,
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, 'SKIPPED_NO_CONSENT', 0, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                ON CONFLICT (idempotency_key) DO NOTHING
-                """, deliveryKey, idempotencyKey, invoiceId, channel.name(), destination,
-                errorCode, truncate(errorSummary, 500), actorUserId);
+        try {
+            jdbcTemplate.update("""
+                    INSERT INTO billing_invoice_delivery (
+                        delivery_key, idempotency_key, invoice_id, channel, destination_snapshot, status,
+                        attempt_count, last_error_code, last_error_summary, requested_by_user_id,
+                        created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, 'SKIPPED_NO_CONSENT', 0, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """, deliveryKey, idempotencyKey, invoiceId, channel.name(), destination,
+                    errorCode, truncate(errorSummary, 500), actorUserId);
+        } catch (org.springframework.dao.DuplicateKeyException ignored) {
+            // Concurrently recorded with the same idempotency key
+        }
         return findByIdempotencyKey(idempotencyKey).orElseThrow().view();
     }
 
@@ -343,15 +408,18 @@ public class InvoiceDeliveryJdbcRepository {
             return existing.get().view();
         }
         UUID deliveryKey = UUID.randomUUID();
-        jdbcTemplate.update("""
-                INSERT INTO billing_invoice_delivery (
-                    delivery_key, idempotency_key, invoice_id, channel, destination_snapshot, status,
-                    attempt_count, last_error_code, last_error_summary, requested_by_user_id,
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, 'BLOCKED_CONFIGURATION', 0, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                ON CONFLICT (idempotency_key) DO NOTHING
-                """, deliveryKey, idempotencyKey, invoiceId, channel.name(), destination,
-                errorCode, truncate(errorSummary, 500), actorUserId);
+        try {
+            jdbcTemplate.update("""
+                    INSERT INTO billing_invoice_delivery (
+                        delivery_key, idempotency_key, invoice_id, channel, destination_snapshot, status,
+                        attempt_count, last_error_code, last_error_summary, requested_by_user_id,
+                        created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, 'BLOCKED_CONFIGURATION', 0, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """, deliveryKey, idempotencyKey, invoiceId, channel.name(), destination,
+                    errorCode, truncate(errorSummary, 500), actorUserId);
+        } catch (org.springframework.dao.DuplicateKeyException ignored) {
+            // Concurrently recorded with the same idempotency key
+        }
         return findByIdempotencyKey(idempotencyKey).orElseThrow().view();
     }
 
@@ -364,15 +432,18 @@ public class InvoiceDeliveryJdbcRepository {
             return existing.get().view();
         }
         UUID deliveryKey = UUID.randomUUID();
-        jdbcTemplate.update("""
-                INSERT INTO billing_invoice_delivery (
-                    delivery_key, idempotency_key, invoice_id, channel, destination_snapshot, status,
-                    attempt_count, last_error_code, last_error_summary, requested_by_user_id,
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, 'FAILED', 1, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                ON CONFLICT (idempotency_key) DO NOTHING
-                """, deliveryKey, idempotencyKey, invoiceId, channel.name(), destination,
-                errorCode, truncate(errorSummary, 500), actorUserId);
+        try {
+            jdbcTemplate.update("""
+                    INSERT INTO billing_invoice_delivery (
+                        delivery_key, idempotency_key, invoice_id, channel, destination_snapshot, status,
+                        attempt_count, last_error_code, last_error_summary, requested_by_user_id,
+                        created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, 'FAILED', 1, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """, deliveryKey, idempotencyKey, invoiceId, channel.name(), destination,
+                    errorCode, truncate(errorSummary, 500), actorUserId);
+        } catch (org.springframework.dao.DuplicateKeyException ignored) {
+            // Concurrently recorded with the same idempotency key
+        }
         return findByIdempotencyKey(idempotencyKey).orElseThrow().view();
     }
 
@@ -424,11 +495,11 @@ public class InvoiceDeliveryJdbcRepository {
             }
         }
 
-        // 4. Messaging eligibility: verify customer has not revoked or declined consent
-        if (isConsentExplicitlyRevokedOrDeclined(invoiceId, channel, destination)) {
+        // 4. Messaging eligibility: affirmative consent verification
+        ConsentEligibility eligibility = checkConsentEligibility(invoiceId, channel, destination);
+        if (eligibility instanceof ConsentEligibility.Ineligible ineligible) {
             InvoiceDeliveryView view = recordBlockedConsent(invoiceId, channel, destination,
-                    actorUserId, idempotencyKey, "CONSENT_REVOKED",
-                    "Customer has explicitly revoked or declined WhatsApp delivery for this invoice");
+                    actorUserId, idempotencyKey, ineligible.errorCode(), ineligible.reason());
             return new ImmediateClaimResult.Terminal(view);
         }
 
