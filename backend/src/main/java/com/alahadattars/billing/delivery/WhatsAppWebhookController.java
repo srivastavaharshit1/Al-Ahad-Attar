@@ -71,8 +71,14 @@ public class WhatsAppWebhookController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Invalid signature"));
         }
 
-        processPayload(rawPayload);
-        return ResponseEntity.ok(Map.of("status", "EVENT_RECEIVED"));
+        try {
+            processPayload(rawPayload);
+            return ResponseEntity.ok(Map.of("status", "EVENT_RECEIVED"));
+        } catch (Exception e) {
+            log.error("Failed to process WhatsApp webhook payload", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to process webhook event: " + e.getMessage()));
+        }
     }
 
     public static boolean isValidSignature(byte[] payload, String signatureHeader, String appSecret) {
@@ -98,34 +104,30 @@ public class WhatsAppWebhookController {
         }
     }
 
-    private void processPayload(byte[] rawPayload) {
-        try {
-            JsonNode root = objectMapper.readTree(rawPayload);
-            JsonNode entries = root.path("entry");
-            if (!entries.isArray()) {
-                return;
+    private void processPayload(byte[] rawPayload) throws Exception {
+        JsonNode root = objectMapper.readTree(rawPayload);
+        JsonNode entries = root.path("entry");
+        if (!entries.isArray()) {
+            return;
+        }
+        for (JsonNode entry : entries) {
+            JsonNode changes = entry.path("changes");
+            if (!changes.isArray()) {
+                continue;
             }
-            for (JsonNode entry : entries) {
-                JsonNode changes = entry.path("changes");
-                if (!changes.isArray()) {
-                    continue;
-                }
-                for (JsonNode change : changes) {
-                    JsonNode value = change.path("value");
-                    JsonNode statuses = value.path("statuses");
-                    if (statuses.isArray()) {
-                        for (JsonNode statusNode : statuses) {
-                            String messageId = statusNode.path("id").asText(null);
-                            String status = statusNode.path("status").asText("");
-                            if (messageId != null && !messageId.isBlank()) {
-                                handleStatus(messageId, status, statusNode);
-                            }
+            for (JsonNode change : changes) {
+                JsonNode value = change.path("value");
+                JsonNode statuses = value.path("statuses");
+                if (statuses.isArray()) {
+                    for (JsonNode statusNode : statuses) {
+                        String messageId = statusNode.path("id").asText(null);
+                        String status = statusNode.path("status").asText("");
+                        if (messageId != null && !messageId.isBlank()) {
+                            handleStatus(messageId, status, statusNode);
                         }
                     }
                 }
             }
-        } catch (Exception e) {
-            log.error("Error processing WhatsApp webhook payload", e);
         }
     }
 

@@ -138,13 +138,16 @@ export function ShopCounterPage() {
   const [uncommittedConfirmed, setUncommittedConfirmed] = useState(false);
   const [finalizeError, setFinalizeError] = useState('');
   const [finalSale, setFinalSale] = useState<PosSaleFinalizeResponse | null>(null);
+  const [customerConsentGranted, setCustomerConsentGranted] = useState(false);
   const [whatsAppDelivery, setWhatsAppDelivery] = useState<{
-    status: 'IDLE' | 'SENDING' | 'PROVIDER_ACCEPTED' | 'DELIVERED' | 'FAILED' | 'BLOCKED_CONFIGURATION';
+    status: 'IDLE' | 'SENDING' | 'PROVIDER_ACCEPTED' | 'DELIVERED' | 'FAILED' | 'BLOCKED_CONFIGURATION' | 'SKIPPED_NO_CONSENT' | 'AMBIGUOUS';
     message: string;
     providerMessageId?: string;
     destination?: string;
     canRetry?: boolean;
+    canRefresh?: boolean;
   } | null>(null);
+  const deliveryIdempotencyKeyRef = useRef<string | null>(null);
   const deliveryPollingTimer = useRef<number | null>(null);
 
   const quoteRequestSequence = useRef(0);
@@ -536,6 +539,134 @@ export function ShopCounterPage() {
     };
   }, []);
 
+  const applyDeliveryStatus = (delivery: {
+    status: string;
+    destination?: string;
+    providerMessageId?: string | null;
+    lastErrorCode?: string | null;
+    lastErrorSummary?: string | null;
+  }, targetPhone: string) => {
+    const dest = delivery.destination || targetPhone;
+    if (delivery.status === 'DELIVERED') {
+      setWhatsAppDelivery({
+        status: 'DELIVERED',
+        message: 'Invoice PDF has been confirmed delivered to the customer\'s WhatsApp device.',
+        providerMessageId: delivery.providerMessageId || undefined,
+        destination: dest,
+        canRetry: false,
+        canRefresh: true,
+      });
+    } else if (delivery.status === 'PROVIDER_ACCEPTED') {
+      setWhatsAppDelivery({
+        status: 'PROVIDER_ACCEPTED',
+        message: 'Invoice PDF accepted by Meta WhatsApp Cloud API. Awaiting recipient delivery confirmation...',
+        providerMessageId: delivery.providerMessageId || undefined,
+        destination: dest,
+        canRetry: false,
+        canRefresh: true,
+      });
+    } else if (delivery.status === 'AMBIGUOUS') {
+      setWhatsAppDelivery({
+        status: 'AMBIGUOUS',
+        message: 'Delivery outcome is uncertain (request timed out or transport interrupted). Meta may have received this message. Please click \'Refresh Status\' to reconcile before attempting a new send.',
+        providerMessageId: delivery.providerMessageId || undefined,
+        destination: dest,
+        canRetry: false,
+        canRefresh: true,
+      });
+    } else if (delivery.status === 'SKIPPED_NO_CONSENT') {
+      setWhatsAppDelivery({
+        status: 'SKIPPED_NO_CONSENT',
+        message: delivery.lastErrorSummary || 'Customer affirmative consent has not been granted for this destination.',
+        destination: dest,
+        canRetry: true,
+        canRefresh: true,
+      });
+    } else if (delivery.status === 'BLOCKED_CONFIGURATION') {
+      setWhatsAppDelivery({
+        status: 'BLOCKED_CONFIGURATION',
+        message: delivery.lastErrorSummary || 'WhatsApp Cloud API is not configured on the server.',
+        destination: dest,
+        canRetry: false,
+        canRefresh: true,
+      });
+    } else {
+      setWhatsAppDelivery({
+        status: 'FAILED',
+        message: `Delivery failed: ${delivery.lastErrorSummary || delivery.lastErrorCode || 'Meta rejected the invoice delivery request.'}`,
+        providerMessageId: delivery.providerMessageId || undefined,
+        destination: dest,
+        canRetry: true,
+        canRefresh: true,
+      });
+    }
+  };
+
+  const startDeliveryPolling = (invoiceId: number) => {
+    if (deliveryPollingTimer.current) {
+      window.clearInterval(deliveryPollingTimer.current);
+      deliveryPollingTimer.current = null;
+    }
+
+    let elapsedSeconds = 0;
+    const pollIntervalMs = 3000;
+    const maxSeconds = 90;
+
+    deliveryPollingTimer.current = window.setInterval(async () => {
+      elapsedSeconds += pollIntervalMs / 1000;
+      try {
+        const deliveries = await billingService.getDeliveries(invoiceId);
+        const latest = deliveries.find((d) => d.channel === 'WHATSAPP');
+        if (latest) {
+          applyDeliveryStatus(latest, latest.destination);
+          if (
+            latest.status === 'DELIVERED' ||
+            latest.status === 'FAILED' ||
+            latest.status === 'BLOCKED_CONFIGURATION' ||
+            latest.status === 'SKIPPED_NO_CONSENT'
+          ) {
+            if (deliveryPollingTimer.current) {
+              window.clearInterval(deliveryPollingTimer.current);
+              deliveryPollingTimer.current = null;
+            }
+            return;
+          }
+        }
+      } catch {
+        // Ignore polling errors
+      }
+
+      if (elapsedSeconds >= maxSeconds) {
+        if (deliveryPollingTimer.current) {
+          window.clearInterval(deliveryPollingTimer.current);
+          deliveryPollingTimer.current = null;
+        }
+        setWhatsAppDelivery((prev) =>
+          prev
+            ? {
+                ...prev,
+                canRefresh: true,
+                message: `${prev.message} (Polling paused. Click 'Refresh Delivery Status' to check latest webhook status).`,
+              }
+            : null
+        );
+      }
+    }, pollIntervalMs);
+  };
+
+  const refreshDeliveryStatus = async () => {
+    if (!finalSale) return;
+    try {
+      const deliveries = await billingService.getDeliveries(finalSale.invoiceId);
+      const latest = deliveries.find((d) => d.channel === 'WHATSAPP');
+      if (latest) {
+        applyDeliveryStatus(latest, latest.destination);
+      }
+    } catch (err) {
+      console.error('Failed to refresh delivery status:', err);
+    }
+  };
+
   const sendWhatsAppInvoice = async () => {
     if (!finalSale || whatsAppDelivery?.status === 'SENDING') return;
 
@@ -565,95 +696,53 @@ export function ShopCounterPage() {
       ? `+91${targetPhone}`
       : (targetPhone.startsWith('91') && targetPhone.length === 12 ? `+${targetPhone}` : `+${targetPhone}`);
 
+    if (!customerConsentGranted) {
+      setWhatsAppDelivery({
+        status: 'SKIPPED_NO_CONSENT',
+        message: 'Affirmative customer consent is required before sending WhatsApp invoice. Please check the affirmative consent box.',
+        canRetry: true,
+        destination: formattedPhone,
+      });
+      return;
+    }
+
+    if (!deliveryIdempotencyKeyRef.current) {
+      deliveryIdempotencyKeyRef.current = `pos-inv-${finalSale.invoiceId}-wa-${Date.now()}`;
+    }
+    const currentKey = deliveryIdempotencyKeyRef.current;
+
     setWhatsAppDelivery({
       status: 'SENDING',
-      message: `Uploading invoice PDF and dispatching to WhatsApp (${formattedPhone})…`,
+      message: `Recording affirmative consent and dispatching invoice PDF to WhatsApp (${formattedPhone})...`,
       destination: formattedPhone,
+      canRefresh: false,
     });
 
     try {
-      const delivery = await billingService.sendWhatsAppInvoice(finalSale.invoiceId, formattedPhone);
+      await billingService.saveConsent(
+        finalSale.invoiceId,
+        'WHATSAPP',
+        formattedPhone,
+        'GRANTED',
+        'v1_pos_counter'
+      );
+
+      const delivery = await billingService.sendWhatsAppInvoice(finalSale.invoiceId, formattedPhone, currentKey);
+      applyDeliveryStatus(delivery, formattedPhone);
 
       if (delivery.status === 'PROVIDER_ACCEPTED') {
-        setWhatsAppDelivery({
-          status: 'PROVIDER_ACCEPTED',
-          message: `Invoice PDF accepted by Meta WhatsApp Cloud API. Awaiting recipient delivery confirmation…`,
-          providerMessageId: delivery.providerMessageId || undefined,
-          destination: formattedPhone,
-        });
-
-        let pollCount = 0;
-        const maxPolls = 10;
-        deliveryPollingTimer.current = window.setInterval(async () => {
-          pollCount++;
-          try {
-            const deliveries = await billingService.getDeliveries(finalSale.invoiceId);
-            const latest = deliveries.find((d) => d.channel === 'WHATSAPP');
-            if (latest) {
-              if (latest.status === 'DELIVERED') {
-                setWhatsAppDelivery({
-                  status: 'DELIVERED',
-                  message: `Invoice PDF successfully delivered to customer's WhatsApp device!`,
-                  providerMessageId: latest.providerMessageId || undefined,
-                  destination: latest.destination,
-                });
-                if (deliveryPollingTimer.current) {
-                  window.clearInterval(deliveryPollingTimer.current);
-                  deliveryPollingTimer.current = null;
-                }
-              } else if (latest.status === 'FAILED') {
-                setWhatsAppDelivery({
-                  status: 'FAILED',
-                  message: `Delivery failed: ${latest.lastErrorSummary || latest.lastErrorCode || 'Recipient could not be reached.'}`,
-                  canRetry: true,
-                  destination: latest.destination,
-                });
-                if (deliveryPollingTimer.current) {
-                  window.clearInterval(deliveryPollingTimer.current);
-                  deliveryPollingTimer.current = null;
-                }
-              }
-            }
-          } catch {
-            // Ignore polling errors
-          }
-
-          if (pollCount >= maxPolls && deliveryPollingTimer.current) {
-            window.clearInterval(deliveryPollingTimer.current);
-            deliveryPollingTimer.current = null;
-          }
-        }, 2000);
-
-      } else if (delivery.status === 'DELIVERED') {
-        setWhatsAppDelivery({
-          status: 'DELIVERED',
-          message: `Invoice PDF successfully delivered to customer's WhatsApp device!`,
-          providerMessageId: delivery.providerMessageId || undefined,
-          destination: formattedPhone,
-        });
-      } else if (delivery.status === 'BLOCKED_CONFIGURATION') {
-        setWhatsAppDelivery({
-          status: 'BLOCKED_CONFIGURATION',
-          message: delivery.lastErrorSummary || 'WhatsApp Cloud API is not configured on the server. You can download or print the invoice PDF manually.',
-          canRetry: false,
-        });
-      } else {
-        setWhatsAppDelivery({
-          status: 'FAILED',
-          message: delivery.lastErrorSummary || delivery.lastErrorCode || 'Meta rejected the invoice delivery request.',
-          canRetry: true,
-          destination: formattedPhone,
-        });
+        startDeliveryPolling(finalSale.invoiceId);
       }
     } catch (err: unknown) {
       console.error('Failed to trigger automatic WhatsApp delivery:', err);
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      const errMsg = axiosErr.response?.data?.message || 'Failed to dispatch invoice PDF to WhatsApp. Check network or server configuration.';
+      const axiosErr = err as { response?: { data?: { message?: string; error?: string } } };
+      const errMsg = axiosErr.response?.data?.message || axiosErr.response?.data?.error || 'Failed to dispatch invoice PDF to WhatsApp. Check network or server configuration.';
       setWhatsAppDelivery({
         status: 'FAILED',
         message: errMsg,
         canRetry: true,
         destination: formattedPhone,
+        canRefresh: true,
       });
     }
   };
@@ -663,6 +752,8 @@ export function ShopCounterPage() {
       window.clearInterval(deliveryPollingTimer.current);
       deliveryPollingTimer.current = null;
     }
+    deliveryIdempotencyKeyRef.current = null;
+    setCustomerConsentGranted(false);
     setLines([]);
     setQuote(null);
     setFinalSale(null);
@@ -721,6 +812,38 @@ export function ShopCounterPage() {
             <div><dt className="text-slate-500">Reference</dt><dd className="font-mono text-[11px] truncate">{finalSale.saleKey}</dd></div>
           </dl>
 
+          {/* Explicit Affirmative WhatsApp Consent Card */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-1.5">
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                id="whatsapp-consent-checkbox"
+                checked={customerConsentGranted}
+                onChange={(e) => setCustomerConsentGranted(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+              />
+              <div className="text-xs leading-relaxed text-slate-700">
+                <span className="font-semibold text-slate-900">Affirmative WhatsApp Consent Required: </span>
+                Customer at store counter affirmatively consented to receive their official invoice PDF on WhatsApp at{' '}
+                <span className="font-mono font-medium text-slate-900">
+                  {customerMobile
+                    ? (customerMobile.startsWith('+')
+                        ? customerMobile
+                        : customerMobile.length === 10
+                        ? `+91 ${customerMobile}`
+                        : `+${customerMobile}`)
+                    : 'customer mobile'}
+                </span>
+                .
+              </div>
+            </label>
+            {!customerConsentGranted && (
+              <p className="text-[11px] text-amber-800 ml-7">
+                * Note: Per Al Ahad Attars policy, WhatsApp delivery is disabled until customer gives affirmative verbal opt-in.
+              </p>
+            )}
+          </div>
+
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
             <div className="flex flex-wrap gap-2">
               <button
@@ -761,10 +884,20 @@ export function ShopCounterPage() {
                     : whatsAppDelivery?.status === 'DELIVERED'
                     ? 'Delivered on WhatsApp'
                     : whatsAppDelivery?.status === 'PROVIDER_ACCEPTED'
-                    ? 'Sent to WhatsApp'
+                    ? 'Sent to WhatsApp (Accepted)'
                     : 'Send Invoice on WhatsApp'}
                 </span>
               </button>
+              {whatsAppDelivery && (
+                <button
+                  type="button"
+                  onClick={() => void refreshDeliveryStatus()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
+                  title="Query latest delivery status from server"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> Refresh Status
+                </button>
+              )}
             </div>
             <button
               type="button"
@@ -777,16 +910,20 @@ export function ShopCounterPage() {
 
           {whatsAppDelivery && (
             <div
-              className={`rounded-xl border p-3 text-xs flex items-start gap-2.5 transition-all ${
+              className={`rounded-xl border p-3.5 text-xs flex items-start gap-2.5 transition-all ${
                 whatsAppDelivery.status === 'DELIVERED'
-                  ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-950'
                   : whatsAppDelivery.status === 'PROVIDER_ACCEPTED'
-                  ? 'border-blue-300 bg-blue-50 text-blue-900'
+                  ? 'border-blue-300 bg-blue-50 text-blue-950'
                   : whatsAppDelivery.status === 'SENDING'
-                  ? 'border-amber-300 bg-amber-50 text-amber-900'
+                  ? 'border-amber-300 bg-amber-50 text-amber-950'
+                  : whatsAppDelivery.status === 'AMBIGUOUS'
+                  ? 'border-amber-400 bg-amber-50 text-amber-950'
+                  : whatsAppDelivery.status === 'SKIPPED_NO_CONSENT'
+                  ? 'border-slate-300 bg-slate-50 text-slate-900'
                   : whatsAppDelivery.status === 'BLOCKED_CONFIGURATION'
                   ? 'border-slate-300 bg-slate-50 text-slate-800'
-                  : 'border-red-300 bg-red-50 text-red-900'
+                  : 'border-red-300 bg-red-50 text-red-950'
               }`}
             >
               {whatsAppDelivery.status === 'DELIVERED' && (
@@ -797,6 +934,12 @@ export function ShopCounterPage() {
               )}
               {whatsAppDelivery.status === 'SENDING' && (
                 <LoaderCircle className="h-4 w-4 text-amber-600 animate-spin shrink-0 mt-0.5" />
+              )}
+              {whatsAppDelivery.status === 'AMBIGUOUS' && (
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              )}
+              {whatsAppDelivery.status === 'SKIPPED_NO_CONSENT' && (
+                <AlertTriangle className="h-4 w-4 text-slate-600 shrink-0 mt-0.5" />
               )}
               {whatsAppDelivery.status === 'BLOCKED_CONFIGURATION' && (
                 <AlertTriangle className="h-4 w-4 text-slate-600 shrink-0 mt-0.5" />
@@ -812,6 +955,10 @@ export function ShopCounterPage() {
                     ? 'Sent to WhatsApp · Accepted by Meta'
                     : whatsAppDelivery.status === 'SENDING'
                     ? 'Sending Automatic WhatsApp Invoice…'
+                    : whatsAppDelivery.status === 'AMBIGUOUS'
+                    ? 'Delivery Outcome Uncertain (Ambiguous)'
+                    : whatsAppDelivery.status === 'SKIPPED_NO_CONSENT'
+                    ? 'Customer Consent Required'
                     : whatsAppDelivery.status === 'BLOCKED_CONFIGURATION'
                     ? 'WhatsApp Delivery Not Configured'
                     : 'Delivery Failed'}
@@ -823,15 +970,26 @@ export function ShopCounterPage() {
                   </p>
                 )}
               </div>
-              {whatsAppDelivery.canRetry && (
-                <button
-                  type="button"
-                  onClick={() => void sendWhatsAppInvoice()}
-                  className="ml-2 inline-flex items-center gap-1 rounded bg-red-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-red-700 shadow-xs shrink-0"
-                >
-                  <RotateCcw className="h-3 w-3" /> Retry
-                </button>
-              )}
+              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                {whatsAppDelivery.canRefresh && (
+                  <button
+                    type="button"
+                    onClick={() => void refreshDeliveryStatus()}
+                    className="inline-flex items-center gap-1 rounded bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-200 border border-slate-300 shadow-2xs"
+                  >
+                    <RefreshCw className="h-3 w-3" /> Refresh
+                  </button>
+                )}
+                {whatsAppDelivery.canRetry && (
+                  <button
+                    type="button"
+                    onClick={() => void sendWhatsAppInvoice()}
+                    className="inline-flex items-center gap-1 rounded bg-red-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-red-700 shadow-2xs"
+                  >
+                    <RotateCcw className="h-3 w-3" /> Retry
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

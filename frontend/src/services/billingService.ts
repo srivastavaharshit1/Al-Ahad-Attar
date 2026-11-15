@@ -64,7 +64,7 @@ export const billingService = {
       {
         params: phone ? { phone } : undefined,
         headers: {
-          'Idempotency-Key': idempotencyKey || crypto.randomUUID(),
+          ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
           'Cache-Control': 'no-store',
         },
       },

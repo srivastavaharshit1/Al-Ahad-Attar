@@ -81,7 +81,6 @@ public class InvoiceDeliveryService {
         return deliveryRepository.findConsents(invoiceId);
     }
 
-    @Transactional
     @PreAuthorize("hasRole('ADMIN')")
     public InvoiceDeliveryView sendImmediate(
             AuthenticatedBillingAdmin actor,
@@ -89,7 +88,8 @@ public class InvoiceDeliveryService {
             InvoiceDeliveryChannel channel,
             String idempotencyKey,
             String phoneOverride) {
-        requireInvoice(invoiceId);
+        InvoiceListItem invoice = invoiceRepository.findHistoryItem(invoiceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invoice not found"));
         if (channel != InvoiceDeliveryChannel.WHATSAPP) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Immediate sending is currently supported for WhatsApp");
         }
@@ -98,44 +98,36 @@ public class InvoiceDeliveryService {
         }
 
         String destination = resolveAndValidateDestination(invoiceId, phoneOverride);
-        recordConsentIfMissing(actor, invoiceId, channel, destination);
-
-        Optional<InvoiceDeliveryJdbcRepository.StoredDelivery> existing = deliveryRepository.findByIdempotencyKey(idempotencyKey);
-        if (existing.isPresent()) {
-            InvoiceDeliveryView existingView = existing.get().view();
-            if (existingView.status() == InvoiceDeliveryStatus.PROVIDER_ACCEPTED
-                    || existingView.status() == InvoiceDeliveryStatus.DELIVERED
-                    || existingView.status() == InvoiceDeliveryStatus.PROCESSING) {
-                return existingView;
-            }
-        }
 
         InvoiceChannelSender sender = senders.get(channel);
-        if (sender == null || !sender.isAvailable()) {
-            return deliveryRepository.recordBlockedConfiguration(invoiceId, channel, destination,
-                    actor.userId(), idempotencyKey, "WHATSAPP_NOT_CONFIGURED",
-                    "Invoice WhatsApp delivery is not configured on the server");
+        boolean senderAvailable = sender != null && sender.isAvailable();
+        Optional<InvoicePdfDocument> pdfDoc = invoiceRepository.findPdf(invoiceId, InvoicePaperFormat.A4);
+
+        // Phase 1: Claim delivery job in a short transaction with row-level serialization and affirmative consent check
+        InvoiceDeliveryJdbcRepository.ImmediateClaimResult claimResult = deliveryRepository.prepareImmediateJob(
+                invoiceId, channel, destination, actor.userId(), idempotencyKey,
+                senderAvailable, pdfDoc.isPresent(), invoice);
+
+        if (claimResult instanceof InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Terminal terminal) {
+            return terminal.view();
         }
 
-        InvoicePdfDocument pdf = invoiceRepository.findPdf(invoiceId, InvoicePaperFormat.A4).orElse(null);
-        if (pdf == null) {
-            return deliveryRepository.recordFailedDelivery(invoiceId, channel, destination,
-                    actor.userId(), idempotencyKey, "A4_PDF_NOT_FOUND", "The stored A4 invoice PDF is missing");
-        }
+        InvoiceDeliveryJob job = ((InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Claimed) claimResult).job();
+        byte[] pdfBytes = pdfDoc.orElseThrow().content();
 
-        InvoiceListItem invoice = invoiceRepository.findHistoryItem(invoiceId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invoice not found"));
-
-        InvoiceDeliveryJob job = deliveryRepository.createOrClaimImmediateJob(invoiceId, channel, destination,
-                actor.userId(), idempotencyKey, invoice);
-
+        // Phase 2: External HTTP calls to Meta Cloud API (executed strictly outside any database transaction)
         try {
-            String providerId = sender.send(invoice, destination, pdf.content(), job.deliveryKey().toString());
+            String providerId = sender.send(invoice, destination, pdfBytes, job.deliveryKey().toString());
+
+            // Phase 3: Persist success outcome in a short transaction
             deliveryRepository.complete(job, InvoiceDeliveryStatus.PROVIDER_ACCEPTED, providerId, null, null, null);
             return deliveryRepository.findLatest(invoiceId, channel).orElseThrow();
         } catch (InvoiceDeliveryException failure) {
             InvoiceDeliveryStatus failStatus = failure.kind() == DeliveryFailureKind.BLOCKED_CONFIGURATION
-                    ? InvoiceDeliveryStatus.BLOCKED_CONFIGURATION : InvoiceDeliveryStatus.FAILED;
+                    ? InvoiceDeliveryStatus.BLOCKED_CONFIGURATION
+                    : (failure.kind() == DeliveryFailureKind.AMBIGUOUS
+                        ? InvoiceDeliveryStatus.AMBIGUOUS
+                        : InvoiceDeliveryStatus.FAILED);
             deliveryRepository.complete(job, failStatus, null, failure.errorCode(), failure.getMessage(), null);
             return deliveryRepository.findLatest(invoiceId, channel).orElseThrow();
         } catch (RuntimeException failure) {
@@ -168,20 +160,6 @@ public class InvoiceDeliveryService {
         }
         String normalized = MetaWhatsAppInvoiceSender.normalizePhone(raw);
         return "+" + normalized;
-    }
-
-    private void recordConsentIfMissing(AuthenticatedBillingAdmin actor, long invoiceId,
-                                        InvoiceDeliveryChannel channel, String destination) {
-        if (!deliveryRepository.consentStillGranted(invoiceId, channel, destination)) {
-            String version = consentPolicyProvider.policies().stream()
-                    .filter(p -> p.channel() == channel)
-                    .map(InvoiceConsentPolicy::wordingVersion)
-                    .filter(v -> !v.isBlank())
-                    .findFirst()
-                    .orElse("v1_pos_counter");
-            deliveryRepository.saveConsent(invoiceId, channel, destination,
-                    InvoiceConsentStatus.GRANTED, version, actor.userId());
-        }
     }
 
     @PreAuthorize("hasRole('ADMIN')")

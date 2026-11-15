@@ -139,5 +139,37 @@ class WhatsAppWebhookControllerTest {
                 contains("Message undeliverable")
         );
     }
+
+    @Test
+    void receiveWebhookEvent_returns500_whenProcessingThrowsException() throws Exception {
+        String payloadJson = """
+                {
+                  "object": "whatsapp_business_account",
+                  "entry": [{
+                    "id": "10001",
+                    "changes": [{
+                      "value": {
+                        "messaging_product": "whatsapp",
+                        "statuses": [{
+                          "id": "wamid.Boom",
+                          "status": "delivered"
+                        }]
+                      },
+                      "field": "messages"
+                    }]
+                  }]
+                }
+                """;
+        byte[] payloadBytes = payloadJson.getBytes(StandardCharsets.UTF_8);
+        String signature = calculateSignature(payloadBytes, testAppSecret);
+
+        doThrow(new RuntimeException("Database connection timeout"))
+                .when(mockDeliveryService).updateStatusFromWebhook(anyString(), any(), any(), any());
+
+        ResponseEntity<Map<String, String>> response = controller.receiveWebhookEvent(signature, payloadBytes);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(response.getBody()).containsEntry("error", "Failed to process webhook event: Database connection timeout");
+    }
 }
 

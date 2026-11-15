@@ -61,6 +61,58 @@ class InvoiceDeliveryImmediateSendTest {
     }
 
     @Test
+    void sendImmediate_recordsBlockedConsent_whenConsentIsMissing() {
+        when(mockInvoiceRepo.findHistoryItem(42L)).thenReturn(Optional.of(sampleInvoice()));
+        when(mockWhatsAppSender.isAvailable()).thenReturn(true);
+        when(mockInvoiceRepo.findPdf(42L, InvoicePaperFormat.A4))
+                .thenReturn(Optional.of(new InvoicePdfDocument(42L, InvoicePaperFormat.A4, "sha", "pdf".getBytes())));
+
+        InvoiceDeliveryView blockedConsentView = new InvoiceDeliveryView(
+                100L, UUID.randomUUID(), InvoiceDeliveryChannel.WHATSAPP,
+                InvoiceDeliveryStatus.SKIPPED_NO_CONSENT, 0, "+919876543210",
+                null, "CONSENT_REQUIRED", "Explicit affirmative customer consent is required before sending WhatsApp invoice",
+                Instant.now(), Instant.now()
+        );
+
+        when(mockDeliveryRepo.prepareImmediateJob(
+                eq(42L), eq(InvoiceDeliveryChannel.WHATSAPP), eq("+919876543210"),
+                eq(1L), eq("idem-no-consent"), eq(true), eq(true), any(InvoiceListItem.class)))
+                .thenReturn(new InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Terminal(blockedConsentView));
+
+        InvoiceDeliveryView result = service.sendImmediate(admin, 42L, InvoiceDeliveryChannel.WHATSAPP, "idem-no-consent", "9876543210");
+
+        assertThat(result.status()).isEqualTo(InvoiceDeliveryStatus.SKIPPED_NO_CONSENT);
+        assertThat(result.lastErrorCode()).isEqualTo("CONSENT_REQUIRED");
+        verify(mockWhatsAppSender, never()).send(any(), any(), any(), any());
+    }
+
+    @Test
+    void sendImmediate_recordsBlockedConsent_whenConsentIsRevoked() {
+        when(mockInvoiceRepo.findHistoryItem(42L)).thenReturn(Optional.of(sampleInvoice()));
+        when(mockWhatsAppSender.isAvailable()).thenReturn(true);
+        when(mockInvoiceRepo.findPdf(42L, InvoicePaperFormat.A4))
+                .thenReturn(Optional.of(new InvoicePdfDocument(42L, InvoicePaperFormat.A4, "sha", "pdf".getBytes())));
+
+        InvoiceDeliveryView revokedConsentView = new InvoiceDeliveryView(
+                101L, UUID.randomUUID(), InvoiceDeliveryChannel.WHATSAPP,
+                InvoiceDeliveryStatus.SKIPPED_NO_CONSENT, 0, "+919876543210",
+                null, "CONSENT_REQUIRED", "Explicit affirmative customer consent is required before sending WhatsApp invoice",
+                Instant.now(), Instant.now()
+        );
+
+        when(mockDeliveryRepo.prepareImmediateJob(
+                eq(42L), eq(InvoiceDeliveryChannel.WHATSAPP), eq("+919876543210"),
+                eq(1L), eq("idem-revoked"), eq(true), eq(true), any(InvoiceListItem.class)))
+                .thenReturn(new InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Terminal(revokedConsentView));
+
+        InvoiceDeliveryView result = service.sendImmediate(admin, 42L, InvoiceDeliveryChannel.WHATSAPP, "idem-revoked", "9876543210");
+
+        assertThat(result.status()).isEqualTo(InvoiceDeliveryStatus.SKIPPED_NO_CONSENT);
+        assertThat(result.lastErrorCode()).isEqualTo("CONSENT_REQUIRED");
+        verify(mockWhatsAppSender, never()).send(any(), any(), any(), any());
+    }
+
+    @Test
     void sendImmediate_recordsBlockedConfiguration_whenSenderNotAvailable() {
         when(mockInvoiceRepo.findHistoryItem(42L)).thenReturn(Optional.of(sampleInvoice()));
         when(mockWhatsAppSender.isAvailable()).thenReturn(false);
@@ -71,9 +123,10 @@ class InvoiceDeliveryImmediateSendTest {
                 null, "WHATSAPP_NOT_CONFIGURED", "Invoice WhatsApp delivery is not configured on the server",
                 Instant.now(), Instant.now()
         );
-        when(mockDeliveryRepo.recordBlockedConfiguration(eq(42L), eq(InvoiceDeliveryChannel.WHATSAPP),
-                eq("+919876543210"), eq(1L), eq("idem-key-1"), anyString(), anyString()))
-                .thenReturn(blockedView);
+        when(mockDeliveryRepo.prepareImmediateJob(
+                eq(42L), eq(InvoiceDeliveryChannel.WHATSAPP), eq("+919876543210"),
+                eq(1L), eq("idem-key-1"), eq(false), eq(false), any(InvoiceListItem.class)))
+                .thenReturn(new InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Terminal(blockedView));
 
         InvoiceDeliveryView result = service.sendImmediate(admin, 42L, InvoiceDeliveryChannel.WHATSAPP, "idem-key-1", "9876543210");
 
@@ -83,7 +136,57 @@ class InvoiceDeliveryImmediateSendTest {
     }
 
     @Test
-    void sendImmediate_successfullySendsAndTransitionsToProviderAccepted() {
+    void sendImmediate_returnsExistingView_onDuplicateClickWithSameKey() {
+        when(mockInvoiceRepo.findHistoryItem(42L)).thenReturn(Optional.of(sampleInvoice()));
+        when(mockWhatsAppSender.isAvailable()).thenReturn(true);
+        when(mockInvoiceRepo.findPdf(42L, InvoicePaperFormat.A4))
+                .thenReturn(Optional.of(new InvoicePdfDocument(42L, InvoicePaperFormat.A4, "fake-sha", "dummy-pdf".getBytes())));
+
+        InvoiceDeliveryView existingAcceptedView = new InvoiceDeliveryView(
+                102L, UUID.randomUUID(), InvoiceDeliveryChannel.WHATSAPP,
+                InvoiceDeliveryStatus.PROVIDER_ACCEPTED, 1, "+919876543210",
+                "wamid.AcceptedPrev", null, null, Instant.now(), Instant.now()
+        );
+
+        when(mockDeliveryRepo.prepareImmediateJob(
+                eq(42L), eq(InvoiceDeliveryChannel.WHATSAPP), eq("+919876543210"),
+                eq(1L), eq("idem-duplicate"), eq(true), eq(true), any(InvoiceListItem.class)))
+                .thenReturn(new InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Terminal(existingAcceptedView));
+
+        InvoiceDeliveryView result = service.sendImmediate(admin, 42L, InvoiceDeliveryChannel.WHATSAPP, "idem-duplicate", "+919876543210");
+
+        assertThat(result.status()).isEqualTo(InvoiceDeliveryStatus.PROVIDER_ACCEPTED);
+        assertThat(result.providerMessageId()).isEqualTo("wamid.AcceptedPrev");
+        verify(mockWhatsAppSender, never()).send(any(), any(), any(), any());
+    }
+
+    @Test
+    void sendImmediate_preventsDuplicateSend_whenPreviousDeliveryIsAmbiguous() {
+        when(mockInvoiceRepo.findHistoryItem(42L)).thenReturn(Optional.of(sampleInvoice()));
+        when(mockWhatsAppSender.isAvailable()).thenReturn(true);
+        when(mockInvoiceRepo.findPdf(42L, InvoicePaperFormat.A4))
+                .thenReturn(Optional.of(new InvoicePdfDocument(42L, InvoicePaperFormat.A4, "fake-sha", "dummy-pdf".getBytes())));
+
+        InvoiceDeliveryView ambiguousView = new InvoiceDeliveryView(
+                103L, UUID.randomUUID(), InvoiceDeliveryChannel.WHATSAPP,
+                InvoiceDeliveryStatus.AMBIGUOUS, 1, "+919876543210",
+                null, "WHATSAPP_TIMEOUT", "Delivery outcome uncertain", Instant.now(), Instant.now()
+        );
+
+        when(mockDeliveryRepo.prepareImmediateJob(
+                eq(42L), eq(InvoiceDeliveryChannel.WHATSAPP), eq("+919876543210"),
+                eq(1L), eq("idem-ambiguous-retry"), eq(true), eq(true), any(InvoiceListItem.class)))
+                .thenReturn(new InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Terminal(ambiguousView));
+
+        InvoiceDeliveryView result = service.sendImmediate(admin, 42L, InvoiceDeliveryChannel.WHATSAPP, "idem-ambiguous-retry", "+919876543210");
+
+        assertThat(result.status()).isEqualTo(InvoiceDeliveryStatus.AMBIGUOUS);
+        assertThat(result.lastErrorCode()).isEqualTo("WHATSAPP_TIMEOUT");
+        verify(mockWhatsAppSender, never()).send(any(), any(), any(), any());
+    }
+
+    @Test
+    void sendImmediate_recordsAmbiguous_whenSenderThrowsTimeoutException() {
         when(mockInvoiceRepo.findHistoryItem(42L)).thenReturn(Optional.of(sampleInvoice()));
         when(mockWhatsAppSender.isAvailable()).thenReturn(true);
 
@@ -91,18 +194,55 @@ class InvoiceDeliveryImmediateSendTest {
         when(mockInvoiceRepo.findPdf(42L, InvoicePaperFormat.A4)).thenReturn(Optional.of(pdfDoc));
 
         InvoiceDeliveryJob job = new InvoiceDeliveryJob(
-                101L, UUID.randomUUID(), 42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210",
+                104L, UUID.randomUUID(), 42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210",
                 1, Instant.now(), sampleInvoice()
         );
-        when(mockDeliveryRepo.createOrClaimImmediateJob(eq(42L), eq(InvoiceDeliveryChannel.WHATSAPP),
-                eq("+919876543210"), eq(1L), eq("idem-key-2"), any(InvoiceListItem.class)))
-                .thenReturn(job);
+
+        when(mockDeliveryRepo.prepareImmediateJob(
+                eq(42L), eq(InvoiceDeliveryChannel.WHATSAPP), eq("+919876543210"),
+                eq(1L), eq("idem-timeout"), eq(true), eq(true), any(InvoiceListItem.class)))
+                .thenReturn(new InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Claimed(job));
+
+        when(mockWhatsAppSender.send(any(InvoiceListItem.class), eq("+919876543210"), any(byte[].class), anyString()))
+                .thenThrow(new InvoiceDeliveryException(DeliveryFailureKind.AMBIGUOUS, "WHATSAPP_TIMEOUT", "Request timed out"));
+
+        InvoiceDeliveryView ambiguousView = new InvoiceDeliveryView(
+                104L, job.deliveryKey(), InvoiceDeliveryChannel.WHATSAPP,
+                InvoiceDeliveryStatus.AMBIGUOUS, 1, "+919876543210",
+                null, "WHATSAPP_TIMEOUT", "Request timed out", Instant.now(), Instant.now()
+        );
+        when(mockDeliveryRepo.findLatest(42L, InvoiceDeliveryChannel.WHATSAPP))
+                .thenReturn(Optional.of(ambiguousView));
+
+        InvoiceDeliveryView result = service.sendImmediate(admin, 42L, InvoiceDeliveryChannel.WHATSAPP, "idem-timeout", "+919876543210");
+
+        assertThat(result.status()).isEqualTo(InvoiceDeliveryStatus.AMBIGUOUS);
+        verify(mockDeliveryRepo).complete(eq(job), eq(InvoiceDeliveryStatus.AMBIGUOUS), isNull(), eq("WHATSAPP_TIMEOUT"), anyString(), isNull());
+    }
+
+    @Test
+    void sendImmediate_successfullySendsAndTransitionsToProviderAccepted_whenExplicitConsentGranted() {
+        when(mockInvoiceRepo.findHistoryItem(42L)).thenReturn(Optional.of(sampleInvoice()));
+        when(mockWhatsAppSender.isAvailable()).thenReturn(true);
+
+        InvoicePdfDocument pdfDoc = new InvoicePdfDocument(42L, InvoicePaperFormat.A4, "fake-sha", "dummy-pdf".getBytes());
+        when(mockInvoiceRepo.findPdf(42L, InvoicePaperFormat.A4)).thenReturn(Optional.of(pdfDoc));
+
+        InvoiceDeliveryJob job = new InvoiceDeliveryJob(
+                105L, UUID.randomUUID(), 42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210",
+                1, Instant.now(), sampleInvoice()
+        );
+
+        when(mockDeliveryRepo.prepareImmediateJob(
+                eq(42L), eq(InvoiceDeliveryChannel.WHATSAPP), eq("+919876543210"),
+                eq(1L), eq("idem-key-2"), eq(true), eq(true), any(InvoiceListItem.class)))
+                .thenReturn(new InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Claimed(job));
 
         when(mockWhatsAppSender.send(any(InvoiceListItem.class), eq("+919876543210"), any(byte[].class), anyString()))
                 .thenReturn("wamid.MetaAccepted123");
 
         InvoiceDeliveryView acceptedView = new InvoiceDeliveryView(
-                101L, job.deliveryKey(), InvoiceDeliveryChannel.WHATSAPP,
+                105L, job.deliveryKey(), InvoiceDeliveryChannel.WHATSAPP,
                 InvoiceDeliveryStatus.PROVIDER_ACCEPTED, 1, "+919876543210",
                 "wamid.MetaAccepted123", null, null, Instant.now(), Instant.now()
         );

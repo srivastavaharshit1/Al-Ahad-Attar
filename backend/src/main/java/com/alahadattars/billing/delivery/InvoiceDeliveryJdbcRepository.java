@@ -305,6 +305,27 @@ public class InvoiceDeliveryJdbcRepository {
     }
 
     @Transactional
+    public InvoiceDeliveryView recordBlockedConsent(long invoiceId, InvoiceDeliveryChannel channel,
+                                                    String destination, long actorUserId,
+                                                    String idempotencyKey, String errorCode, String errorSummary) {
+        Optional<StoredDelivery> existing = findByIdempotencyKey(idempotencyKey);
+        if (existing.isPresent()) {
+            return existing.get().view();
+        }
+        UUID deliveryKey = UUID.randomUUID();
+        jdbcTemplate.update("""
+                INSERT INTO billing_invoice_delivery (
+                    delivery_key, idempotency_key, invoice_id, channel, destination_snapshot, status,
+                    attempt_count, last_error_code, last_error_summary, requested_by_user_id,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 'SKIPPED_NO_CONSENT', 0, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT (idempotency_key) DO NOTHING
+                """, deliveryKey, idempotencyKey, invoiceId, channel.name(), destination,
+                errorCode, truncate(errorSummary, 500), actorUserId);
+        return findByIdempotencyKey(idempotencyKey).orElseThrow().view();
+    }
+
+    @Transactional
     public InvoiceDeliveryView recordBlockedConfiguration(long invoiceId, InvoiceDeliveryChannel channel,
                                                           String destination, long actorUserId,
                                                           String idempotencyKey, String errorCode, String errorSummary) {
@@ -344,6 +365,84 @@ public class InvoiceDeliveryJdbcRepository {
                 """, deliveryKey, idempotencyKey, invoiceId, channel.name(), destination,
                 errorCode, truncate(errorSummary, 500), actorUserId);
         return findByIdempotencyKey(idempotencyKey).orElseThrow().view();
+    }
+
+    public sealed interface ImmediateClaimResult {
+        record Claimed(InvoiceDeliveryJob job) implements ImmediateClaimResult {}
+        record Terminal(InvoiceDeliveryView view) implements ImmediateClaimResult {}
+    }
+
+    @Transactional
+    public ImmediateClaimResult prepareImmediateJob(
+            long invoiceId,
+            InvoiceDeliveryChannel channel,
+            String destination,
+            long actorUserId,
+            String idempotencyKey,
+            boolean senderAvailable,
+            boolean hasA4Pdf,
+            InvoiceListItem invoice) {
+        // 1. Lock invoice row to serialize concurrent delivery requests for this invoice
+        List<Long> lockedInvoice = jdbcTemplate.query("SELECT id FROM billing_invoice WHERE id = ? FOR UPDATE",
+                (rs, rowNum) -> rs.getLong(1), invoiceId);
+        if (lockedInvoice.isEmpty()) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "Invoice not found");
+        }
+
+        // 2. Check existing delivery by idempotency key
+        Optional<StoredDelivery> existing = findByIdempotencyKey(idempotencyKey);
+        if (existing.isPresent()) {
+            StoredDelivery stored = existing.get();
+            InvoiceDeliveryView existingView = stored.view();
+            if (stored.invoiceId() != invoiceId || existingView.channel() != channel
+                    || !destination.equals(existingView.destination())) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.CONFLICT,
+                        "Delivery idempotency key was reused with a different invoice, channel, or destination");
+            }
+            if (isInFlightOrPreviouslyAccepted(existingView.status())) {
+                return new ImmediateClaimResult.Terminal(existingView);
+            }
+        }
+
+        // 3. Check latest delivery for this invoice and channel
+        Optional<InvoiceDeliveryView> latest = findLatestDelivery(invoiceId, channel);
+        if (latest.isPresent()) {
+            InvoiceDeliveryView latestView = latest.get();
+            if (destination.equals(latestView.destination()) && isInFlightOrPreviouslyAccepted(latestView.status())) {
+                return new ImmediateClaimResult.Terminal(latestView);
+            }
+        }
+
+        // 4. Affirmative consent check
+        if (!consentStillGranted(invoiceId, channel, destination)) {
+            InvoiceDeliveryView view = recordBlockedConsent(invoiceId, channel, destination,
+                    actorUserId, idempotencyKey, "CONSENT_REQUIRED",
+                    "Explicit affirmative customer consent is required before sending WhatsApp invoice");
+            return new ImmediateClaimResult.Terminal(view);
+        }
+
+        // 5. Sender configuration check
+        if (!senderAvailable) {
+            InvoiceDeliveryView view = recordBlockedConfiguration(invoiceId, channel, destination,
+                    actorUserId, idempotencyKey, "WHATSAPP_NOT_CONFIGURED",
+                    "Invoice WhatsApp delivery is not configured on the server");
+            return new ImmediateClaimResult.Terminal(view);
+        }
+
+        // 6. PDF existence check
+        if (!hasA4Pdf) {
+            InvoiceDeliveryView view = recordFailedDelivery(invoiceId, channel, destination,
+                    actorUserId, idempotencyKey, "A4_PDF_NOT_FOUND",
+                    "The stored A4 invoice PDF is missing");
+            return new ImmediateClaimResult.Terminal(view);
+        }
+
+        // 7. Claim or create job in PROCESSING state
+        InvoiceDeliveryJob job = createOrClaimImmediateJob(invoiceId, channel, destination,
+                actorUserId, idempotencyKey, invoice);
+        return new ImmediateClaimResult.Claimed(job);
     }
 
     @Transactional
@@ -389,12 +488,29 @@ public class InvoiceDeliveryJdbcRepository {
         }
         int updated = jdbcTemplate.update("""
                 UPDATE billing_invoice_delivery
-                SET status = ?,
-                    last_error_code = CASE WHEN ? = 'DELIVERED' THEN NULL ELSE COALESCE(?, last_error_code) END,
-                    last_error_summary = CASE WHEN ? = 'DELIVERED' THEN NULL ELSE COALESCE(?, last_error_summary) END,
+                SET status = CASE
+                        WHEN status = 'DELIVERED' THEN 'DELIVERED'
+                        WHEN ? = 'DELIVERED' THEN 'DELIVERED'
+                        WHEN ? = 'FAILED' AND status != 'DELIVERED' THEN 'FAILED'
+                        WHEN ? = 'PROVIDER_ACCEPTED' AND status IN ('PENDING', 'PROCESSING', 'AMBIGUOUS') THEN 'PROVIDER_ACCEPTED'
+                        ELSE status
+                    END,
+                    last_error_code = CASE
+                        WHEN status = 'DELIVERED' OR ? = 'DELIVERED' THEN NULL
+                        WHEN ? = 'FAILED' AND status != 'DELIVERED' THEN COALESCE(?, last_error_code)
+                        ELSE last_error_code
+                    END,
+                    last_error_summary = CASE
+                        WHEN status = 'DELIVERED' OR ? = 'DELIVERED' THEN NULL
+                        WHEN ? = 'FAILED' AND status != 'DELIVERED' THEN COALESCE(?, last_error_summary)
+                        ELSE last_error_summary
+                    END,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE provider_message_id = ?
-                """, status.name(), status.name(), errorCode, status.name(), truncate(errorSummary, 500), providerMessageId);
+                """,
+                status.name(), status.name(), status.name(), status.name(),
+                status.name(), status.name(), errorCode, status.name(), truncate(errorSummary, 500),
+                providerMessageId);
         return updated > 0;
     }
 
