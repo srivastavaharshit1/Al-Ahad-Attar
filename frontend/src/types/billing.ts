@@ -34,6 +34,8 @@ export interface BillingPage<T> {
 export interface PosSaleHistoryItem {
   saleId: number;
   saleKey: string;
+  saleStatus?: string | null;
+  invoiceId?: number | null;
   invoiceNumber: string | null;
   customerName: string | null;
   customerMobile: string | null;
@@ -45,6 +47,7 @@ export interface PosSaleHistoryItem {
   tenderMethod: 'CASH' | 'UPI' | 'CARD';
   amountReceived: number;
   changeReturned: number;
+  transactionReference?: string | null;
   completedAt: string;
 }
 
@@ -245,4 +248,91 @@ export interface PosSaleFinalizeResponse {
   amountApplied: string;
   replayed: boolean;
 }
+
+export interface PosSaleReconciliationResponse {
+  status: 'COMMITTED' | 'NOT_FOUND';
+  sale: PosSaleFinalizeResponse | null;
+}
+
+export interface PosSaleLineDetail {
+  lineId: number;
+  lineKey: string | null;
+  productId: number | null;
+  variantId: number | null;
+  productName: string;
+  variantSize: string | null;
+  quantity: number;
+  unitPrice: number;
+  bottleId: number | null;
+  bottleName: string | null;
+  bottlePrice: number;
+  promotionDiscount: number;
+  manualDiscount: number;
+  lineTotal: number;
+  freeItem: boolean;
+  freePromotionId: number | null;
+}
+
+export interface PosSalePromotionDetail {
+  promotionId: number;
+  name: string;
+  code: string | null;
+  type: string;
+}
+
+export interface PosSaleDiscountDetail {
+  scope: string;
+  discountType: string;
+  requestedValue: number;
+  appliedAmount: number;
+  reason: string;
+}
+
+export interface PosSaleTimelineDetail {
+  stage: string;
+  title: string;
+  timestamp: string | null;
+  status: string;
+  description: string;
+  derived?: boolean;
+}
+
+export interface PosSaleDetail {
+  saleId: number;
+  saleKey: string;
+  idempotencyKey: string;
+  saleStatus: string;
+  createdByEmail: string | null;
+  createdAt: string;
+  completedAt: string;
+  customerName: string | null;
+  customerMobile: string | null;
+  customerEmail: string | null;
+  subtotalAmount: number;
+  promotionDiscountAmount: number;
+  manualDiscountAmount: number;
+  payableAmount: number;
+  confirmedQuoteFingerprint: string | null;
+  tender: {
+    tenderMethod: 'CASH' | 'UPI' | 'CARD';
+    payableAmount: number;
+    amountReceived: number;
+    changeReturned: number;
+    amountApplied: number;
+    transactionReference: string | null;
+    recordedAt: string | null;
+  } | null;
+  invoice: {
+    invoiceId: number;
+    invoiceNumber: string;
+    invoiceStatus: string;
+    issuedAt: string | null;
+  } | null;
+  lines: PosSaleLineDetail[];
+  promotions: PosSalePromotionDetail[];
+  discounts: PosSaleDiscountDetail[];
+  timeline: PosSaleTimelineDetail[];
+}
+
+
 
