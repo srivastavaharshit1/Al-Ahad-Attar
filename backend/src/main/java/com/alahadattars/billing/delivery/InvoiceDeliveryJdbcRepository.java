@@ -273,6 +273,15 @@ public class InvoiceDeliveryJdbcRepository {
         return count != null && count > 0;
     }
 
+    public boolean isConsentExplicitlyRevokedOrDeclined(long invoiceId, InvoiceDeliveryChannel channel, String destination) {
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM billing_invoice_delivery_consent
+                WHERE invoice_id = ? AND channel = ? AND consent_status IN ('REVOKED', 'DECLINED')
+                  AND (destination = ? OR destination = '')
+                """, Integer.class, invoiceId, channel.name(), destination);
+        return count != null && count > 0;
+    }
+
     @Transactional
     public void complete(InvoiceDeliveryJob job, InvoiceDeliveryStatus status, String providerMessageId,
                          String errorCode, String errorSummary, Instant nextAttemptAt) {
@@ -415,15 +424,15 @@ public class InvoiceDeliveryJdbcRepository {
             }
         }
 
-        // 4. Affirmative consent check
-        if (!consentStillGranted(invoiceId, channel, destination)) {
+        // 4. Messaging eligibility: verify customer has not revoked or declined consent
+        if (isConsentExplicitlyRevokedOrDeclined(invoiceId, channel, destination)) {
             InvoiceDeliveryView view = recordBlockedConsent(invoiceId, channel, destination,
-                    actorUserId, idempotencyKey, "CONSENT_REQUIRED",
-                    "Explicit affirmative customer consent is required before sending WhatsApp invoice");
+                    actorUserId, idempotencyKey, "CONSENT_REVOKED",
+                    "Customer has explicitly revoked or declined WhatsApp delivery for this invoice");
             return new ImmediateClaimResult.Terminal(view);
         }
 
-        // 5. Sender configuration check
+        // 5. Messaging eligibility: sender and approved template configuration check
         if (!senderAvailable) {
             InvoiceDeliveryView view = recordBlockedConfiguration(invoiceId, channel, destination,
                     actorUserId, idempotencyKey, "WHATSAPP_NOT_CONFIGURED",
@@ -431,7 +440,7 @@ public class InvoiceDeliveryJdbcRepository {
             return new ImmediateClaimResult.Terminal(view);
         }
 
-        // 6. PDF existence check
+        // 6. Messaging eligibility: authoritative A4 PDF existence check
         if (!hasA4Pdf) {
             InvoiceDeliveryView view = recordFailedDelivery(invoiceId, channel, destination,
                     actorUserId, idempotencyKey, "A4_PDF_NOT_FOUND",

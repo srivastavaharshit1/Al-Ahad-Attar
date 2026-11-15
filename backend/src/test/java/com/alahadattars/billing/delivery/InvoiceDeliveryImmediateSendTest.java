@@ -61,33 +61,7 @@ class InvoiceDeliveryImmediateSendTest {
     }
 
     @Test
-    void sendImmediate_recordsBlockedConsent_whenConsentIsMissing() {
-        when(mockInvoiceRepo.findHistoryItem(42L)).thenReturn(Optional.of(sampleInvoice()));
-        when(mockWhatsAppSender.isAvailable()).thenReturn(true);
-        when(mockInvoiceRepo.findPdf(42L, InvoicePaperFormat.A4))
-                .thenReturn(Optional.of(new InvoicePdfDocument(42L, InvoicePaperFormat.A4, "sha", "pdf".getBytes())));
-
-        InvoiceDeliveryView blockedConsentView = new InvoiceDeliveryView(
-                100L, UUID.randomUUID(), InvoiceDeliveryChannel.WHATSAPP,
-                InvoiceDeliveryStatus.SKIPPED_NO_CONSENT, 0, "+919876543210",
-                null, "CONSENT_REQUIRED", "Explicit affirmative customer consent is required before sending WhatsApp invoice",
-                Instant.now(), Instant.now()
-        );
-
-        when(mockDeliveryRepo.prepareImmediateJob(
-                eq(42L), eq(InvoiceDeliveryChannel.WHATSAPP), eq("+919876543210"),
-                eq(1L), eq("idem-no-consent"), eq(true), eq(true), any(InvoiceListItem.class)))
-                .thenReturn(new InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Terminal(blockedConsentView));
-
-        InvoiceDeliveryView result = service.sendImmediate(admin, 42L, InvoiceDeliveryChannel.WHATSAPP, "idem-no-consent", "9876543210");
-
-        assertThat(result.status()).isEqualTo(InvoiceDeliveryStatus.SKIPPED_NO_CONSENT);
-        assertThat(result.lastErrorCode()).isEqualTo("CONSENT_REQUIRED");
-        verify(mockWhatsAppSender, never()).send(any(), any(), any(), any());
-    }
-
-    @Test
-    void sendImmediate_recordsBlockedConsent_whenConsentIsRevoked() {
+    void sendImmediate_recordsBlockedConsent_whenCustomerHasExplicitlyRevokedConsent() {
         when(mockInvoiceRepo.findHistoryItem(42L)).thenReturn(Optional.of(sampleInvoice()));
         when(mockWhatsAppSender.isAvailable()).thenReturn(true);
         when(mockInvoiceRepo.findPdf(42L, InvoicePaperFormat.A4))
@@ -96,7 +70,7 @@ class InvoiceDeliveryImmediateSendTest {
         InvoiceDeliveryView revokedConsentView = new InvoiceDeliveryView(
                 101L, UUID.randomUUID(), InvoiceDeliveryChannel.WHATSAPP,
                 InvoiceDeliveryStatus.SKIPPED_NO_CONSENT, 0, "+919876543210",
-                null, "CONSENT_REQUIRED", "Explicit affirmative customer consent is required before sending WhatsApp invoice",
+                null, "CONSENT_REVOKED", "Customer has explicitly revoked or declined WhatsApp delivery for this invoice",
                 Instant.now(), Instant.now()
         );
 
@@ -108,7 +82,7 @@ class InvoiceDeliveryImmediateSendTest {
         InvoiceDeliveryView result = service.sendImmediate(admin, 42L, InvoiceDeliveryChannel.WHATSAPP, "idem-revoked", "9876543210");
 
         assertThat(result.status()).isEqualTo(InvoiceDeliveryStatus.SKIPPED_NO_CONSENT);
-        assertThat(result.lastErrorCode()).isEqualTo("CONSENT_REQUIRED");
+        assertThat(result.lastErrorCode()).isEqualTo("CONSENT_REVOKED");
         verify(mockWhatsAppSender, never()).send(any(), any(), any(), any());
     }
 

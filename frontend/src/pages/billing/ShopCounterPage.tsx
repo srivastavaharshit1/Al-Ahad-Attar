@@ -138,7 +138,6 @@ export function ShopCounterPage() {
   const [uncommittedConfirmed, setUncommittedConfirmed] = useState(false);
   const [finalizeError, setFinalizeError] = useState('');
   const [finalSale, setFinalSale] = useState<PosSaleFinalizeResponse | null>(null);
-  const [customerConsentGranted, setCustomerConsentGranted] = useState(false);
   const [whatsAppDelivery, setWhatsAppDelivery] = useState<{
     status: 'IDLE' | 'SENDING' | 'PROVIDER_ACCEPTED' | 'DELIVERED' | 'FAILED' | 'BLOCKED_CONFIGURATION' | 'SKIPPED_NO_CONSENT' | 'AMBIGUOUS';
     message: string;
@@ -696,16 +695,6 @@ export function ShopCounterPage() {
       ? `+91${targetPhone}`
       : (targetPhone.startsWith('91') && targetPhone.length === 12 ? `+${targetPhone}` : `+${targetPhone}`);
 
-    if (!customerConsentGranted) {
-      setWhatsAppDelivery({
-        status: 'SKIPPED_NO_CONSENT',
-        message: 'Affirmative customer consent is required before sending WhatsApp invoice. Please check the affirmative consent box.',
-        canRetry: true,
-        destination: formattedPhone,
-      });
-      return;
-    }
-
     if (!deliveryIdempotencyKeyRef.current) {
       deliveryIdempotencyKeyRef.current = `pos-inv-${finalSale.invoiceId}-wa-${Date.now()}`;
     }
@@ -713,20 +702,12 @@ export function ShopCounterPage() {
 
     setWhatsAppDelivery({
       status: 'SENDING',
-      message: `Recording affirmative consent and dispatching invoice PDF to WhatsApp (${formattedPhone})...`,
+      message: `Uploading invoice PDF and dispatching to WhatsApp (${formattedPhone})…`,
       destination: formattedPhone,
       canRefresh: false,
     });
 
     try {
-      await billingService.saveConsent(
-        finalSale.invoiceId,
-        'WHATSAPP',
-        formattedPhone,
-        'GRANTED',
-        'v1_pos_counter'
-      );
-
       const delivery = await billingService.sendWhatsAppInvoice(finalSale.invoiceId, formattedPhone, currentKey);
       applyDeliveryStatus(delivery, formattedPhone);
 
@@ -753,7 +734,6 @@ export function ShopCounterPage() {
       deliveryPollingTimer.current = null;
     }
     deliveryIdempotencyKeyRef.current = null;
-    setCustomerConsentGranted(false);
     setLines([]);
     setQuote(null);
     setFinalSale(null);
@@ -811,38 +791,6 @@ export function ShopCounterPage() {
             <div><dt className="text-slate-500">Result</dt><dd className="text-emerald-700 font-medium">{finalSale.replayed ? 'Recovered sale' : 'New confirmed sale'}</dd></div>
             <div><dt className="text-slate-500">Reference</dt><dd className="font-mono text-[11px] truncate">{finalSale.saleKey}</dd></div>
           </dl>
-
-          {/* Explicit Affirmative WhatsApp Consent Card */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-1.5">
-            <label className="flex items-start gap-3 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                id="whatsapp-consent-checkbox"
-                checked={customerConsentGranted}
-                onChange={(e) => setCustomerConsentGranted(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-              />
-              <div className="text-xs leading-relaxed text-slate-700">
-                <span className="font-semibold text-slate-900">Affirmative WhatsApp Consent Required: </span>
-                Customer at store counter affirmatively consented to receive their official invoice PDF on WhatsApp at{' '}
-                <span className="font-mono font-medium text-slate-900">
-                  {customerMobile
-                    ? (customerMobile.startsWith('+')
-                        ? customerMobile
-                        : customerMobile.length === 10
-                        ? `+91 ${customerMobile}`
-                        : `+${customerMobile}`)
-                    : 'customer mobile'}
-                </span>
-                .
-              </div>
-            </label>
-            {!customerConsentGranted && (
-              <p className="text-[11px] text-amber-800 ml-7">
-                * Note: Per Al Ahad Attars policy, WhatsApp delivery is disabled until customer gives affirmative verbal opt-in.
-              </p>
-            )}
-          </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
             <div className="flex flex-wrap gap-2">

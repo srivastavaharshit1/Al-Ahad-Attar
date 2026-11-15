@@ -155,6 +155,36 @@ class InvoiceDeliveryJdbcRepositoryH2Test {
     }
 
     @Test
+    void isConsentExplicitlyRevokedOrDeclined_checksRevocation() {
+        // 1. No consent record -> false (eligible for transactional utility dispatch)
+        assertThat(repository.isConsentExplicitlyRevokedOrDeclined(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210")).isFalse();
+
+        // 2. Insert GRANTED consent -> false
+        jdbcTemplate.update("""
+                INSERT INTO billing_invoice_delivery_consent (
+                    invoice_id, channel, destination, consent_status, wording_version, captured_by_user_id
+                ) VALUES (42, 'WHATSAPP', '+919876543210', 'GRANTED', 'v1_pos_counter', 1)
+                """);
+        assertThat(repository.isConsentExplicitlyRevokedOrDeclined(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210")).isFalse();
+
+        // 3. Update to REVOKED -> true (blocks sending)
+        jdbcTemplate.update("""
+                UPDATE billing_invoice_delivery_consent
+                SET consent_status = 'REVOKED'
+                WHERE invoice_id = 42 AND channel = 'WHATSAPP'
+                """);
+        assertThat(repository.isConsentExplicitlyRevokedOrDeclined(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210")).isTrue();
+
+        // 4. Update to DECLINED -> true (blocks sending)
+        jdbcTemplate.update("""
+                UPDATE billing_invoice_delivery_consent
+                SET consent_status = 'DECLINED'
+                WHERE invoice_id = 42 AND channel = 'WHATSAPP'
+                """);
+        assertThat(repository.isConsentExplicitlyRevokedOrDeclined(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210")).isTrue();
+    }
+
+    @Test
     void updateStatusByProviderMessageId_isMonotonic_deliveredNeverOverwrittenBySentOrFailed() {
         // Insert a delivery record with status PROVIDER_ACCEPTED and provider_message_id
         UUID key = UUID.randomUUID();
