@@ -39,15 +39,23 @@ public record InvoiceLineSnapshot(
         requireMoney(promotionDiscount, "promotionDiscount");
         requireMoney(manualDiscount, "manualDiscount");
         requireMoney(lineTotal, "lineTotal");
-        if ((bottleId == null) != (bottleName == null)) {
-            throw new IllegalArgumentException("bottle identity and name snapshot must be provided together");
+        if (bottleId != null && (bottleName == null || bottleName.isBlank())) {
+            throw new IllegalArgumentException("bottle identity requires a bottle name snapshot");
         }
         if (freeItem != (freePromotionId != null)) {
             throw new IllegalArgumentException("free item status and promotion identity must be provided together");
         }
-        BigDecimal gross = unitPrice.add(bottlePrice).multiply(BigDecimal.valueOf(quantity));
-        BigDecimal expected = gross.subtract(promotionDiscount).subtract(manualDiscount);
-        if (expected.signum() < 0 || expected.compareTo(lineTotal) != 0) {
+
+        // Support both per-unit packaging (online store: (unit + bottle) * qty)
+        // and per-line packaging (shop counter POS: (unit * qty) + bottle/box charge)
+        BigDecimal grossPerUnit = unitPrice.add(bottlePrice).multiply(BigDecimal.valueOf(quantity));
+        BigDecimal expectedPerUnit = grossPerUnit.subtract(promotionDiscount).subtract(manualDiscount).max(BigDecimal.ZERO);
+
+        BigDecimal grossPerLine = unitPrice.multiply(BigDecimal.valueOf(quantity)).add(bottlePrice);
+        BigDecimal expectedPerLine = grossPerLine.subtract(promotionDiscount).subtract(manualDiscount).max(BigDecimal.ZERO);
+
+        boolean reconciles = expectedPerUnit.compareTo(lineTotal) == 0 || expectedPerLine.compareTo(lineTotal) == 0;
+        if (!reconciles) {
             throw new IllegalArgumentException("line discounts must reconcile to a nonnegative line total");
         }
     }

@@ -36,7 +36,7 @@ class PosSaleFinalizationAuthorizationTest {
     private static final String BODY = """
             {
               "quote": {
-                "lines": [{"lineKey":"line-a","productId":1,"variantId":2,"quantity":1}],
+                "lines": [{"lineKey":"line-a","productId":1,"variantId":2,"quantity":1,"productPrice":"100.00"}],
                 "manualDiscounts": [],
                 "freeRewards": [],
                 "customerName": null,

@@ -7,8 +7,9 @@ import { ErrorBoundary } from '../common/ErrorBoundary';
 
 const NAV_ITEMS = [
   { path: '/admin', label: 'Dashboard', icon: 'dashboard', end: true },
+  { path: '/admin/shop-counter', label: 'Shop Counter POS', icon: 'storefront', end: true },
   { path: '/admin/analytics', label: 'Analytics', icon: 'monitoring' },
-  { path: '/admin/billing', label: 'Billing & POS', icon: 'point_of_sale', end: true },
+  { path: '/admin/billing', label: 'Connected POS', icon: 'point_of_sale', end: true },
   { path: '/admin/billing/sales', label: 'POS Sales', icon: 'receipt_long' },
   { path: '/admin/billing/invoices', label: 'Invoices', icon: 'description' },
   { path: '/admin/billing/reports', label: 'Billing Reports', icon: 'query_stats' },

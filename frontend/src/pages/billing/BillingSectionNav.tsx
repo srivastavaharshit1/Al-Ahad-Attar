@@ -1,7 +1,8 @@
 import { NavLink } from 'react-router-dom';
 
 const sections = [
-  { to: '/admin/billing', label: 'New POS sale', end: true },
+  { to: '/admin/shop-counter', label: 'Shop Counter POS', end: true },
+  { to: '/admin/billing', label: 'Connected POS', end: true },
   { to: '/admin/billing/sales', label: 'POS sales' },
   { to: '/admin/billing/invoices', label: 'Invoices' },
   { to: '/admin/billing/reports', label: 'Reports' },
