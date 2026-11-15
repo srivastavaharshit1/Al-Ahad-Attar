@@ -68,7 +68,6 @@ public record PosQuoteRequest(
             @NotNull(message = "Quantity is required") @Min(value = 1, message = "Quantity must be at least 1")
             @Max(value = 999, message = "Quantity cannot exceed 999")
             Integer quantity,
-            @NotNull(message = "Product price is required")
             @DecimalMin(value = "0.00", message = "Product price cannot be negative")
             @Digits(integer = 10, fraction = 2, message = "Product price supports at most two decimal places")
             BigDecimal productPrice,
@@ -85,12 +84,11 @@ public record PosQuoteRequest(
         public Line(String lineKey, Long productId, Long variantId, Long bottleId, Integer quantity,
                     BigDecimal productPrice) {
             this(lineKey, productId, variantId, bottleId, quantity, productPrice,
-                    BigDecimal.ZERO.setScale(2), BigDecimal.ZERO.setScale(2), BigDecimal.ZERO.setScale(2));
+                    null, null, null);
         }
 
         public Line(String lineKey, Long productId, Long variantId, Long bottleId, Integer quantity) {
-            this(lineKey, productId, variantId, bottleId, quantity, BigDecimal.ZERO.setScale(2),
-                    BigDecimal.ZERO.setScale(2), BigDecimal.ZERO.setScale(2), BigDecimal.ZERO.setScale(2));
+            this(lineKey, productId, variantId, bottleId, quantity, null, null, null, null);
         }
     }
 

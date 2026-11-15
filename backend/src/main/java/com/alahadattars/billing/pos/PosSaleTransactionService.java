@@ -16,16 +16,19 @@ import com.alahadattars.entity.Bottle;
 import com.alahadattars.entity.Category;
 import com.alahadattars.entity.Product;
 import com.alahadattars.entity.ProductVariant;
+import com.alahadattars.entity.Promotion;
+import com.alahadattars.entity.PromotionRedemption;
 import com.alahadattars.exception.BadRequestException;
 import com.alahadattars.exception.ConflictException;
 import com.alahadattars.repository.BottleRepository;
 import com.alahadattars.repository.ProductVariantRepository;
+import com.alahadattars.repository.PromotionRedemptionRepository;
+import com.alahadattars.repository.PromotionRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -39,8 +42,8 @@ import java.util.TreeSet;
 import java.util.UUID;
 
 /**
- * All Shop Counter POS sale, shared inventory deduction, tender, invoice and PDF writes share this transaction.
- * Strictly independent from online pricing, promotional offers, and checkout calculations.
+ * All POS sale, shared inventory deduction, promotion redemption, tender, invoice and PDF writes share this transaction.
+ * Seamlessly handles both independent Shop Counter POS sales and connected online POS sales.
  */
 @Service
 public class PosSaleTransactionService {
@@ -51,6 +54,8 @@ public class PosSaleTransactionService {
     private final PosSaleJdbcRepository saleRepository;
     private final ProductVariantRepository variantRepository;
     private final BottleRepository bottleRepository;
+    private final PromotionRepository promotionRepository;
+    private final PromotionRedemptionRepository redemptionRepository;
     private final JdbcTemplate jdbc;
     private final PosInvoiceConfiguration invoiceConfiguration;
     private final InvoiceNumberAllocator invoiceNumberAllocator;
@@ -59,6 +64,8 @@ public class PosSaleTransactionService {
     public PosSaleTransactionService(EntityManager entityManager, PosQuoteService quoteService,
                                     PosSaleJdbcRepository saleRepository,
                                     ProductVariantRepository variantRepository, BottleRepository bottleRepository,
+                                    PromotionRepository promotionRepository,
+                                    PromotionRedemptionRepository redemptionRepository,
                                     JdbcTemplate jdbc,
                                     PosInvoiceConfiguration invoiceConfiguration,
                                     InvoiceNumberAllocator invoiceNumberAllocator,
@@ -68,25 +75,19 @@ public class PosSaleTransactionService {
         this.saleRepository = saleRepository;
         this.variantRepository = variantRepository;
         this.bottleRepository = bottleRepository;
+        this.promotionRepository = promotionRepository;
+        this.redemptionRepository = redemptionRepository;
         this.jdbc = jdbc;
         this.invoiceConfiguration = invoiceConfiguration;
         this.invoiceNumberAllocator = invoiceNumberAllocator;
         this.invoiceDocumentService = invoiceDocumentService;
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Throwable.class)
     public PosSaleFinalizeResponse finalizeInTransaction(String scopedKey, String requestHash,
-                                                         PosSaleFinalizeRequest request,
-                                                         AuthenticatedBillingAdmin admin) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || !TransactionSynchronizationManager.isSynchronizationActive()) {
-            throw new IllegalStateException("POS finalization requires an active Spring transaction.");
-        }
-
-        var committedBeforeLock = saleRepository.findByIdempotencyKey(scopedKey);
-        if (committedBeforeLock.isPresent()) {
-            return PosSaleFinalizationService.replayOrReject(committedBeforeLock.get(), requestHash, admin.userId());
-        }
+                                                        PosSaleFinalizeRequest request,
+                                                        AuthenticatedBillingAdmin admin) {
+        boolean isShopCounter = request.quote().lines().stream().anyMatch(l -> l.productPrice() != null);
 
         lockCatalogRows(request.quote());
         // A concurrent request with the same key may have committed while this transaction
@@ -97,6 +98,9 @@ public class PosSaleTransactionService {
         }
 
         PosQuoteResponse quote = quoteService.quote(request.quote(), admin);
+        if (!isShopCounter) {
+            quote = stabilizePromotionSet(request.quote(), admin, quote);
+        }
         if (!quote.quoteFingerprint().equalsIgnoreCase(request.confirmedQuoteFingerprint())) {
             throw new PosQuoteChangedException(quote);
         }
@@ -116,6 +120,14 @@ public class PosSaleTransactionService {
 
         // Deduct shared inventory atomically
         deductInventory(quote);
+
+        if (!isShopCounter) {
+            Map<Long, Promotion> claimedPromotions = claimPromotions(saleId, quote);
+            for (Promotion promotion : claimedPromotions.values()) {
+                saleRepository.insertPromotion(saleId, new PosQuoteResponse.PromotionSummary(
+                        promotion.getId(), promotion.getName(), promotion.getCode(), promotion.getPromotionType()));
+            }
+        }
 
         Map<String, Long> saleLineIds = new LinkedHashMap<>();
         for (PosQuoteResponse.Line line : quote.lines()) {
@@ -150,6 +162,9 @@ public class PosSaleTransactionService {
     private void lockCatalogRows(PosQuoteRequest request) {
         Set<Long> variantIds = new TreeSet<>();
         request.lines().forEach(line -> variantIds.add(line.variantId()));
+        if (request.freeRewards() != null) {
+            request.freeRewards().forEach(reward -> variantIds.add(reward.variantId()));
+        }
 
         Map<Long, ProductVariant> variants = new LinkedHashMap<>();
         Set<Long> productIds = new TreeSet<>();
@@ -158,31 +173,102 @@ public class PosSaleTransactionService {
             ProductVariant variant = entityManager.find(ProductVariant.class, id, LockModeType.PESSIMISTIC_WRITE);
             if (variant == null) throw new ConflictException("A selected variant is no longer available.", "POS_CATALOG_CHANGED");
             variants.put(id, variant);
-            Product product = variant.getProduct();
-            if (product != null) {
-                productIds.add(product.getId());
-                if (product.getCategory() != null) categoryIds.add(product.getCategory().getId());
+            if (variant.getProduct() != null && variant.getProduct().getId() != null) {
+                productIds.add(variant.getProduct().getId());
             }
         }
-        for (Long id : productIds) entityManager.find(Product.class, id, LockModeType.PESSIMISTIC_WRITE);
-        for (Long id : categoryIds) entityManager.find(Category.class, id, LockModeType.PESSIMISTIC_WRITE);
+
+        for (Long id : productIds) {
+            Product product = entityManager.find(Product.class, id, LockModeType.PESSIMISTIC_WRITE);
+            if (product == null) throw new ConflictException("A selected product is no longer available.", "POS_CATALOG_CHANGED");
+            if (product.getCategory() != null && product.getCategory().getId() != null) {
+                categoryIds.add(product.getCategory().getId());
+            }
+        }
+
+        for (Long id : categoryIds) {
+            Category category = entityManager.find(Category.class, id, LockModeType.PESSIMISTIC_WRITE);
+            if (category == null) throw new ConflictException("A selected category is no longer available.", "POS_CATALOG_CHANGED");
+        }
 
         Set<Long> bottleIds = new TreeSet<>();
-        request.lines().stream().map(PosQuoteRequest.Line::bottleId).filter(java.util.Objects::nonNull)
-                .forEach(bottleIds::add);
+        request.lines().stream().map(PosQuoteRequest.Line::bottleId).filter(java.util.Objects::nonNull).forEach(bottleIds::add);
         for (Long id : bottleIds) {
-            if (entityManager.find(Bottle.class, id, LockModeType.PESSIMISTIC_WRITE) == null) {
-                throw new ConflictException("A selected bottle is no longer available.", "POS_CATALOG_CHANGED");
-            }
+            Bottle bottle = entityManager.find(Bottle.class, id, LockModeType.PESSIMISTIC_WRITE);
+            if (bottle == null) throw new ConflictException("A selected bottle is no longer available.", "POS_CATALOG_CHANGED");
         }
+    }
+
+    private PosQuoteResponse stabilizePromotionSet(PosQuoteRequest request, AuthenticatedBillingAdmin admin,
+                                                   PosQuoteResponse initialQuote) {
+        PosQuoteResponse quote = initialQuote;
+        Set<Long> locked = new TreeSet<>();
+        for (int pass = 0; pass < 5; pass++) {
+            Set<Long> candidates = candidatePromotionIds(quote);
+            List<Long> newIds = candidates.stream().filter(id -> !locked.contains(id)).toList();
+            for (Long id : newIds) {
+                Promotion promotion = entityManager.find(Promotion.class, id);
+                if (promotion == null) {
+                    throw new PosQuoteChangedException(quoteService.quote(request, admin));
+                }
+                entityManager.refresh(promotion, LockModeType.PESSIMISTIC_WRITE);
+                locked.add(id);
+            }
+            PosQuoteResponse refreshed = quoteService.quote(request, admin);
+            Set<Long> refreshedCandidates = candidatePromotionIds(refreshed);
+            if (locked.containsAll(refreshedCandidates) && refreshedCandidates.equals(candidates)) {
+                return refreshed;
+            }
+            quote = refreshed;
+        }
+        throw new PosQuoteChangedException(quoteService.quote(request, admin));
+    }
+
+    private static Set<Long> candidatePromotionIds(PosQuoteResponse quote) {
+        Set<Long> ids = new TreeSet<>();
+        quote.appliedPromotions().forEach(promotion -> ids.add(promotion.id()));
+        quote.availablePromotions().forEach(promotion -> ids.add(promotion.id()));
+        quote.lockedPromotions().forEach(promotion -> ids.add(promotion.id()));
+        quote.lines().stream().map(PosQuoteResponse.Line::freePromotionId)
+                .filter(java.util.Objects::nonNull).forEach(ids::add);
+        return ids;
+    }
+
+    private Map<Long, Promotion> claimPromotions(long saleId, PosQuoteResponse quote) {
+        Set<Long> ids = new TreeSet<>();
+        quote.appliedPromotions().forEach(promotion -> ids.add(promotion.id()));
+        quote.lines().stream().map(PosQuoteResponse.Line::freePromotionId)
+                .filter(java.util.Objects::nonNull).forEach(ids::add);
+        Map<Long, Promotion> claimed = new LinkedHashMap<>();
+        for (Long id : ids) {
+            Promotion promotion = entityManager.find(Promotion.class, id);
+            if (promotion == null || !promotion.isActive() || (promotion.getPerUserLimit() != null
+                    && promotion.getPerUserLimit() > 0)) {
+                throw new PosQuoteChangedException(quote);
+            }
+            if (promotionRepository.claimRedemption(id) != 1) {
+                throw new ConflictException("A promotion's global redemption limit has been reached.",
+                        "POS_PROMOTION_EXHAUSTED");
+            }
+            PromotionRedemption redemption = PromotionRedemption.builder()
+                    .promotion(promotion).user(null).guestEmail(null).orderId(null).posSaleId(saleId).build();
+            redemptionRepository.save(redemption);
+            claimed.put(id, promotion);
+        }
+        if (!claimed.isEmpty()) redemptionRepository.flush();
+        return claimed;
     }
 
     private void deductInventory(PosQuoteResponse quote) {
         Map<Long, Integer> variantDemand = new java.util.TreeMap<>();
         Map<Long, Integer> bottleDemand = new java.util.TreeMap<>();
         for (PosQuoteResponse.Line line : quote.lines()) {
-            variantDemand.merge(line.variantId(), line.quantity(), Math::addExact);
-            if (line.bottleId() != null) bottleDemand.merge(line.bottleId(), line.quantity(), Math::addExact);
+            if (line.variantId() != null) {
+                variantDemand.merge(line.variantId(), line.quantity(), Math::addExact);
+            }
+            if (line.bottleId() != null) {
+                bottleDemand.merge(line.bottleId(), line.quantity(), Math::addExact);
+            }
         }
         for (Map.Entry<Long, Integer> demand : variantDemand.entrySet()) {
             if (variantRepository.decrementStock(demand.getKey(), demand.getValue()) != 1) {
@@ -224,7 +310,7 @@ public class PosSaleTransactionService {
             throw new BadRequestException("UPI/card amount received must equal the sale payable.");
         }
         return new PosTenderSnapshot(request.method(), due, received, BigDecimal.ZERO.setScale(2), due,
-                clean(request.transactionReference()));
+                    clean(request.transactionReference()));
     }
 
     private InvoiceSnapshot invoiceSnapshot(UUID invoiceKey, String invoiceNumber, long saleId,
@@ -236,7 +322,11 @@ public class PosSaleTransactionService {
             BigDecimal packagingPrice = line.bottleUnitPrice().add(line.giftBoxCharge() != null ? line.giftBoxCharge() : BigDecimal.ZERO);
             String packagingName = line.bottleName();
             if (line.giftBoxCharge() != null && line.giftBoxCharge().signum() > 0) {
-                packagingName = packagingName != null ? packagingName + " + Gift Box" : "Gift Box";
+                if (packagingName != null && !packagingName.isBlank()) {
+                    packagingName = packagingName + " (Bottle: INR " + money(line.bottleUnitPrice()) + ") + Gift Box (INR " + money(line.giftBoxCharge()) + ")";
+                } else {
+                    packagingName = "Gift Box (INR " + money(line.giftBoxCharge()) + ")";
+                }
             }
             lines.add(new InvoiceLineSnapshot(lineNumber++, line.productId(), line.variantId(), line.productName(),
                     line.variantSize(), line.quantity(), line.variantUnitPrice(), line.bottleId(), packagingName,
@@ -258,9 +348,9 @@ public class PosSaleTransactionService {
                 quote.manualDiscount(), quote.payableAmount()));
         quote.lines().forEach(line -> values.addAll(List.of(line.lineSubtotal(), line.promotionDiscount(),
                 line.manualDiscount(), line.finalLineTotal())));
-        if (values.stream().anyMatch(value -> value == null || value.signum() < 0
-                || value.scale() > 2 || value.compareTo(MAX_NUMERIC_12_2) > 0)) {
-            throw new BadRequestException("A POS amount exceeds the supported currency precision.");
+        for (BigDecimal value : values) {
+            if (value.scale() > 2) throw new ConflictException("Currency value has more than two fractional digits.", "POS_CURRENCY_INVALID");
+            if (value.compareTo(MAX_NUMERIC_12_2) > 0) throw new ConflictException("Currency value exceeds maximum supported amount.", "POS_CURRENCY_INVALID");
         }
     }
 

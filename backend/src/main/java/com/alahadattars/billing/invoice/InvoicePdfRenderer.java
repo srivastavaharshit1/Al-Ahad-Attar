@@ -83,14 +83,21 @@ public class InvoicePdfRenderer {
         }
         lines.add("----------------------------------------");
         for (InvoiceLineSnapshot item : invoice.lines()) {
+            String packagingDesc = "";
+            if (!blank(item.bottleName())) {
+                packagingDesc = item.bottleName().startsWith("Gift Box") || item.bottleName().contains("Gift Box")
+                        ? " / Packaging: " + item.bottleName()
+                        : " / Bottle: " + item.bottleName();
+            }
             String description = item.lineNumber() + ". " + item.quantity() + " x " + item.productName()
                     + (blank(item.variantSize()) ? "" : " / " + item.variantSize())
-                    + (blank(item.bottleName()) ? "" : " / Bottle: " + item.bottleName());
+                    + packagingDesc;
             addWrapped(lines, description, width);
             if (item.freeItem()) {
                 addWrapped(lines, "   FREE PROMOTIONAL ITEM", width);
             }
-            addWrapped(lines, "   INR " + money(item.unitPrice()) + " each; bottle INR " + money(item.bottlePrice()), width);
+            String packagingLabel = item.bottleName() != null && item.bottleName().contains("Gift Box") ? "packaging" : "bottle";
+            addWrapped(lines, "   INR " + money(item.unitPrice()) + " each; " + packagingLabel + " INR " + money(item.bottlePrice()), width);
             addWrapped(lines, "   Promotion INR " + money(item.promotionDiscount())
                     + "; manual discount INR " + money(item.manualDiscount()), width);
             addWrapped(lines, "   Line total INR " + money(item.lineTotal()), width);

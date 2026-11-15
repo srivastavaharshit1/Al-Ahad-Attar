@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
+  Download,
   LoaderCircle,
   Minus,
   Plus,
@@ -506,11 +507,27 @@ export function ShopCounterPage() {
     }
   };
 
+  const downloadInvoicePdf = async (invoiceId: number, invoiceNumber: string, format: 'A4' | 'THERMAL_80' = 'A4') => {
+    try {
+      const pdf = await billingService.downloadInvoice(invoiceId, format);
+      const url = URL.createObjectURL(pdf);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Invoice-${invoiceNumber || invoiceId}-${format}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      setFinalizeError('The sale completed, but the invoice PDF could not be downloaded. Use invoice history to retry.');
+    }
+  };
+
   const shareViaWhatsApp = () => {
     const phone = customerMobile.replace(/\D/g, '');
     const invoiceNum = finalSale?.invoiceNumber || '';
     const amount = quoteCurrency(finalSale?.payableAmount);
-    const msg = `Dear Customer, thank you for shopping at Al Ahad Attars! Your store invoice #${invoiceNum} for ${amount} has been issued. Have a blessed day!`;
+    const msg = `Dear Customer, thank you for shopping at Al Ahad Attars! Your store invoice #${invoiceNum} for ${amount} has been issued. Please find your invoice PDF copy attached. Have a blessed day!`;
 
     if (phone && phone.length >= 10) {
       const formatted = phone.startsWith('91') && phone.length === 12 ? phone : (phone.length === 10 ? `91${phone}` : phone);
@@ -601,6 +618,13 @@ export function ShopCounterPage() {
               </button>
               <button
                 type="button"
+                onClick={() => void downloadInvoicePdf(finalSale.invoiceId, finalSale.invoiceNumber, 'A4')}
+                className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 shadow-sm"
+              >
+                <Download className="h-4 w-4" /> Download A4 PDF
+              </button>
+              <button
+                type="button"
                 onClick={shareViaWhatsApp}
                 className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 shadow-sm"
               >
@@ -614,6 +638,13 @@ export function ShopCounterPage() {
             >
               <Plus className="h-4 w-4" /> Start New Sale
             </button>
+          </div>
+
+          <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-900 flex items-start gap-2.5">
+            <span className="font-semibold shrink-0">WhatsApp PDF Workflow:</span>
+            <span>
+              Click <strong>Download A4 PDF</strong> to save the official invoice to this device, then click <strong>WhatsApp Invoice</strong> to open the customer conversation and manually attach the downloaded PDF. (Opens directly in WhatsApp Web / App; no automated bots or background credentials are used).
+            </span>
           </div>
         </div>
       </div>
