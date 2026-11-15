@@ -524,8 +524,17 @@ export function PosSalesHistoryPage() {
                             <CheckCircle2 size={10} className="text-white" />
                           </span>
                           <div className="flex items-baseline justify-between gap-2">
-                            <h5 className="text-xs font-semibold text-slate-900">{event.title}</h5>
-                            <span className="text-[11px] text-slate-400">{formatDate(event.timestamp)}</span>
+                            <div className="flex items-center gap-1.5">
+                              <h5 className="text-xs font-semibold text-slate-900">{event.title}</h5>
+                              {event.derived && (
+                                <span className="rounded bg-slate-200/80 px-1 py-0.2 text-[9px] font-semibold text-slate-600 uppercase tracking-wide">
+                                  Derived
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-slate-400">
+                              {event.derived ? `Atomic commit (${formatDate(event.timestamp)})` : formatDate(event.timestamp)}
+                            </span>
                           </div>
                           <p className="text-xs text-slate-600 mt-0.5">{event.description}</p>
                         </li>

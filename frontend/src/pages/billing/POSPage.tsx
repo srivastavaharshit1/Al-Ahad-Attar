@@ -427,13 +427,41 @@ export function POSPage() {
         setFinalizationUncertain(false);
         setUncommittedConfirmed(false);
         setFinalizeError('The quote changed. Review the updated lines and payable amount, then confirm again.');
-      } else if (!response || axiosErr.code === 'ECONNABORTED' || response.status === 504) {
-        // Genuinely inconclusive network error (client timeout, connection dropped, 504 gateway timeout)
+      } else if (!response || axiosErr.code === 'ECONNABORTED' || (response.status && response.status >= 500)) {
+        // Inconclusive error: network drop, timeout, or server/gateway 5xx (500, 502, 503, 504).
+        // A 5xx error or gateway timeout COULD occur after the database transaction committed!
+        // We MUST preserve the pending state (key and exact request) and NEVER clear localStorage here.
         setFinalizationUncertain(true);
-        setFinalizeError('The server response was not conclusive (connection timed out). The transaction may be processing or uncommitted. Retry the exact same request to safely resolve the sale status.');
+        setReconciling(true);
+        const serverStatusMsg = response?.data?.message || (response?.status ? `HTTP ${response.status}` : 'network timeout');
+        setFinalizeError(`The server response was inconclusive (${serverStatusMsg}). Checking whether the sale was committed to the database…`);
+
+        // Attempt immediate automated reconciliation lookup
+        billingService.reconcilePosSale(key)
+          .then((recon) => {
+            if (recon.status === 'COMMITTED' && recon.sale) {
+              // The sale actually succeeded and committed! Resolve it cleanly.
+              storage.remove(PENDING_SALE_STORAGE_KEY);
+              pendingFinalize.current = null;
+              setFinalizationUncertain(false);
+              setUncommittedConfirmed(false);
+              setFinalSale(recon.sale);
+            } else {
+              // Definitively NOT found in the database: the transaction safely rolled back / never committed.
+              setUncommittedConfirmed(true);
+              setFinalizeError(`The server returned an error (${serverStatusMsg}), but the transaction was NOT committed to the database. You can safely retry or discard this draft.`);
+            }
+          })
+          .catch((reconErr) => {
+            console.warn('Reconcile check failed after inconclusive response:', reconErr);
+            setFinalizeError(`The server response was inconclusive (${serverStatusMsg}). The transaction may be processing. Click retry to check status and safely finalize.`);
+          })
+          .finally(() => {
+            setReconciling(false);
+          });
       } else {
-        // Definite HTTP failure (400, 401, 403, 404, 409, 500, 503 with error body)
-        // Transaction was aborted and definitely did NOT commit
+        // Definite 4xx HTTP client/validation failure (400, 401, 403, 404, 409 other than QUOTE_CHANGED)
+        // Client errors fail before transaction or trigger an intentional transaction rollback
         storage.remove(PENDING_SALE_STORAGE_KEY);
         pendingFinalize.current = null;
         idempotencyKey.current = null;

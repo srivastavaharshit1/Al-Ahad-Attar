@@ -239,31 +239,31 @@ public class PosSaleJdbcRepository {
             List<PosSaleDetailResponse.TimelineDetail> timeline = new ArrayList<>();
             timeline.add(new PosSaleDetailResponse.TimelineDetail(
                     "INITIATED", "Sale Draft Created", created, "COMPLETED",
-                    "POS sale initiated" + (adminEmail != null ? " by " + adminEmail : "")));
+                    "POS sale initiated" + (adminEmail != null ? " by " + adminEmail : ""), false));
             if (fingerprint != null) {
                 timeline.add(new PosSaleDetailResponse.TimelineDetail(
                         "QUOTED", "Server Quote Confirmed", created, "COMPLETED",
                         "Authoritative price and discount calculations verified (Fingerprint: "
-                                + fingerprint.substring(0, Math.min(12, fingerprint.length())) + "…)"));
+                                + fingerprint.substring(0, Math.min(12, fingerprint.length())) + "…)", true));
             }
             timeline.add(new PosSaleDetailResponse.TimelineDetail(
                     "INVENTORY_DEDUCTED", "Inventory Deducted", completed != null ? completed : created, "COMPLETED",
-                    "Stock deducted atomically for " + lines.size() + " line item(s)"));
+                    "Stock deducted atomically in transaction for " + lines.size() + " line item(s)", true));
             if (tender != null) {
                 timeline.add(new PosSaleDetailResponse.TimelineDetail(
                         "TENDER_RECORDED", "Payment Recorded", recorded != null ? recorded : completed, "COMPLETED",
                         tender.tenderMethod() + " tender processed. Payable: ₹" + payable + ", Received: ₹" + received
                                 + (change != null && change.compareTo(BigDecimal.ZERO) > 0 ? ", Change: ₹" + change : "")
-                                + (txRef != null && !txRef.isBlank() ? " [Ref: " + txRef + "]" : "")));
+                                + (txRef != null && !txRef.isBlank() ? " [Ref: " + txRef + "]" : ""), false));
             }
             if (invoice != null) {
                 timeline.add(new PosSaleDetailResponse.TimelineDetail(
                         "INVOICE_GENERATED", "Invoice Issued", issued != null ? issued : completed, "COMPLETED",
-                        "Immutable legal invoice " + invoice.invoiceNumber() + " generated"));
+                        "Immutable legal invoice " + invoice.invoiceNumber() + " generated", false));
             }
             timeline.add(new PosSaleDetailResponse.TimelineDetail(
                     "COMPLETED", "Sale Finalized", completed != null ? completed : created, status,
-                    "Transaction successfully finalized and committed to database"));
+                    "Transaction successfully finalized and committed to database", false));
 
             return Optional.of(new PosSaleDetailResponse(
                     id, key, idempotency, status, adminEmail, created, completed,

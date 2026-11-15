@@ -294,6 +294,7 @@ export interface PosSaleTimelineDetail {
   timestamp: string | null;
   status: string;
   description: string;
+  derived?: boolean;
 }
 
 export interface PosSaleDetail {

@@ -84,7 +84,8 @@ public record PosSaleDetailResponse(
             String title,
             Instant timestamp,
             String status,
-            String description
+            String description,
+            boolean derived
     ) { }
 }
 
