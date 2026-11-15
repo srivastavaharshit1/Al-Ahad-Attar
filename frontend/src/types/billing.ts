@@ -121,6 +121,10 @@ export interface PosQuoteLineRequest {
   variantId: number;
   bottleId?: number | null;
   quantity: number;
+  productPrice: string;
+  bottleCharge?: string | null;
+  giftBoxCharge?: string | null;
+  manualDiscount?: string | null;
 }
 
 export interface PosQuoteManualDiscountRequest {
@@ -153,6 +157,7 @@ export interface PosQuoteLine {
   bottleId: number | null;
   bottleName: string | null;
   bottleUnitPrice: string;
+  giftBoxCharge: string;
   unitPrice: string;
   lineSubtotal: string;
   promotionDiscount: string;

@@ -42,6 +42,11 @@ public class PosSaleJdbcRepository {
     }
 
     public long insertLine(long saleId, PosQuoteResponse.Line line) {
+        BigDecimal packagingPrice = line.bottleUnitPrice().add(line.giftBoxCharge() != null ? line.giftBoxCharge() : BigDecimal.ZERO);
+        String packagingName = line.bottleName();
+        if (line.giftBoxCharge() != null && line.giftBoxCharge().signum() > 0) {
+            packagingName = packagingName != null ? packagingName + " + Gift Box" : "Gift Box";
+        }
         Long id = jdbc.queryForObject("""
                 INSERT INTO billing_pos_sale_line (
                     sale_id, product_id, variant_id, product_name_snapshot, variant_size_snapshot,
@@ -52,8 +57,8 @@ public class PosSaleJdbcRepository {
                 RETURNING id
                 """, Long.class,
                 saleId, line.productId(), line.variantId(), line.productName(), line.variantSize(),
-                line.quantity(), line.variantUnitPrice(), line.bottleId(), line.bottleName(),
-                line.bottleUnitPrice(), line.promotionDiscount(), line.manualDiscount(), line.finalLineTotal(),
+                line.quantity(), line.variantUnitPrice(), line.bottleId(), packagingName,
+                packagingPrice, line.promotionDiscount(), line.manualDiscount(), line.finalLineTotal(),
                 line.lineKey(), line.freeItem(), line.freePromotionId());
         if (id == null) throw new IllegalStateException("The POS sale line could not be persisted.");
         return id;

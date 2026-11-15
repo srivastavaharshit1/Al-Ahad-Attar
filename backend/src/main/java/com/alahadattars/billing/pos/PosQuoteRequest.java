@@ -19,7 +19,10 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.List;
 
-/** Client intent for a stateless quote. Prices and totals are intentionally not part of the contract. */
+/**
+ * Client intent for an independent physical Shop Counter POS quote.
+ * All prices and optional charges are entered directly by the shopkeeper.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record PosQuoteRequest(
         @NotEmpty(message = "At least one POS item is required")
@@ -45,6 +48,11 @@ public record PosQuoteRequest(
         this(lines, couponCode, manualDiscounts, List.of(), customerName, customerMobile, customerEmail);
     }
 
+    public PosQuoteRequest(List<Line> lines, List<ManualDiscount> manualDiscounts,
+                           String customerName, String customerMobile, String customerEmail) {
+        this(lines, null, manualDiscounts, List.of(), customerName, customerMobile, customerEmail);
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Line(
             @NotBlank(message = "Line key is required")
@@ -59,7 +67,31 @@ public record PosQuoteRequest(
             Long bottleId,
             @NotNull(message = "Quantity is required") @Min(value = 1, message = "Quantity must be at least 1")
             @Max(value = 999, message = "Quantity cannot exceed 999")
-            Integer quantity) {
+            Integer quantity,
+            @NotNull(message = "Product price is required")
+            @DecimalMin(value = "0.00", message = "Product price cannot be negative")
+            @Digits(integer = 10, fraction = 2, message = "Product price supports at most two decimal places")
+            BigDecimal productPrice,
+            @DecimalMin(value = "0.00", message = "Bottle charge cannot be negative")
+            @Digits(integer = 10, fraction = 2, message = "Bottle charge supports at most two decimal places")
+            BigDecimal bottleCharge,
+            @DecimalMin(value = "0.00", message = "Gift-box charge cannot be negative")
+            @Digits(integer = 10, fraction = 2, message = "Gift-box charge supports at most two decimal places")
+            BigDecimal giftBoxCharge,
+            @DecimalMin(value = "0.00", message = "Manual line discount cannot be negative")
+            @Digits(integer = 10, fraction = 2, message = "Manual line discount supports at most two decimal places")
+            BigDecimal manualDiscount) {
+
+        public Line(String lineKey, Long productId, Long variantId, Long bottleId, Integer quantity,
+                    BigDecimal productPrice) {
+            this(lineKey, productId, variantId, bottleId, quantity, productPrice,
+                    BigDecimal.ZERO.setScale(2), BigDecimal.ZERO.setScale(2), BigDecimal.ZERO.setScale(2));
+        }
+
+        public Line(String lineKey, Long productId, Long variantId, Long bottleId, Integer quantity) {
+            this(lineKey, productId, variantId, bottleId, quantity, BigDecimal.ZERO.setScale(2),
+                    BigDecimal.ZERO.setScale(2), BigDecimal.ZERO.setScale(2), BigDecimal.ZERO.setScale(2));
+        }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

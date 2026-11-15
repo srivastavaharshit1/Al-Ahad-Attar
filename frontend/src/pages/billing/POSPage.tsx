@@ -23,7 +23,11 @@ interface DraftLine {
   product: Product;
   variant: Variant;
   quantity: number;
+  productPrice: string;
   bottle: Bottle | null;
+  bottleCharge: string;
+  giftBoxCharge: string;
+  manualDiscount: string;
 }
 
 interface DraftDiscount {
@@ -34,10 +38,6 @@ interface DraftDiscount {
   value: string;
   reason: string;
 }
-
-const catalogCurrency = new Intl.NumberFormat('en-IN', {
-  style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2,
-});
 
 function safeUUID(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -104,6 +104,10 @@ export function POSPage() {
   const [selectedVariantId, setSelectedVariantId] = useState<number | ''>('');
   const [selectedBottleId, setSelectedBottleId] = useState<number | ''>('');
   const [quantity, setQuantity] = useState(1);
+  const [productPrice, setProductPrice] = useState('');
+  const [bottleCharge, setBottleCharge] = useState('');
+  const [giftBoxCharge, setGiftBoxCharge] = useState('');
+  const [manualDiscount, setManualDiscount] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [discounts, setDiscounts] = useState<DraftDiscount[]>([]);
   const [discountScope, setDiscountScope] = useState<'ITEM' | 'SALE'>('SALE');
@@ -111,11 +115,9 @@ export function POSPage() {
   const [discountLine, setDiscountLine] = useState('');
   const [discountValue, setDiscountValue] = useState('');
   const [discountReason, setDiscountReason] = useState('');
-  const [couponCode, setCouponCode] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerMobile, setCustomerMobile] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
-  const [selectedFreeRewards, setSelectedFreeRewards] = useState<{ promotionId: number; variantId: number }[]>([]);
   const [tender, setTender] = useState<'CASH' | 'UPI' | 'CARD'>('CASH');
   const [cashReceived, setCashReceived] = useState('');
   const [transactionReference, setTransactionReference] = useState('');
@@ -228,6 +230,10 @@ export function POSPage() {
     const requestId = ++latestProductRequestId.current;
     setSelectedProductId(product.id);
     setSelectedBottleId('');
+    setProductPrice('');
+    setBottleCharge('');
+    setGiftBoxCharge('');
+    setManualDiscount('');
     setVariantError('');
 
     // Avoid duplicate requests when variants are already available
@@ -272,13 +278,38 @@ export function POSPage() {
 
   const addDraftLine = () => {
     if (!selectedProduct || !selectedVariant || !Number.isInteger(quantity) || quantity < 1 || quantity > 999) return;
+    const priceNum = Number(productPrice);
+    if (!productPrice || !Number.isFinite(priceNum) || priceNum <= 0) return;
+
     const bottle = availableBottles.find(item => item.id === selectedBottleId) || null;
     if (bottleRequired && !bottle) return;
+
+    const bChargeNum = bottleCharge.trim() ? Number(bottleCharge) : 0;
+    const gChargeNum = giftBoxCharge.trim() ? Number(giftBoxCharge) : 0;
+    const mDiscountNum = manualDiscount.trim() ? Number(manualDiscount) : 0;
+
+    if (!Number.isFinite(bChargeNum) || bChargeNum < 0) return;
+    if (!Number.isFinite(gChargeNum) || gChargeNum < 0) return;
+    if (!Number.isFinite(mDiscountNum) || mDiscountNum < 0) return;
+
     invalidateQuote();
     setLines(current => [...current, {
-      key: safeUUID(), product: selectedProduct, variant: selectedVariant, quantity, bottle,
+      key: safeUUID(),
+      product: selectedProduct,
+      variant: selectedVariant,
+      quantity,
+      productPrice: priceNum.toFixed(2),
+      bottle,
+      bottleCharge: bChargeNum.toFixed(2),
+      giftBoxCharge: gChargeNum.toFixed(2),
+      manualDiscount: mDiscountNum.toFixed(2),
     }]);
+
     setSelectedBottleId('');
+    setProductPrice('');
+    setBottleCharge('');
+    setGiftBoxCharge('');
+    setManualDiscount('');
     setQuantity(1);
   };
 
@@ -321,8 +352,12 @@ export function POSPage() {
       variantId: line.variant.id,
       bottleId: line.bottle?.id ?? null,
       quantity: line.quantity,
+      productPrice: line.productPrice,
+      bottleCharge: line.bottleCharge,
+      giftBoxCharge: line.giftBoxCharge,
+      manualDiscount: line.manualDiscount,
     })),
-    couponCode: couponCode.trim() || null,
+    couponCode: null,
     manualDiscounts: discounts.map(discount => ({
       scope: discount.scope,
       type: discount.type,
@@ -330,7 +365,7 @@ export function POSPage() {
       lineKey: discount.scope === 'ITEM' ? discount.lineKey : null,
       reason: discount.reason,
     })),
-    freeRewards: selectedFreeRewards,
+    freeRewards: [],
     customerName: customerName.trim() || null,
     customerMobile: customerMobile.trim() || null,
     customerEmail: customerEmail.trim() || null,
@@ -533,18 +568,18 @@ export function POSPage() {
       <BillingSectionNav />
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[.18em] text-amber-800">Connected point of sale</p>
-          <h2 className="mt-1 text-3xl font-semibold tracking-tight">New POS sale</h2>
-          <p className="mt-1 text-sm text-slate-500">Review a server-priced quote, then confirm a single-tender sale.</p>
+          <p className="text-xs font-semibold uppercase tracking-[.18em] text-amber-800">Physical Counter POS</p>
+          <h2 className="mt-1 text-3xl font-semibold tracking-tight">Shop Counter Billing</h2>
+          <p className="mt-1 text-sm text-slate-500">Enter shop selling prices and charges. Shared product and bottle stock are verified and deducted atomically.</p>
         </div>
         <span className="inline-flex w-fit items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" /> Connected POS · Admin only
+          <span className="h-2 w-2 rounded-full bg-emerald-500" /> Shop Counter · Admin only
         </span>
       </div>
 
       <div role="status" className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
-        <p>Prices and discounts are recalculated on the server at confirmation. Confirmation records an offline cash, UPI or card tender; it does not capture a payment gateway transaction.</p>
+        <p>Physical Shop Counter: Selling prices, bottle charges, gift-box charges, and discounts are determined at the shop counter. Online store prices and discounts do not apply. Stock is shared with online inventory and deducted atomically upon confirmation.</p>
       </div>
 
       {loadError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{loadError}</p>}
@@ -617,48 +652,146 @@ export function POSPage() {
                     <label className="block text-xs font-medium text-slate-600">Variant
                       <select value={selectedVariantId} onChange={event => { setSelectedVariantId(Number(event.target.value)); setSelectedBottleId(''); }}
                         className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-                        {availableVariants.map(variant => <option key={variant.id} value={variant.id}>{variant.size} · {catalogCurrency.format(variant.price)}</option>)}
+                        {availableVariants.map(variant => (
+                          <option key={variant.id} value={variant.id}>
+                            {variant.size} · Stock: {variant.stock ?? 0}
+                          </option>
+                        ))}
                       </select>
                     </label>
+
                     <label className="block text-xs font-medium text-slate-600">Bottle {bottleRequired ? '(required)' : '(optional)'}
                       <select value={selectedBottleId} onChange={event => setSelectedBottleId(event.target.value ? Number(event.target.value) : '')}
                         className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
                         <option value="">No bottle selected</option>
-                        {availableBottles.map(bottle => <option key={bottle.id} value={bottle.id}>{bottle.name} · {catalogCurrency.format(bottle.price)}</option>)}
+                        {availableBottles.map(bottle => (
+                          <option key={bottle.id} value={bottle.id}>
+                            {bottle.name} · Stock: {bottle.stockQuantity ?? 0}
+                          </option>
+                        ))}
                       </select>
                     </label>
-                    <label className="block text-xs font-medium text-slate-600">Quantity
-                      <input type="number" min={1} max={999} value={quantity} onChange={event => setQuantity(event.target.valueAsNumber)}
-                        className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
-                    </label>
-                    <button type="button" disabled={!selectedVariant || (bottleRequired && !selectedBottleId) || !Number.isInteger(quantity) || quantity < 1 || quantity > 999 || lines.length >= 50} onClick={addDraftLine}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">
-                      <Plus className="h-4 w-4" /> Add to quote draft
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="block text-xs font-medium text-slate-600">
+                        Selling Price (₹) <span className="text-red-500">*</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={productPrice}
+                          onChange={e => setProductPrice(e.target.value)}
+                          placeholder="e.g. 500.00"
+                          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-amber-600 focus:outline-none"
+                        />
+                      </label>
+                      <label className="block text-xs font-medium text-slate-600">
+                        Quantity
+                        <input
+                          type="number"
+                          min={1}
+                          max={999}
+                          value={quantity}
+                          onChange={event => setQuantity(event.target.valueAsNumber)}
+                          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <label className="block text-xs font-medium text-slate-600">
+                        Bottle Charge (₹)
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={bottleCharge}
+                          onChange={e => setBottleCharge(e.target.value)}
+                          placeholder="0.00"
+                          disabled={!selectedBottleId}
+                          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-amber-600 focus:outline-none disabled:bg-slate-100"
+                        />
+                      </label>
+                      <label className="block text-xs font-medium text-slate-600">
+                        Gift Box (₹)
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={giftBoxCharge}
+                          onChange={e => setGiftBoxCharge(e.target.value)}
+                          placeholder="0.00"
+                          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-amber-600 focus:outline-none"
+                        />
+                      </label>
+                      <label className="block text-xs font-medium text-slate-600">
+                        Discount (₹)
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={manualDiscount}
+                          onChange={e => setManualDiscount(e.target.value)}
+                          placeholder="0.00"
+                          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-amber-600 focus:outline-none"
+                        />
+                      </label>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={!selectedVariant || (bottleRequired && !selectedBottleId) || !productPrice || Number(productPrice) <= 0 || !Number.isInteger(quantity) || quantity < 1 || quantity > 999 || lines.length >= 50}
+                      onClick={addDraftLine}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Plus className="h-4 w-4" /> Add to shop bill draft
                     </button>
                   </>
                 )}
-                <p className="text-xs leading-5 text-slate-500">Catalog prices are indicative. The quote endpoint resolves live ProductVariant.price and bottle price; discountedPrice is not used.</p>
+                <p className="text-xs leading-5 text-slate-500">
+                  Shop Counter POS: Product selling prices, bottle charges, gift-box charges, and discounts are determined independently at the shop counter. Online store prices and discounts do not apply.
+                </p>
               </div>}
             </div>
           </div>
 
           <div className="border-t border-slate-100 pt-4">
             <h4 className="font-medium">Draft items <span className="ml-1 text-sm font-normal text-slate-500">({lines.length})</span></h4>
-            {lines.length === 0 ? <p className="mt-3 text-sm text-slate-500">No items added.</p> : <ul className="mt-3 divide-y divide-slate-100">
-              {lines.map(line => <li key={line.key} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{line.product.name} · {line.variant.size}</p>
-                  <p className="text-xs text-slate-500">Catalog unit {catalogCurrency.format(line.variant.price)}{line.bottle ? ` · ${line.bottle.name} ${catalogCurrency.format(line.bottle.price)}` : ''}</p>
-                </div>
-                <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1">
-                  <button type="button" aria-label={`Decrease ${line.product.name} quantity`} onClick={() => updateLineQuantity(line.key, line.quantity - 1)} disabled={line.quantity <= 1} className="rounded p-1 text-slate-600 hover:bg-slate-100 disabled:opacity-40"><Minus className="h-3.5 w-3.5" /></button>
-                  <span className="min-w-6 text-center text-sm tabular-nums">{line.quantity}</span>
-                  <button type="button" aria-label={`Increase ${line.product.name} quantity`} onClick={() => updateLineQuantity(line.key, line.quantity + 1)} disabled={line.quantity >= 999} className="rounded p-1 text-slate-600 hover:bg-slate-100 disabled:opacity-40"><Plus className="h-3.5 w-3.5" /></button>
-                </div>
-                <button type="button" aria-label={`Remove ${line.product.name}`} onClick={() => removeDraftLine(line)}
-                  className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-700"><Trash2 className="h-4 w-4" /></button>
-              </li>)}
+            {lines.length === 0 ? <p className="mt-3 text-sm text-slate-500">No items added to shop bill.</p> : <ul className="mt-3 divide-y divide-slate-100">
+              {lines.map(line => {
+                const pTotal = (Number(line.productPrice) || 0) * line.quantity;
+                const bCharge = Number(line.bottleCharge) || 0;
+                const gCharge = Number(line.giftBoxCharge) || 0;
+                const mDisc = Number(line.manualDiscount) || 0;
+                const estTotal = Math.max(0, pTotal + bCharge + gCharge - mDisc);
+                return (
+                  <li key={line.key} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{line.product.name} · {line.variant.size}</p>
+                      <p className="text-xs text-slate-500">
+                        Price {quoteCurrency(line.productPrice)} × {line.quantity}
+                        {line.bottle ? ` · ${line.bottle.name} (+${quoteCurrency(line.bottleCharge)})` : ''}
+                        {gCharge > 0 ? ` · Gift-box (+${quoteCurrency(line.giftBoxCharge)})` : ''}
+                        {mDisc > 0 ? ` · Discount (−${quoteCurrency(line.manualDiscount)})` : ''}
+                      </p>
+                      <p className="text-xs font-semibold text-amber-900">
+                        Est. total: {quoteCurrency(estTotal.toFixed(2))}
+                      </p>
+                    </div>
+                    <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1">
+                      <button type="button" aria-label={`Decrease ${line.product.name} quantity`} onClick={() => updateLineQuantity(line.key, line.quantity - 1)} disabled={line.quantity <= 1} className="rounded p-1 text-slate-600 hover:bg-slate-100 disabled:opacity-40"><Minus className="h-3.5 w-3.5" /></button>
+                      <span className="min-w-6 text-center text-sm tabular-nums">{line.quantity}</span>
+                      <button type="button" aria-label={`Increase ${line.product.name} quantity`} onClick={() => updateLineQuantity(line.key, line.quantity + 1)} disabled={line.quantity >= 999} className="rounded p-1 text-slate-600 hover:bg-slate-100 disabled:opacity-40"><Plus className="h-3.5 w-3.5" /></button>
+                    </div>
+                    <button type="button" aria-label={`Remove ${line.product.name}`} onClick={() => removeDraftLine(line)}
+                      className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-700"><Trash2 className="h-4 w-4" /></button>
+                  </li>
+                );
+              })}
             </ul>}
-            <p className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">No payable total is calculated in the browser. Calculate or refresh the quote to see the server's itemized amount.</p>
+            <p className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+              Formula: (Product price × qty) + Bottle charge + Gift-box charge − Manual shop discount = Shop payable amount. Click Calculate to verify live stock availability and final bill.
+            </p>
           </div>
         </section>
 
@@ -675,14 +808,8 @@ export function POSPage() {
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
-            <h3 className="text-lg font-semibold">Promotion and coupon</h3>
-            <p className="mb-3 mt-1 text-sm text-slate-500">Eligible promotions are evaluated on the server. POS quotes exclude promotions with per-customer limits.</p>
-            <input value={couponCode} onChange={event => { setCouponCode(event.target.value); invalidateQuote(); }} maxLength={100} placeholder="Coupon code (optional)" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
             <h3 className="text-lg font-semibold">Manual discount</h3>
-            <p className="mb-4 mt-1 text-sm text-slate-500">Any authorized Admin can request a fixed or percentage discount. A reason is required; the server enforces the eligible balance and 100% maximum.</p>
+            <p className="mb-4 mt-1 text-sm text-slate-500">Any authorized Admin can request an additional fixed or percentage discount with a required reason. (Per-item discounts can also be set directly on item lines).</p>
             <div className="grid grid-cols-2 gap-3">
               <select value={discountScope} onChange={event => setDiscountScope(event.target.value as 'ITEM' | 'SALE')} className="rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="SALE">Sale-level</option><option value="ITEM">Item-level</option></select>
               <select value={discountType} onChange={event => setDiscountType(event.target.value as 'FIXED' | 'PERCENT')} className="rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="FIXED">Fixed amount</option><option value="PERCENT">Percentage</option></select>
@@ -695,50 +822,54 @@ export function POSPage() {
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
-            <div className="flex items-center justify-between gap-3"><h3 className="text-lg font-semibold">Quote preview</h3>{quote && <span className="text-xs text-slate-500">{new Date(quote.generatedAt).toLocaleTimeString()}</span>}</div>
-            {!quote && <p className="mt-2 text-sm text-slate-500">Calculate a quote to get current server prices, promotion results and stock availability.</p>}
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold">Shop Bill Preview</h3>
+                <p className="text-xs text-slate-500">Live stock check & server-verified calculation</p>
+              </div>
+              {quote && <span className="text-xs text-slate-500">{new Date(quote.generatedAt).toLocaleTimeString()}</span>}
+            </div>
+            {!quote && <p className="mt-2 text-sm text-slate-500">Calculate a bill quote to verify live stock availability and itemized amounts.</p>}
             {quote && <div className="mt-4 space-y-4">
-              {!quote.allLinesAvailable && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">One or more items exceed current stock. This quote does not reserve inventory.</p>}
+              {!quote.allLinesAvailable && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">One or more items exceed current stock. This bill cannot be finalized until stock is replenished.</p>}
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-950 font-mono">
+                Formula: (Product price × qty) + Bottle charge + Gift-box charge − Manual discount = Payable
+              </div>
               <ul className="divide-y divide-slate-100">
-                {(quote.lines || []).map(line => <li key={line.lineKey} className="py-3 text-sm">
-                  <div className="flex justify-between gap-3"><span className="font-medium">{line.productName} · {line.variantSize} × {line.quantity}</span><span className="font-medium tabular-nums">{quoteCurrency(line.finalLineTotal)}</span></div>
-                  {line.bottleName && <p className="mt-1 text-xs text-slate-500">Bottle: {line.bottleName}</p>}
-                  <p className="mt-1 text-xs text-slate-500">Line {quoteCurrency(line.lineSubtotal)} · promotion −{quoteCurrency(line.promotionDiscount)} · manual −{quoteCurrency(line.manualDiscount)}</p>
-                  <p className={`mt-1 text-xs ${line.available ? 'text-emerald-700' : 'text-red-700'}`}>{line.available ? 'Available at quote time' : 'Insufficient stock at quote time'} · variant {line.variantStockAvailable} available{line.bottleStockAvailable !== null ? ` · bottle ${line.bottleStockAvailable} available` : ''}</p>
-                </li>)}
+                {(quote.lines || []).map(line => (
+                  <li key={line.lineKey} className="py-3 text-sm">
+                    <div className="flex justify-between gap-3">
+                      <span className="font-medium">{line.productName} · {line.variantSize} × {line.quantity}</span>
+                      <span className="font-medium tabular-nums">{quoteCurrency(line.finalLineTotal)}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Product {quoteCurrency(line.variantUnitPrice)} × {line.quantity}
+                      {line.bottleName ? ` · Bottle: ${line.bottleName} (+${quoteCurrency(line.bottleUnitPrice)})` : ''}
+                      {Number(line.giftBoxCharge) > 0 ? ` · Gift-box (+${quoteCurrency(line.giftBoxCharge)})` : ''}
+                      {Number(line.manualDiscount) > 0 ? ` · Discount (−${quoteCurrency(line.manualDiscount)})` : ''}
+                    </p>
+                    <p className={`mt-1 text-xs ${line.available ? 'text-emerald-700' : 'text-red-700'}`}>
+                      {line.available ? 'Available in inventory' : 'Insufficient stock'} · Variant stock: {line.variantStockAvailable}{line.bottleStockAvailable !== null ? ` · Bottle stock: ${line.bottleStockAvailable}` : ''}
+                    </p>
+                  </li>
+                ))}
               </ul>
               <dl className="space-y-2 border-t border-slate-100 pt-3 text-sm">
                 <div className="flex justify-between"><dt className="text-slate-600">Subtotal</dt><dd className="tabular-nums">{quoteCurrency(quote.subtotal)}</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-600">Promotion discounts</dt><dd className="tabular-nums">−{quoteCurrency(quote.totalPromotionDiscount)}</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-600">Manual discounts</dt><dd className="tabular-nums">−{quoteCurrency(quote.manualDiscount)}</dd></div>
-                <div className="flex justify-between border-t border-slate-100 pt-3 text-lg font-semibold"><dt>Payable</dt><dd className="tabular-nums">{quoteCurrency(quote.payableAmount)}</dd></div>
+                {Number(quote.manualDiscount) > 0 && (
+                  <div className="flex justify-between text-emerald-700"><dt className="text-slate-600">Manual shop discounts</dt><dd className="tabular-nums">−{quoteCurrency(quote.manualDiscount)}</dd></div>
+                )}
+                <div className="flex justify-between border-t border-slate-100 pt-3 text-lg font-semibold"><dt>Shop Payable</dt><dd className="tabular-nums">{quoteCurrency(quote.payableAmount)}</dd></div>
               </dl>
-              {(quote.appliedPromotions || []).length > 0 && <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Applied promotions</p><ul className="mt-1 space-y-1 text-sm">{quote.appliedPromotions.map(promotion => <li key={promotion.id}>{promotion.name}</li>)}</ul></div>}
               {(quote.messages || []).map((message, index) => <p key={`${index}-${message}`} className="text-xs text-amber-800">{message}</p>)}
-              {(quote.freeRewardOptions || []).length > 0 && <div className="rounded-lg bg-emerald-50 p-3"><p className="text-xs font-semibold text-emerald-900">Eligible free item choices</p><div className="mt-2 space-y-2">{quote.freeRewardOptions.map(option => {
-                const selected = selectedFreeRewards.some(reward => reward.promotionId === option.promotionId && reward.variantId === option.variantId);
-                return <label key={`${option.promotionId}-${option.variantId}`} className="flex cursor-pointer items-start gap-2 text-sm text-emerald-900"><input type="checkbox" checked={selected} onChange={() => {
-                  const next = selected
-                    ? selectedFreeRewards.filter(reward => !(reward.promotionId === option.promotionId && reward.variantId === option.variantId))
-                    : [...selectedFreeRewards, { promotionId: option.promotionId, variantId: option.variantId }];
-                  if (!selected && next.some(reward => reward.promotionId !== option.promotionId)) {
-                    setFinalizeError('Free rewards from different promotions cannot be combined in one sale.');
-                    return;
-                  }
-                  setSelectedFreeRewards(next);
-                  setFinalizeError('');
-                  invalidateQuote();
-                }} className="mt-1 rounded border-emerald-400 text-emerald-700" /><span>{option.productName} · {option.variant} — {option.promotion}</span></label>;
-              })}</div><p className="mt-2 text-xs text-emerald-800">Select an eligible reward to add it to the server quote. Stock is deducted only after sale confirmation.</p></div>}
-              {quote.lines.some(line => line.freeItem) && <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Selected free promotional items appear as zero-payable invoice lines and will deduct variant stock when confirmed.</p>}
-              <p className="text-xs text-slate-500">Quote calculated by Admin {quote.adminEmail}. Stock availability is observational only.</p>
+              <p className="text-xs text-slate-500">Bill verified for Admin {quote.adminEmail}.</p>
             </div>}
             <button type="button" disabled={lines.length === 0 || quoteLoading} onClick={calculateQuote}
               className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-700 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50">
               {quoteLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : quote ? <RefreshCw className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-              {quoteLoading ? 'Calculating quote…' : quote ? 'Refresh quote' : 'Calculate quote'}
+              {quoteLoading ? 'Calculating bill…' : quote ? 'Refresh bill' : 'Calculate bill'}
             </button>
-            {quote && <p className="mt-2 text-center text-xs text-slate-500">Confirmation rechecks all prices, promotions, discounts and stock. Changed totals require review and a second confirmation.</p>}
+            {quote && <p className="mt-2 text-center text-xs text-slate-500">Confirmation rechecks live inventory and commits physical sale atomically.</p>}
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
@@ -754,7 +885,7 @@ export function POSPage() {
               {tender === 'CARD' && <p className="mt-2 text-xs text-slate-500">Never enter or store card number, CVV, PIN, expiry or credentials. Reference only.</p>}
             </>}
             <button type="button" disabled={!quote || !quote.allLinesAvailable || quoteLoading || finalizing || (tender === 'CASH' && !cashTenderReady)} onClick={() => void submitFinalization(false)} className="mt-5 w-full rounded-lg bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600">{finalizing ? 'Finalizing sale…' : 'Confirm sale and issue invoice'}</button>
-            <p className="mt-2 text-center text-xs text-slate-500">Confirmation deducts stock and records the selected tender, promotion redemptions and immutable invoice in one database transaction.</p>
+            <p className="mt-2 text-center text-xs text-slate-500">Confirmation atomically deducts shared product and bottle stock, and records the single tender and immutable invoice in one database transaction.</p>
           </section>
         </div>
       </div>

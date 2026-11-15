@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
-/** Immutable response snapshot for a read-only POS quote. */
+/** Immutable response snapshot for an independent physical Shop Counter POS quote. */
 public record PosQuoteResponse(
         Instant generatedAt,
         boolean previewOnly,
@@ -34,13 +34,13 @@ public record PosQuoteResponse(
         String quoteFingerprint) {
 
     public PosQuoteResponse {
-        lines = List.copyOf(lines);
-        appliedPromotions = List.copyOf(appliedPromotions);
-        availablePromotions = List.copyOf(availablePromotions);
-        lockedPromotions = List.copyOf(lockedPromotions);
-        freeRewardOptions = List.copyOf(freeRewardOptions);
-        manualDiscounts = List.copyOf(manualDiscounts);
-        messages = List.copyOf(messages);
+        lines = lines == null ? List.of() : List.copyOf(lines);
+        appliedPromotions = appliedPromotions == null ? List.of() : List.copyOf(appliedPromotions);
+        availablePromotions = availablePromotions == null ? List.of() : List.copyOf(availablePromotions);
+        lockedPromotions = lockedPromotions == null ? List.of() : List.copyOf(lockedPromotions);
+        freeRewardOptions = freeRewardOptions == null ? List.of() : List.copyOf(freeRewardOptions);
+        manualDiscounts = manualDiscounts == null ? List.of() : List.copyOf(manualDiscounts);
+        messages = messages == null ? List.of() : List.copyOf(messages);
     }
 
     public record Line(
@@ -54,6 +54,7 @@ public record PosQuoteResponse(
             Long bottleId,
             String bottleName,
             @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal bottleUnitPrice,
+            @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal giftBoxCharge,
             @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal unitPrice,
             @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal lineSubtotal,
             @JsonFormat(shape = JsonFormat.Shape.STRING) BigDecimal promotionDiscount,
@@ -69,6 +70,23 @@ public record PosQuoteResponse(
             Integer bottleStockAvailable,
             boolean bottleStockSufficient,
             boolean available) {
+
+        public Line(String lineKey, Long productId, Long variantId, String productName,
+                    String variantSize, Integer quantity, BigDecimal variantUnitPrice,
+                    Long bottleId, String bottleName, BigDecimal bottleUnitPrice,
+                    BigDecimal unitPrice, BigDecimal lineSubtotal, BigDecimal promotionDiscount,
+                    BigDecimal lineAfterPromotions, BigDecimal manualDiscount, BigDecimal finalLineTotal,
+                    boolean freeItem, Long freePromotionId, Integer requestedVariantQuantity,
+                    Integer variantStockAvailable, boolean variantStockSufficient,
+                    Integer requestedBottleQuantity, Integer bottleStockAvailable,
+                    boolean bottleStockSufficient, boolean available) {
+            this(lineKey, productId, variantId, productName, variantSize, quantity, variantUnitPrice,
+                    bottleId, bottleName, bottleUnitPrice, BigDecimal.ZERO.setScale(2), unitPrice,
+                    lineSubtotal, promotionDiscount, lineAfterPromotions, manualDiscount, finalLineTotal,
+                    freeItem, freePromotionId, requestedVariantQuantity, variantStockAvailable,
+                    variantStockSufficient, requestedBottleQuantity, bottleStockAvailable,
+                    bottleStockSufficient, available);
+        }
     }
 
     public record PromotionSummary(Long id, String name, String code, PromotionType type) {

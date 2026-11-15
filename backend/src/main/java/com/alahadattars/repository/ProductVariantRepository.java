@@ -138,14 +138,14 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
      * insufficient at the moment of the UPDATE, which the caller must treat as a hard failure,
      * not just the earlier friendly pre-check.
      */
-    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
     @org.springframework.data.jpa.repository.Query(
             "UPDATE ProductVariant v SET v.stock = v.stock - :quantity WHERE v.id = :id AND v.stock >= :quantity")
     int decrementStock(@org.springframework.data.repository.query.Param("id") Long id,
                         @org.springframework.data.repository.query.Param("quantity") int quantity);
 
     /** Atomic counterpart to {@link #decrementStock} for restoring inventory (cancellations/refunds). */
-    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
     @org.springframework.data.jpa.repository.Query("UPDATE ProductVariant v SET v.stock = v.stock + :quantity WHERE v.id = :id")
     int incrementStock(@org.springframework.data.repository.query.Param("id") Long id,
                         @org.springframework.data.repository.query.Param("quantity") int quantity);

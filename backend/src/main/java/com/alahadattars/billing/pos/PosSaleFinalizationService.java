@@ -6,6 +6,8 @@ import com.alahadattars.exception.ResourceNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -98,12 +100,11 @@ public class PosSaleFinalizationService {
 
     private static String fingerprint(PosSaleFinalizeRequest request, long adminId) {
         StringBuilder canonical = new StringBuilder();
-        appendField(canonical, "schema", "pos-finalize-v1");
+        appendField(canonical, "schema", "pos-finalize-v2");
         appendField(canonical, "adminId", adminId);
         appendField(canonical, "confirmedQuoteFingerprint", request.confirmedQuoteFingerprint() == null
                 ? null : request.confirmedQuoteFingerprint().toLowerCase(java.util.Locale.ROOT));
         PosQuoteRequest quote = request.quote();
-        appendField(canonical, "couponCode", quote.couponCode());
         appendField(canonical, "customerName", quote.customerName());
         appendField(canonical, "customerMobile", quote.customerMobile());
         appendField(canonical, "customerEmail", quote.customerEmail());
@@ -115,17 +116,11 @@ public class PosSaleFinalizationService {
             appendField(canonical, "variantId", line.variantId());
             appendField(canonical, "bottleId", line.bottleId());
             appendField(canonical, "quantity", line.quantity());
+            appendField(canonical, "productPrice", decimal(line.productPrice()));
+            appendField(canonical, "bottleCharge", decimal(line.bottleCharge()));
+            appendField(canonical, "giftBoxCharge", decimal(line.giftBoxCharge()));
+            appendField(canonical, "manualDiscount", decimal(line.manualDiscount()));
         });
-        int rewardCount = quote.freeRewards() == null ? 0 : quote.freeRewards().size();
-        appendField(canonical, "freeRewards.count", rewardCount);
-        if (quote.freeRewards() != null) {
-            quote.freeRewards().stream().sorted(Comparator.comparing(PosQuoteRequest.FreeReward::promotionId)
-                    .thenComparing(PosQuoteRequest.FreeReward::variantId)).forEach(reward -> {
-                append(canonical, "freeReward");
-                appendField(canonical, "promotionId", reward.promotionId());
-                appendField(canonical, "variantId", reward.variantId());
-            });
-        }
         int discountCount = quote.manualDiscounts() == null ? 0 : quote.manualDiscounts().size();
         appendField(canonical, "manualDiscounts.count", discountCount);
         if (quote.manualDiscounts() != null) {
@@ -149,26 +144,20 @@ public class PosSaleFinalizationService {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(canonical.toString().getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 is not available", impossible);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
         }
     }
 
-    private static String decimal(java.math.BigDecimal value) {
-        return value == null ? null : value.stripTrailingZeros().toPlainString();
+    private static void append(StringBuilder sb, String tag) {
+        sb.append(tag).append(";");
     }
 
-    private static void append(StringBuilder target, Object value) {
-        if (value == null) {
-            target.append("N|");
-            return;
-        }
-        String text = String.valueOf(value);
-        target.append('V').append(text.length()).append(':').append(text).append('|');
+    private static void appendField(StringBuilder sb, String field, Object value) {
+        sb.append(field).append("=").append(value == null ? "" : value.toString().trim()).append(";");
     }
 
-    private static void appendField(StringBuilder target, String name, Object value) {
-        append(target, name);
-        append(target, value);
+    private static String decimal(BigDecimal d) {
+        return d == null ? "" : d.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 }

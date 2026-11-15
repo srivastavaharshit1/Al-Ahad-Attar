@@ -2,6 +2,7 @@ package com.alahadattars.billing.pos;
 
 import com.alahadattars.billing.discount.DiscountScope;
 import com.alahadattars.billing.discount.DiscountType;
+import com.alahadattars.billing.security.AuthenticatedBillingAdmin;
 import com.alahadattars.entity.Bottle;
 import com.alahadattars.entity.Category;
 import com.alahadattars.entity.Product;
@@ -16,14 +17,12 @@ import com.alahadattars.enums.ProductType;
 import com.alahadattars.enums.PromotionType;
 import com.alahadattars.enums.RoleType;
 import com.alahadattars.exception.BadRequestException;
-import com.alahadattars.exception.ResourceNotFoundException;
 import com.alahadattars.repository.BottleRepository;
 import com.alahadattars.repository.CategoryRepository;
 import com.alahadattars.repository.ProductRepository;
 import com.alahadattars.repository.ProductVariantRepository;
 import com.alahadattars.repository.PromotionRepository;
 import com.alahadattars.security.CustomUserDetails;
-import com.alahadattars.billing.security.AuthenticatedBillingAdmin;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -36,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,372 +59,194 @@ class PosQuoteIntegrationTest {
     @Autowired private MockMvc mockMvc;
 
     @Test
-    void quoteUsesPersistedVariantAndBottlePricesAndDoesNotChangeStock() {
-        Fixture fixture = fixture(ProductType.ATTAR, CategoryType.ATTARS, new BigDecimal("100.00"),
-                new BigDecimal("1.00"), 8, new BigDecimal("5.00"), 6);
-        PosQuoteRequest request = request(
-                new PosQuoteRequest.Line("line-a", fixture.product().getId(), fixture.variant().getId(),
-                        fixture.bottle().getId(), 2),
-                null,
-                new PosQuoteRequest.ManualDiscount(DiscountScope.ITEM, DiscountType.FIXED,
-                        new BigDecimal("10.00"), "line-a", "Customer loyalty"));
+    void quoteUsesShopkeeperEnteredPricesAndDoesNotChangeStock() {
+        Fixture fixture = fixture(ProductType.ATTAR, CategoryType.ATTARS, new BigDecimal("999.00"),
+                8, new BigDecimal("99.00"), 6);
+
+        // Shopkeeper enters custom product price (120.00), bottle charge (15.00), gift box charge (10.00), and discount (5.00)
+        PosQuoteRequest request = new PosQuoteRequest(
+                List.of(new PosQuoteRequest.Line("line-a", fixture.product().getId(), fixture.variant().getId(),
+                        fixture.bottle().getId(), 2, new BigDecimal("120.00"), new BigDecimal("15.00"),
+                        new BigDecimal("10.00"), new BigDecimal("5.00"))),
+                null, List.of(), List.of(), "Walk-in Customer", null, null);
 
         PosQuoteResponse quote = quoteService.quote(request, admin());
 
         assertThat(quote.previewOnly()).isTrue();
         assertThat(quote.adminId()).isEqualTo(77L);
         assertThat(quote.adminEmail()).isEqualTo("admin@example.test");
-        assertThat(quote.subtotal()).isEqualByComparingTo("210.00");
+        // Line subtotal = (120 * 2) + 15 + 10 = 265.00
+        assertThat(quote.subtotal()).isEqualByComparingTo("265.00");
         assertThat(quote.totalPromotionDiscount()).isEqualByComparingTo("0.00");
-        assertThat(quote.manualDiscount()).isEqualByComparingTo("10.00");
-        assertThat(quote.payableAmount()).isEqualByComparingTo("200.00");
+        assertThat(quote.manualDiscount()).isEqualByComparingTo("5.00");
+        // Payable = 265 - 5 = 260.00
+        assertThat(quote.payableAmount()).isEqualByComparingTo("260.00");
         assertThat(quote.lines()).hasSize(1);
-        assertThat(quote.lines().getFirst().variantUnitPrice()).isEqualByComparingTo("100.00");
-        assertThat(quote.lines().getFirst().bottleUnitPrice()).isEqualByComparingTo("5.00");
-        assertThat(quote.lines().getFirst().unitPrice()).isEqualByComparingTo("105.00");
-        assertThat(quote.lines().getFirst().lineAfterPromotions()).isEqualByComparingTo("210.00");
-        assertThat(quote.lines().getFirst().finalLineTotal()).isEqualByComparingTo("200.00");
+        assertThat(quote.lines().getFirst().variantUnitPrice()).isEqualByComparingTo("120.00");
+        assertThat(quote.lines().getFirst().bottleUnitPrice()).isEqualByComparingTo("15.00");
+        assertThat(quote.lines().getFirst().giftBoxCharge()).isEqualByComparingTo("10.00");
+        assertThat(quote.lines().getFirst().manualDiscount()).isEqualByComparingTo("5.00");
+        assertThat(quote.lines().getFirst().finalLineTotal()).isEqualByComparingTo("260.00");
         assertThat(quote.lines().getFirst().available()).isTrue();
+        // Catalog stock is unchanged by quote
         assertThat(variantRepository.findById(fixture.variant().getId()).orElseThrow().getStock()).isEqualTo(8);
         assertThat(bottleRepository.findById(fixture.bottle().getId()).orElseThrow().getStockQuantity()).isEqualTo(6);
     }
 
     @Test
-    void posQuoteExcludesPerUserPromotionsAndExhaustedGlobalPromotionsWithoutClaiming() {
-        Fixture fixture = fixture(ProductType.GENERAL, CategoryType.ATTARS, new BigDecimal("100.00"),
-                new BigDecimal("0.01"), 10, null, 0);
-        Promotion eligible = promotion("POS unlimited", null, new BigDecimal("10.00"), null, 0, 0, true);
-        Promotion perUserLimited = promotion("POS per-user limited", null, new BigDecimal("90.00"), null, 0, 1, true);
-        Promotion globalExhausted = promotion("POS global exhausted", null, new BigDecimal("50.00"), 1, 1, 0, true);
+    void posQuoteCompletelyIgnoresOnlinePromotionsAndCoupons() {
+        Fixture fixture = fixture(ProductType.GENERAL, CategoryType.ATTARS, new BigDecimal("999.00"),
+                10, null, 0);
+        promotion("Online 50% discount", "SAVE50", new BigDecimal("50.00"));
 
-        PosQuoteResponse quote = quoteService.quote(request(
-                new PosQuoteRequest.Line("line-a", fixture.product().getId(), fixture.variant().getId(), null, 1),
-                null), admin());
-
-        assertThat(quote.promotionItemDiscount()).isEqualByComparingTo("0.00");
-        assertThat(quote.promotionCartDiscount()).isEqualByComparingTo("10.00");
-        assertThat(quote.payableAmount()).isEqualByComparingTo("90.00");
-        assertThat(quote.appliedPromotions()).extracting(PosQuoteResponse.PromotionSummary::id)
-                .containsExactly(eligible.getId());
-        assertThat(quote.availablePromotions()).extracting(PosQuoteResponse.PromotionSummary::id)
-                .doesNotContain(perUserLimited.getId(), globalExhausted.getId());
-        assertThat(promotionRepository.findById(eligible.getId()).orElseThrow().getUsedCount()).isZero();
-        assertThat(promotionRepository.findById(perUserLimited.getId()).orElseThrow().getUsedCount()).isZero();
-        assertThat(promotionRepository.findById(globalExhausted.getId()).orElseThrow().getUsedCount()).isEqualTo(1);
-    }
-
-    @Test
-    void itemAndSaleDiscountsApplyAfterPromotionsAndReconcileExactly() {
-        Fixture fixture = fixture(ProductType.ATTAR, CategoryType.ATTARS, new BigDecimal("100.00"),
-                new BigDecimal("0.01"), 10, new BigDecimal("5.00"), 10);
-        Promotion promotion = promotion("POS cart 10 percent", null, new BigDecimal("10.00"), null, 0, 0, true);
-        PosQuoteRequest request = request(
-                new PosQuoteRequest.Line("line-a", fixture.product().getId(), fixture.variant().getId(),
-                        fixture.bottle().getId(), 2), null,
-                new PosQuoteRequest.ManualDiscount(DiscountScope.ITEM, DiscountType.FIXED,
-                        new BigDecimal("10.00"), "line-a", "Item adjustment"),
-                new PosQuoteRequest.ManualDiscount(DiscountScope.SALE, DiscountType.PERCENT,
-                        new BigDecimal("10.00"), null, "Sale courtesy"));
+        // Shopkeeper enters product price 100.00 for 1 qty. Even if couponCode is passed, online promotions are ignored.
+        PosQuoteRequest request = new PosQuoteRequest(
+                List.of(new PosQuoteRequest.Line("line-a", fixture.product().getId(), fixture.variant().getId(), null, 1,
+                        new BigDecimal("100.00"), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)),
+                "SAVE50", List.of(), List.of(), "Customer", null, null);
 
         PosQuoteResponse quote = quoteService.quote(request, admin());
 
-        assertThat(quote.appliedPromotions()).extracting(PosQuoteResponse.PromotionSummary::id)
-                .contains(promotion.getId());
-        assertThat(quote.subtotal()).isEqualByComparingTo("210.00");
-        assertThat(quote.promotionCartDiscount()).isEqualByComparingTo("21.00");
-        assertThat(quote.manualDiscount()).isEqualByComparingTo("27.90");
-        assertThat(quote.payableAmount()).isEqualByComparingTo("161.10");
-        assertThat(quote.lines().getFirst().promotionDiscount()).isEqualByComparingTo("21.00");
-        assertThat(quote.lines().getFirst().manualDiscount()).isEqualByComparingTo("27.90");
-        assertThat(quote.lines().getFirst().finalLineTotal()).isEqualByComparingTo("161.10");
-        assertThat(quote.manualDiscounts()).extracting(PosQuoteResponse.ManualDiscountPreview::appliedAmount)
-                .containsExactly(new BigDecimal("10.00"), new BigDecimal("17.90"));
+        assertThat(quote.promotionItemDiscount()).isEqualByComparingTo("0.00");
+        assertThat(quote.promotionCartDiscount()).isEqualByComparingTo("0.00");
+        assertThat(quote.totalPromotionDiscount()).isEqualByComparingTo("0.00");
+        assertThat(quote.payableAmount()).isEqualByComparingTo("100.00");
+        assertThat(quote.appliedPromotions()).isEmpty();
+        assertThat(quote.availablePromotions()).isEmpty();
     }
 
     @Test
-    void manualDiscountCannotPushPayableBelowZeroAfterPromotion() {
+    void quotePreventsNegativeTotalsWhenManualDiscountExceedsSubtotal() {
         Fixture fixture = fixture(ProductType.GENERAL, CategoryType.ATTARS, new BigDecimal("100.00"),
-                new BigDecimal("0.01"), 10, null, 0);
-        promotion("POS full cart discount", null, new BigDecimal("100.00"), null, 0, 0, true);
+                10, null, 0);
 
-        assertThatThrownBy(() -> quoteService.quote(request(
-                new PosQuoteRequest.Line("line-a", fixture.product().getId(), fixture.variant().getId(), null, 1),
-                null,
-                new PosQuoteRequest.ManualDiscount(DiscountScope.ITEM, DiscountType.FIXED,
-                        new BigDecimal("0.01"), "line-a", "Attempted excess")), admin()))
-                .isInstanceOf(BadRequestException.class)
-                .hasMessageContaining("eligible remaining balance");
+        // Subtotal = 50.00, shopkeeper enters discount of 80.00
+        PosQuoteRequest request = new PosQuoteRequest(
+                List.of(new PosQuoteRequest.Line("line-a", fixture.product().getId(), fixture.variant().getId(), null, 1,
+                        new BigDecimal("50.00"), BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("80.00"))),
+                null, List.of(), List.of(), null, null, null);
+
+        PosQuoteResponse quote = quoteService.quote(request, admin());
+
+        assertThat(quote.subtotal()).isEqualByComparingTo("50.00");
+        assertThat(quote.payableAmount()).isEqualByComparingTo("0.00");
+        assertThat(quote.lines().getFirst().finalLineTotal()).isEqualByComparingTo("0.00");
     }
 
     @Test
     void quoteRejectsVariantProductMismatchAndMissingRequiredBottle() {
-        Fixture fixture = fixture(ProductType.ATTAR, CategoryType.ATTARS, new BigDecimal("100.00"),
-                new BigDecimal("0.01"), 10, new BigDecimal("5.00"), 10);
-        Fixture other = fixture(ProductType.GENERAL, CategoryType.ATTARS, new BigDecimal("200.00"),
-                new BigDecimal("0.01"), 10, null, 0);
+        Fixture attar = fixture(ProductType.ATTAR, CategoryType.ATTARS, new BigDecimal("100.00"),
+                5, new BigDecimal("5.00"), 5);
+        Fixture perfume = fixture(ProductType.PERFUME, CategoryType.PERFUMES, new BigDecimal("200.00"),
+                5, null, 0);
 
-        assertThatThrownBy(() -> quoteService.quote(request(
-                new PosQuoteRequest.Line("line-a", other.product().getId(), fixture.variant().getId(),
-                        fixture.bottle().getId(), 1), null), admin()))
+        // Mismatched product ID
+        assertThatThrownBy(() -> quoteService.quote(new PosQuoteRequest(
+                List.of(new PosQuoteRequest.Line("line-1", perfume.product().getId(), attar.variant().getId(),
+                        attar.bottle().getId(), 1, new BigDecimal("100.00"))),
+                null, List.of(), "Customer", null, null), admin()))
                 .isInstanceOf(BadRequestException.class)
-                .hasMessageContaining("does not belong");
+                .hasMessageContaining("Selected variant does not belong to the selected product");
 
-        assertThatThrownBy(() -> quoteService.quote(request(
-                new PosQuoteRequest.Line("line-a", fixture.product().getId(), fixture.variant().getId(), null, 1),
-                null), admin()))
+        // Missing required bottle for Attar
+        assertThatThrownBy(() -> quoteService.quote(new PosQuoteRequest(
+                List.of(new PosQuoteRequest.Line("line-1", attar.product().getId(), attar.variant().getId(),
+                        null, 1, new BigDecimal("100.00"))),
+                null, List.of(), "Customer", null, null), admin()))
                 .isInstanceOf(BadRequestException.class)
-                .hasMessageContaining("bottle must be selected");
+                .hasMessageContaining("A bottle must be selected for this fragrance");
     }
 
     @Test
-    void quoteRejectsInactiveProductVariantAndBottle() {
-        Fixture fixture = fixture(ProductType.ATTAR, CategoryType.ATTARS, new BigDecimal("100.00"),
-                new BigDecimal("0.01"), 10, new BigDecimal("5.00"), 10);
+    void postEndpointReturnsAuthoritativeQuoteForShopkeeperPrices() throws Exception {
+        Fixture fixture = fixture(ProductType.GENERAL, CategoryType.ATTARS, new BigDecimal("999.00"),
+                10, null, 0);
 
-        fixture.product().setActive(false);
-        productRepository.saveAndFlush(fixture.product());
-        assertThatThrownBy(() -> quoteService.quote(request(
-                new PosQuoteRequest.Line("line-a", fixture.product().getId(), fixture.variant().getId(),
-                        fixture.bottle().getId(), 1), null), admin()))
-                .isInstanceOf(BadRequestException.class)
-                .hasMessageContaining("inactive");
-
-        fixture.product().setActive(true);
-        productRepository.saveAndFlush(fixture.product());
-        fixture.variant().setActive(false);
-        variantRepository.saveAndFlush(fixture.variant());
-        assertThatThrownBy(() -> quoteService.quote(request(
-                new PosQuoteRequest.Line("line-a", fixture.product().getId(), fixture.variant().getId(),
-                        fixture.bottle().getId(), 1), null), admin()))
-                .isInstanceOf(BadRequestException.class)
-                .hasMessageContaining("inactive");
-
-        fixture.variant().setActive(true);
-        variantRepository.saveAndFlush(fixture.variant());
-        fixture.bottle().setActive(false);
-        bottleRepository.saveAndFlush(fixture.bottle());
-        assertThatThrownBy(() -> quoteService.quote(request(
-                new PosQuoteRequest.Line("line-a", fixture.product().getId(), fixture.variant().getId(),
-                        fixture.bottle().getId(), 1), null), admin()))
-                .isInstanceOf(BadRequestException.class)
-                .hasMessageContaining("bottle is inactive");
-    }
-
-    @Test
-    void quoteRejectsBottleApplicabilityMismatch() {
-        Fixture fixture = fixture(ProductType.PERFUME, CategoryType.ATTARS, new BigDecimal("100.00"),
-                new BigDecimal("0.01"), 10, new BigDecimal("5.00"), 10);
-
-        assertThatThrownBy(() -> quoteService.quote(request(
-                new PosQuoteRequest.Line("line-a", fixture.product().getId(), fixture.variant().getId(),
-                        fixture.bottle().getId(), 1), null), admin()))
-                .isInstanceOf(BadRequestException.class)
-                .hasMessageContaining("not applicable for Perfumes");
-    }
-
-    @Test
-    void quoteRejectsInvalidQuantityAndExcessiveManualDiscounts() throws Exception {
-        Fixture fixture = fixture(ProductType.GENERAL, CategoryType.ATTARS, new BigDecimal("100.00"),
-                new BigDecimal("0.01"), 10, null, 0);
-        String invalidQuantity = """
-                {"lines":[{"lineKey":"line-a","productId":%d,"variantId":%d,"quantity":0}],
-                 "manualDiscounts":[]}
-                """.formatted(fixture.product().getId(), fixture.variant().getId());
-        mockMvc.perform(post("/api/billing/pos/quotes")
-                        .with(authenticate(RoleType.ADMIN))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(invalidQuantity))
-                .andExpect(status().isBadRequest());
-
-        assertThatThrownBy(() -> quoteService.quote(request(
-                new PosQuoteRequest.Line("line-a", fixture.product().getId(), fixture.variant().getId(), null, 1),
-                null,
-                new PosQuoteRequest.ManualDiscount(DiscountScope.SALE, DiscountType.PERCENT,
-                        new BigDecimal("100.01"), null, "Excess percentage")), admin()))
-                .isInstanceOf(BadRequestException.class)
-                .hasMessageContaining("cannot exceed 100%");
-
-        assertThatThrownBy(() -> quoteService.quote(request(
-                new PosQuoteRequest.Line("line-a", fixture.product().getId(), fixture.variant().getId(), null, 1),
-                null,
-                new PosQuoteRequest.ManualDiscount(DiscountScope.SALE, DiscountType.FIXED,
-                        new BigDecimal("100.01"), null, "Excess fixed discount")), admin()))
-                .isInstanceOf(BadRequestException.class)
-                .hasMessageContaining("eligible remaining balance");
-    }
-
-    @Test
-    void quoteRejectsMissingVariantAndOutOfRangeRequestValues() throws Exception {
-        Fixture fixture = fixture(ProductType.GENERAL, CategoryType.ATTARS, new BigDecimal("100.00"),
-                new BigDecimal("0.01"), 10, null, 0);
-        assertThatThrownBy(() -> quoteService.quote(request(
-                new PosQuoteRequest.Line("line-a", fixture.product().getId(), Long.MAX_VALUE, null, 1), null), admin()))
-                .isInstanceOf(ResourceNotFoundException.class);
-
-        String excessiveQuantity = """
-                {"lines":[{"lineKey":"line-a","productId":%d,"variantId":%d,"quantity":1000}],
-                 "manualDiscounts":[]}
-                """.formatted(fixture.product().getId(), fixture.variant().getId());
-        mockMvc.perform(post("/api/billing/pos/quotes")
-                        .with(authenticate(RoleType.ADMIN))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(excessiveQuantity))
-                .andExpect(status().isBadRequest());
-
-        String negativeDiscount = """
-                {"lines":[{"lineKey":"line-a","productId":%d,"variantId":%d,"quantity":1}],
-                 "manualDiscounts":[{"scope":"SALE","type":"FIXED","value":-1.00,"reason":"Invalid value"}]}
-                """.formatted(fixture.product().getId(), fixture.variant().getId());
-        mockMvc.perform(post("/api/billing/pos/quotes")
-                        .with(authenticate(RoleType.ADMIN))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(negativeDiscount))
-                .andExpect(status().isBadRequest());
-
-        String oversizedDiscount = """
-                {"lines":[{"lineKey":"line-a","productId":%d,"variantId":%d,"quantity":1}],
-                 "manualDiscounts":[{"scope":"SALE","type":"FIXED","value":10000000000.00,"reason":"Invalid value"}]}
-                """.formatted(fixture.product().getId(), fixture.variant().getId());
-        mockMvc.perform(post("/api/billing/pos/quotes")
-                        .with(authenticate(RoleType.ADMIN))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(oversizedDiscount))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void quoteAggregatesAvailabilityAcrossDuplicateStockDemandsWithoutDeducting() {
-        Fixture fixture = fixture(ProductType.ATTAR, CategoryType.ATTARS, new BigDecimal("100.00"),
-                new BigDecimal("0.01"), 1, new BigDecimal("5.00"), 1);
-        PosQuoteResponse quote = quoteService.quote(new PosQuoteRequest(
-                java.util.List.of(
-                        new PosQuoteRequest.Line("line-a", fixture.product().getId(), fixture.variant().getId(),
-                                fixture.bottle().getId(), 1),
-                        new PosQuoteRequest.Line("line-b", fixture.product().getId(), fixture.variant().getId(),
-                                fixture.bottle().getId(), 1)), null, java.util.List.of(), null, null, null), admin());
-
-        assertThat(quote.allLinesAvailable()).isFalse();
-        assertThat(quote.lines()).allSatisfy(line -> {
-            assertThat(line.variantStockSufficient()).isFalse();
-            assertThat(line.bottleStockSufficient()).isFalse();
-            assertThat(line.requestedVariantQuantity()).isEqualTo(2);
-            assertThat(line.requestedBottleQuantity()).isEqualTo(2);
-        });
-        assertThat(variantRepository.findById(fixture.variant().getId()).orElseThrow().getStock()).isEqualTo(1);
-        assertThat(bottleRepository.findById(fixture.bottle().getId()).orElseThrow().getStockQuantity()).isEqualTo(1);
-    }
-
-    @Test
-    void adminCanRequestQuoteUserIsDeniedAndClientSubmittedPricesAreIgnored() throws Exception {
-        Fixture fixture = fixture(ProductType.GENERAL, CategoryType.ATTARS, new BigDecimal("100.00"),
-                new BigDecimal("0.01"), 5, null, 0);
-        String body = """
+        String payload = """
                 {
-                  "lines":[{"lineKey":"line-a","productId":%d,"variantId":%d,"quantity":1,
-                    "unitPrice":0,"price":0,"lineTotal":0}],
-                  "manualDiscounts":[],"subtotal":0,"payableAmount":0,"total":0
+                  "lines": [
+                    {
+                      "lineKey": "line-api-test",
+                      "productId": %d,
+                      "variantId": %d,
+                      "quantity": 2,
+                      "productPrice": "150.00",
+                      "bottleCharge": "0.00",
+                      "giftBoxCharge": "25.00",
+                      "manualDiscount": "10.00"
+                    }
+                  ],
+                  "customerName": "API Walk-in"
                 }
                 """.formatted(fixture.product().getId(), fixture.variant().getId());
 
         mockMvc.perform(post("/api/billing/pos/quotes")
-                        .with(authenticate(RoleType.ADMIN))
+                        .with(adminAuthentication())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+                        .content(payload))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.subtotal").value(100.00))
-                .andExpect(jsonPath("$.payableAmount").value(100.00))
-                .andExpect(jsonPath("$.previewOnly").value(true));
-
-        mockMvc.perform(post("/api/billing/pos/quotes")
-                        .with(authenticate(RoleType.USER))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
-                .andExpect(status().isForbidden());
-
-        mockMvc.perform(post("/api/billing/pos/quotes")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
-                .andExpect(status().isUnauthorized());
+                .andExpect(jsonPath("$.previewOnly").value(true))
+                .andExpect(jsonPath("$.subtotal").value("325.00")) // (150 * 2) + 25 = 325.00
+                .andExpect(jsonPath("$.manualDiscount").value("10.00"))
+                .andExpect(jsonPath("$.payableAmount").value("315.00")) // 325 - 10 = 315.00
+                .andExpect(jsonPath("$.allLinesAvailable").value(true))
+                .andExpect(jsonPath("$.quoteFingerprint").isString());
     }
 
-    private Fixture fixture(ProductType productType, CategoryType categoryType,
-                            BigDecimal price, BigDecimal discountedPrice, int variantStock,
-                            BigDecimal bottlePrice, int bottleStock) {
-        LocalDateTime now = LocalDateTime.now();
-        String suffix = UUID.randomUUID().toString().substring(0, 12);
-        Category category = Category.builder().name("POS quote " + suffix).description("test")
-                .image("test").type(categoryType).active(true).build();
-        timestamps(category, now);
-        category = categoryRepository.saveAndFlush(category);
+    private Fixture fixture(ProductType productType, CategoryType categoryType, BigDecimal price,
+                            int stock, BigDecimal bottlePrice, int bottleStock) {
+        String slug = "pos-quote-" + UUID.randomUUID();
+        Category category = Category.builder()
+                .name("Cat " + slug).description("Desc " + slug).image("/img.png")
+                .type(categoryType).active(true).build();
+        category = categoryRepository.save(category);
 
-        Product product = Product.builder().name("POS quote product " + suffix).slug("pos-quote-" + suffix)
-                .shortDescription("test").description("test").brand("test").category(category)
-                .fragranceFamily("test").topNotes("test").middleNotes("test").baseNotes("test")
-                .longevity("test").projection("test").gender(Gender.UNISEX).active(true).build();
-        timestamps(product, now);
-        product = productRepository.saveAndFlush(product);
+        Product product = Product.builder()
+                .name("Product " + slug).slug(slug).category(category).active(true)
+                .description("Test description for product").brand("Al Ahad")
+                .fragranceFamily("Oriental").topNotes("Rose").middleNotes("Amber").baseNotes("Oud")
+                .longevity("12h").projection("Strong").gender(Gender.UNISEX)
+                .build();
+        product = productRepository.save(product);
 
-        ProductVariant variant = ProductVariant.builder().product(product).productType(productType)
-                .size("10 ml").price(price).discountedPrice(discountedPrice).stock(variantStock)
-                .sku("PQ-" + suffix).active(true).build();
-        timestamps(variant, now);
-        variant = variantRepository.saveAndFlush(variant);
+        ProductVariant variant = ProductVariant.builder()
+                .product(product).sku("SKU-" + slug).size("12ml").price(price).discountedPrice(price)
+                .stock(stock).active(true).productType(productType).build();
+        variant = variantRepository.save(variant);
 
-        Bottle bottle = null;
-        if (bottlePrice != null) {
-            bottle = Bottle.builder().name("POS quote bottle " + suffix).price(bottlePrice)
-                    .stockQuantity(bottleStock).active(true).applicability(BottleApplicability.ATTAR).build();
-            timestamps(bottle, now);
-            bottle = bottleRepository.saveAndFlush(bottle);
-        }
+        Bottle bottle = bottlePrice == null ? null : Bottle.builder()
+                .name("Bottle " + slug).price(bottlePrice).active(true).stockQuantity(bottleStock)
+                .applicability(BottleApplicability.BOTH).build();
+        if (bottle != null) bottle = bottleRepository.save(bottle);
+
         return new Fixture(product, variant, bottle);
     }
 
-    private Promotion promotion(String name, String code, BigDecimal value,
-                                Integer usageLimit, Integer usedCount, Integer perUserLimit, boolean stackable) {
-        LocalDateTime now = LocalDateTime.now();
-        Promotion promotion = Promotion.builder().name(name).code(code).promotionType(PromotionType.CART_DISCOUNT)
-                .discountType(com.alahadattars.enums.DiscountType.PERCENTAGE).discountValue(value).usageLimit(usageLimit)
-                .usedCount(usedCount).perUserLimit(perUserLimit).priority(10).active(true).stackable(stackable).build();
-        timestamps(promotion, now);
-        return promotionRepository.saveAndFlush(promotion);
+    private Promotion promotion(String name, String code, BigDecimal discount) {
+        return promotionRepository.save(Promotion.builder()
+                .name(name).code(code).description("Test promo")
+                .promotionType(PromotionType.CART_DISCOUNT)
+                .discountType(com.alahadattars.enums.DiscountType.PERCENTAGE)
+                .discountValue(discount).minCartValue(BigDecimal.ZERO).maxDiscountValue(new BigDecimal("500.00"))
+                .startDate(LocalDateTime.now().minusDays(1)).endDate(LocalDateTime.now().plusDays(1))
+                .priority(1)
+                .active(true).build());
     }
 
-    private static PosQuoteRequest request(PosQuoteRequest.Line line, String couponCode,
-                                           PosQuoteRequest.ManualDiscount... discounts) {
-        return new PosQuoteRequest(java.util.List.of(line), couponCode, java.util.List.of(discounts),
-                null, null, null);
+    private AuthenticatedBillingAdmin admin() {
+        return new AuthenticatedBillingAdmin(77L, "admin@example.test");
     }
 
-    private static AuthenticatedBillingAdmin admin() {
+    private RequestPostProcessor adminAuthentication() {
         User user = new User();
         user.setId(77L);
         user.setEmail("admin@example.test");
-        Role role = new Role();
-        role.setName(RoleType.ADMIN);
-        user.setRole(role);
+        user.setPassword("hash");
+        user.setRole(Role.builder().name(RoleType.ADMIN).build());
+        user.setEnabled(true);
         CustomUserDetails principal = new CustomUserDetails(user);
-        return AuthenticatedBillingAdmin.from(new UsernamePasswordAuthenticationToken(
-                principal, null, principal.getAuthorities()));
+        return authentication(new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
     }
 
-    private static RequestPostProcessor authenticate(RoleType roleType) {
-        User user = new User();
-        user.setId(roleType == RoleType.ADMIN ? 77L : 78L);
-        user.setEmail(roleType.name().toLowerCase(java.util.Locale.ROOT) + "@example.test");
-        Role role = new Role();
-        role.setName(roleType);
-        user.setRole(role);
-        CustomUserDetails principal = new CustomUserDetails(user);
-        return authentication(new UsernamePasswordAuthenticationToken(
-                principal, null, principal.getAuthorities()));
-    }
-
-    private static void timestamps(com.alahadattars.entity.BaseEntity entity, LocalDateTime now) {
-        entity.setCreatedAt(now);
-        entity.setUpdatedAt(now);
-    }
-
-    private record Fixture(Product product, ProductVariant variant, Bottle bottle) {
-    }
+    private record Fixture(Product product, ProductVariant variant, Bottle bottle) { }
 }
