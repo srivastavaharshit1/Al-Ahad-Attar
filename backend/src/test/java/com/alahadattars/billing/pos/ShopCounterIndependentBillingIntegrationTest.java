@@ -361,6 +361,65 @@ class ShopCounterIndependentBillingIntegrationTest {
         org.mockito.Mockito.verifyNoMoreInteractions(mockTx);
     }
 
+    @Test
+    @DisplayName("10. Attar or Perfume can be billed without selecting a bottle, and bottle charge works independently")
+    void shopBillingAllowsAttarWithoutBottleAndAppliesManualBottleChargeIndependently() {
+        // Create an ATTAR product and variant (which in connected POS would require a bottle)
+        Fixture fixture = fixture(ProductType.ATTAR, CategoryType.ATTARS, new BigDecimal("1000.00"), 10, null, 0);
+
+        // Shopkeeper enters custom product price (400.00), NO bottle (bottleId=null), but manual bottle charge (50.00)
+        PosQuoteRequest quoteReq = new PosQuoteRequest(
+                List.of(new PosQuoteRequest.Line(
+                        "line-no-bottle", fixture.product().getId(), fixture.variant().getId(),
+                        null, 2, new BigDecimal("400.00"), new BigDecimal("50.00"), BigDecimal.ZERO, BigDecimal.ZERO)),
+                null, List.of(), "Cash Customer", "+919876543210", null);
+
+        PosQuoteResponse quote = quoteService.quote(quoteReq, admin);
+
+        // Expected: (400.00 * 2) + 50.00 = 850.00 payable
+        assertThat(quote.allLinesAvailable()).isTrue();
+        assertThat(quote.subtotal()).isEqualByComparingTo(new BigDecimal("850.00"));
+        assertThat(quote.payableAmount()).isEqualByComparingTo(new BigDecimal("850.00"));
+        assertThat(quote.lines().get(0).bottleId()).isNull();
+        assertThat(quote.lines().get(0).bottleUnitPrice()).isEqualByComparingTo(new BigDecimal("50.00"));
+        assertThat(quote.lines().get(0).requestedBottleQuantity()).isZero();
+
+        // Stock deduction for variant proceeds atomically without requiring a bottle
+        int updated = variantRepository.decrementStock(fixture.variant().getId(), 2);
+        assertThat(updated).isEqualTo(1);
+        ProductVariant updatedVariant = variantRepository.findById(fixture.variant().getId()).orElseThrow();
+        assertThat(updatedVariant.getStock()).isEqualTo(8);
+    }
+
+    @Test
+    @DisplayName("11. When bottle is selected in shop counter, bottle stock is decremented atomically")
+    void shopBillingDeductsBottleStockOnlyWhenBottleSelected() {
+        Fixture fixture = fixture(ProductType.ATTAR, CategoryType.ATTARS, new BigDecimal("800.00"), 10, new BigDecimal("60.00"), 15);
+
+        // Shopkeeper enters custom price (350.00) and explicitly selects a bottle
+        PosQuoteRequest quoteReq = new PosQuoteRequest(
+                List.of(new PosQuoteRequest.Line(
+                        "line-with-bottle", fixture.product().getId(), fixture.variant().getId(),
+                        fixture.bottle().getId(), 3, new BigDecimal("350.00"), new BigDecimal("60.00"), BigDecimal.ZERO, BigDecimal.ZERO)),
+                null, List.of(), "Bottle Customer", "+919876543210", null);
+
+        PosQuoteResponse quote = quoteService.quote(quoteReq, admin);
+        // (350 * 3) + 60 = 1110.00
+        assertThat(quote.payableAmount()).isEqualByComparingTo(new BigDecimal("1110.00"));
+        assertThat(quote.lines().get(0).requestedBottleQuantity()).isEqualTo(3);
+
+        // Both variant stock and bottle stock decremented!
+        int varUpdated = variantRepository.decrementStock(fixture.variant().getId(), 3);
+        assertThat(varUpdated).isEqualTo(1);
+        ProductVariant updatedVariant = variantRepository.findById(fixture.variant().getId()).orElseThrow();
+        assertThat(updatedVariant.getStock()).isEqualTo(7); // 10 - 3 = 7
+
+        int bottleUpdated = bottleRepository.decrementStock(fixture.bottle().getId(), 3);
+        assertThat(bottleUpdated).isEqualTo(1);
+        Bottle updatedBottle = bottleRepository.findById(fixture.bottle().getId()).orElseThrow();
+        assertThat(updatedBottle.getStockQuantity()).isEqualTo(12); // 15 - 3 = 12
+    }
+
     private String computeExpectedHash(PosSaleFinalizeRequest request, long adminId) {
         try {
             var method = PosSaleFinalizationService.class.getDeclaredMethod("fingerprint", PosSaleFinalizeRequest.class, long.class);

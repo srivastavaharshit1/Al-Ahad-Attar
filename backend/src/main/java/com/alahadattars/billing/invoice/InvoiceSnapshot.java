@@ -1,5 +1,7 @@
 package com.alahadattars.billing.invoice;
 
+import com.alahadattars.billing.sale.PosTenderSnapshot;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -22,7 +24,28 @@ public record InvoiceSnapshot(
         BigDecimal manualDiscount,
         BigDecimal total,
         InvoiceTaxSnapshot tax,
-        String invoiceNoticeSnapshot) {
+        String invoiceNoticeSnapshot,
+        PosTenderSnapshot tender) {
+
+    public InvoiceSnapshot(
+            UUID invoiceKey,
+            String invoiceNumber,
+            InvoiceChannel channel,
+            InvoiceSourceType sourceType,
+            long sourceId,
+            Instant issuedAt,
+            InvoiceSellerSnapshot seller,
+            InvoiceCustomerSnapshot customer,
+            List<InvoiceLineSnapshot> lines,
+            BigDecimal subtotal,
+            BigDecimal promotionDiscount,
+            BigDecimal manualDiscount,
+            BigDecimal total,
+            InvoiceTaxSnapshot tax,
+            String invoiceNoticeSnapshot) {
+        this(invoiceKey, invoiceNumber, channel, sourceType, sourceId, issuedAt, seller, customer,
+                lines, subtotal, promotionDiscount, manualDiscount, total, tax, invoiceNoticeSnapshot, null);
+    }
 
     public InvoiceSnapshot {
         Objects.requireNonNull(invoiceKey, "invoiceKey is required");
