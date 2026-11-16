@@ -229,17 +229,51 @@ public class MetaWhatsAppInvoiceSender implements InvoiceChannelSender {
             throw new InvoiceDeliveryException(DeliveryFailureKind.PERMANENT,
                     "INVALID_WHATSAPP_DESTINATION", "WhatsApp destination must use international E.164 format");
         }
-        String cleaned = destination.replaceAll("[^0-9+]", "");
-        if (cleaned.startsWith("+")) {
-            cleaned = cleaned.substring(1);
-        } else if (cleaned.length() == 10) {
-            cleaned = "91" + cleaned;
-        }
-        if (!cleaned.matches("^[1-9][0-9]{7,14}$")) {
+        String trimmed = destination.trim();
+        if (!trimmed.matches("^\\+?[0-9\\s\\-\\(\\)]+$")) {
             throw new InvoiceDeliveryException(DeliveryFailureKind.PERMANENT,
-                    "INVALID_WHATSAPP_DESTINATION", "WhatsApp destination must use international E.164 format");
+                    "INVALID_WHATSAPP_DESTINATION", "WhatsApp destination contains invalid characters");
         }
-        return cleaned;
+        boolean hasPlus = trimmed.startsWith("+");
+        String digits = trimmed.replaceAll("[^0-9]", "");
+
+        if (digits.startsWith("0")) {
+            throw new InvoiceDeliveryException(DeliveryFailureKind.PERMANENT,
+                    "INVALID_WHATSAPP_DESTINATION", "WhatsApp destination must not start with 0; provide valid country code");
+        }
+
+        String normalized;
+        if (hasPlus) {
+            if (!digits.matches("^[1-9][0-9]{7,14}$")) {
+                throw new InvoiceDeliveryException(DeliveryFailureKind.PERMANENT,
+                        "INVALID_WHATSAPP_DESTINATION", "WhatsApp destination must be a valid E.164 number (8-15 digits)");
+            }
+            if (digits.startsWith("91")) {
+                if (digits.length() != 12 || !digits.substring(2).matches("^[6-9][0-9]{9}$")) {
+                    throw new InvoiceDeliveryException(DeliveryFailureKind.PERMANENT,
+                            "INVALID_WHATSAPP_DESTINATION", "Indian WhatsApp destination must be a 10-digit mobile number starting with 6-9");
+                }
+            }
+            normalized = digits;
+        } else {
+            if (digits.length() == 10) {
+                if (!digits.matches("^[6-9][0-9]{9}$")) {
+                    throw new InvoiceDeliveryException(DeliveryFailureKind.PERMANENT,
+                            "INVALID_WHATSAPP_DESTINATION", "10-digit mobile number must start with 6, 7, 8, or 9");
+                }
+                normalized = "91" + digits;
+            } else if (digits.length() == 12 && digits.startsWith("91")) {
+                if (!digits.substring(2).matches("^[6-9][0-9]{9}$")) {
+                    throw new InvoiceDeliveryException(DeliveryFailureKind.PERMANENT,
+                            "INVALID_WHATSAPP_DESTINATION", "Indian WhatsApp destination must be a 10-digit mobile number starting with 6-9");
+                }
+                normalized = digits;
+            } else {
+                throw new InvoiceDeliveryException(DeliveryFailureKind.PERMANENT,
+                        "INVALID_WHATSAPP_DESTINATION", "Ambiguous destination format. Enter a 10-digit Indian mobile number or an international number with +country code");
+            }
+        }
+        return normalized;
     }
 
     private static String safeFilename(String invoiceNumber) {

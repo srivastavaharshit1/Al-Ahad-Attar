@@ -147,6 +147,7 @@ export function ShopCounterPage() {
     canRefresh?: boolean;
   } | null>(null);
   const deliveryIdempotencyKeyRef = useRef<string | null>(null);
+  const lastDeliveryDestinationRef = useRef<string | null>(null);
   const deliveryPollingTimer = useRef<number | null>(null);
 
   const quoteRequestSequence = useRef(0);
@@ -666,6 +667,45 @@ export function ShopCounterPage() {
     }
   };
 
+function validateAndFormatWhatsAppPhone(input: string): { valid: boolean; formatted?: string; error?: string } {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return { valid: false, error: 'Customer mobile number is required for WhatsApp delivery.' };
+  }
+  const hasPlus = trimmed.startsWith('+');
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.startsWith('0')) {
+    return { valid: false, error: 'Mobile number must not start with 0. Provide a 10-digit mobile number or an international number with country code.' };
+  }
+  if (hasPlus) {
+    if (digits.length < 8 || digits.length > 15) {
+      return { valid: false, error: 'International number must be between 8 and 15 digits (E.164 format).' };
+    }
+    if (digits.startsWith('91')) {
+      if (digits.length !== 12 || !/^[6-9]/.test(digits.slice(2))) {
+        return { valid: false, error: 'Indian mobile number must be 10 digits starting with 6, 7, 8, or 9.' };
+      }
+    }
+    return { valid: true, formatted: `+${digits}` };
+  }
+  if (digits.length === 10) {
+    if (!/^[6-9]/.test(digits)) {
+      return { valid: false, error: '10-digit Indian mobile number must start with 6, 7, 8, or 9.' };
+    }
+    return { valid: true, formatted: `+91${digits}` };
+  }
+  if (digits.length === 12 && digits.startsWith('91')) {
+    if (!/^[6-9]/.test(digits.slice(2))) {
+      return { valid: false, error: 'Indian mobile number must start with 6, 7, 8, or 9.' };
+    }
+    return { valid: true, formatted: `+${digits}` };
+  }
+  return {
+    valid: false,
+    error: 'Enter a valid 10-digit Indian mobile number (e.g. 9876543210) or an international number with + (e.g. +14155552671).'
+  };
+}
+
   const sendWhatsAppInvoice = async () => {
     if (!finalSale || whatsAppDelivery?.status === 'SENDING') return;
 
@@ -674,26 +714,35 @@ export function ShopCounterPage() {
       deliveryPollingTimer.current = null;
     }
 
-    const rawPhone = customerMobile.replace(/\D/g, '');
-    let targetPhone = rawPhone;
-    if (!targetPhone || targetPhone.length < 10) {
-      const promptPhone = window.prompt('Enter customer WhatsApp mobile number (10 digits):');
+    let targetInput = customerMobile.trim();
+    let validation = validateAndFormatWhatsAppPhone(targetInput);
+    if (!validation.valid) {
+      const promptPhone = window.prompt(
+        validation.error
+          ? `${validation.error}\nEnter customer WhatsApp mobile number:`
+          : 'Enter customer WhatsApp mobile number (10-digit Indian mobile or +country code):'
+      );
       if (!promptPhone) return;
-      targetPhone = promptPhone.replace(/\D/g, '');
+      targetInput = promptPhone.trim();
+      validation = validateAndFormatWhatsAppPhone(targetInput);
     }
 
-    if (!targetPhone || targetPhone.length < 10) {
+    if (!validation.valid || !validation.formatted) {
       setWhatsAppDelivery({
         status: 'FAILED',
-        message: 'A valid customer mobile number (minimum 10 digits) is required to send via WhatsApp.',
+        message: validation.error || 'A valid customer mobile number is required to send via WhatsApp.',
         canRetry: true,
       });
       return;
     }
 
-    const formattedPhone = targetPhone.length === 10
-      ? `+91${targetPhone}`
-      : (targetPhone.startsWith('91') && targetPhone.length === 12 ? `+${targetPhone}` : `+${targetPhone}`);
+    const formattedPhone = validation.formatted;
+
+    // If destination number changed, reset idempotency key so we don't reuse another recipient's key
+    if (lastDeliveryDestinationRef.current && lastDeliveryDestinationRef.current !== formattedPhone) {
+      deliveryIdempotencyKeyRef.current = null;
+    }
+    lastDeliveryDestinationRef.current = formattedPhone;
 
     if (!deliveryIdempotencyKeyRef.current) {
       deliveryIdempotencyKeyRef.current = `pos-inv-${finalSale.invoiceId}-wa-${Date.now()}`;
@@ -733,6 +782,7 @@ export function ShopCounterPage() {
       window.clearInterval(deliveryPollingTimer.current);
       deliveryPollingTimer.current = null;
     }
+    lastDeliveryDestinationRef.current = null;
     deliveryIdempotencyKeyRef.current = null;
     setLines([]);
     setQuote(null);

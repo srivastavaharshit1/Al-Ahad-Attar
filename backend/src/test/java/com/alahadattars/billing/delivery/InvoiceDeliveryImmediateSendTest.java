@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -307,5 +308,43 @@ class InvoiceDeliveryImmediateSendTest {
         assertThat(result.providerMessageId()).isEqualTo("wamid.MetaAccepted123");
 
         verify(mockDeliveryRepo).complete(eq(job), eq(InvoiceDeliveryStatus.PROVIDER_ACCEPTED), eq("wamid.MetaAccepted123"), isNull(), isNull(), isNull());
+    }
+
+    @Test
+    void sendImmediate_rejectsMalformedPhoneNumber_beforeCallingSender() {
+        when(mockInvoiceRepo.findHistoryItem(42L)).thenReturn(Optional.of(sampleInvoice()));
+
+        // Ambiguous number starting with 0
+        assertThatThrownBy(() -> service.sendImmediate(admin, 42L, InvoiceDeliveryChannel.WHATSAPP, "idem-malformed-1", "09876543210"))
+                .isInstanceOf(InvoiceDeliveryException.class)
+                .hasMessageContaining("must not start with 0");
+
+        // 10-digit number starting with 1
+        assertThatThrownBy(() -> service.sendImmediate(admin, 42L, InvoiceDeliveryChannel.WHATSAPP, "idem-malformed-2", "1234567890"))
+                .isInstanceOf(InvoiceDeliveryException.class)
+                .hasMessageContaining("must start with 6, 7, 8, or 9");
+
+        verify(mockWhatsAppSender, never()).send(any(), any(), any(), any());
+    }
+
+    @Test
+    void sendImmediate_throwsConflict_whenIdempotencyKeyReusedWithDifferentDestination() {
+        when(mockInvoiceRepo.findHistoryItem(42L)).thenReturn(Optional.of(sampleInvoice()));
+        when(mockWhatsAppSender.isAvailable()).thenReturn(true);
+        when(mockInvoiceRepo.findPdf(42L, InvoicePaperFormat.A4))
+                .thenReturn(Optional.of(new InvoicePdfDocument(42L, InvoicePaperFormat.A4, "fake-sha", "dummy-pdf".getBytes())));
+
+        when(mockDeliveryRepo.prepareImmediateJob(
+                eq(42L), eq(InvoiceDeliveryChannel.WHATSAPP), eq("+919999999999"),
+                eq(1L), eq("idem-key-reused"), eq(true), eq(true), any(InvoiceListItem.class)))
+                .thenThrow(new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.CONFLICT,
+                        "Delivery idempotency key was reused with a different invoice, channel, or destination"));
+
+        assertThatThrownBy(() -> service.sendImmediate(admin, 42L, InvoiceDeliveryChannel.WHATSAPP, "idem-key-reused", "+919999999999"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("CONFLICT");
+
+        verify(mockWhatsAppSender, never()).send(any(), any(), any(), any());
     }
 }

@@ -151,11 +151,39 @@ class MetaWhatsAppInvoiceSenderTest {
     void normalizePhone_normalizesIndianAndInternationalFormats() {
         assertThat(MetaWhatsAppInvoiceSender.normalizePhone("+919876543210")).isEqualTo("919876543210");
         assertThat(MetaWhatsAppInvoiceSender.normalizePhone("9876543210")).isEqualTo("919876543210");
+        assertThat(MetaWhatsAppInvoiceSender.normalizePhone("919876543210")).isEqualTo("919876543210");
+        assertThat(MetaWhatsAppInvoiceSender.normalizePhone("+91 98765-43210")).isEqualTo("919876543210");
         assertThat(MetaWhatsAppInvoiceSender.normalizePhone("+14155552671")).isEqualTo("14155552671");
+        assertThat(MetaWhatsAppInvoiceSender.normalizePhone("+971 50 123 4567")).isEqualTo("971501234567");
 
-        assertThatThrownBy(() -> MetaWhatsAppInvoiceSender.normalizePhone("123"))
+        // Leading zero rejected
+        assertThatThrownBy(() -> MetaWhatsAppInvoiceSender.normalizePhone("09876543210"))
                 .isInstanceOf(InvoiceDeliveryException.class)
-                .hasMessageContaining("E.164");
+                .hasMessageContaining("must not start with 0");
+
+        // 10-digit not starting with 6, 7, 8, or 9 rejected
+        assertThatThrownBy(() -> MetaWhatsAppInvoiceSender.normalizePhone("1234567890"))
+                .isInstanceOf(InvoiceDeliveryException.class)
+                .hasMessageContaining("must start with 6, 7, 8, or 9");
+
+        // Indian +91 with invalid national mobile rejected
+        assertThatThrownBy(() -> MetaWhatsAppInvoiceSender.normalizePhone("+911234567890"))
+                .isInstanceOf(InvoiceDeliveryException.class)
+                .hasMessageContaining("starting with 6-9");
+
+        // Ambiguous digits without + rejected
+        assertThatThrownBy(() -> MetaWhatsAppInvoiceSender.normalizePhone("1234567890123"))
+                .isInstanceOf(InvoiceDeliveryException.class)
+                .hasMessageContaining("Ambiguous destination format");
+
+        // Too short rejected
+        assertThatThrownBy(() -> MetaWhatsAppInvoiceSender.normalizePhone("123"))
+                .isInstanceOf(InvoiceDeliveryException.class);
+
+        // Invalid characters rejected
+        assertThatThrownBy(() -> MetaWhatsAppInvoiceSender.normalizePhone("+91-98765-abc"))
+                .isInstanceOf(InvoiceDeliveryException.class)
+                .hasMessageContaining("invalid characters");
     }
 }
 

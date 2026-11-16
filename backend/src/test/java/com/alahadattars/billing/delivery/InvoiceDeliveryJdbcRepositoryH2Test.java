@@ -10,22 +10,25 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class InvoiceDeliveryJdbcRepositoryH2Test {
 
+    private DriverManagerDataSource dataSource;
     private JdbcTemplate jdbcTemplate;
     private InvoiceJdbcRepository mockInvoiceRepo;
     private InvoiceDeliveryJdbcRepository repository;
 
     @BeforeEach
     void setUp() {
-        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("org.h2.Driver");
         dataSource.setUrl("jdbc:h2:mem:delivery_test_" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1;MODE=PostgreSQL");
         dataSource.setUsername("sa");
@@ -623,6 +626,149 @@ class InvoiceDeliveryJdbcRepositoryH2Test {
                 "SELECT COUNT(*) FROM billing_invoice_delivery_attempt WHERE delivery_id = ? AND outcome = 'PROVIDER_ACCEPTED'",
                 Integer.class, id);
         assertThat(attemptCount).isEqualTo(1);
+    }
+
+    @Test
+    void prepareImmediateJob_throwsConflict_whenIdempotencyKeyReusedWithDifferentDestination() {
+        // Initial preparation with phone A
+        repository.saveConsent(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210",
+                InvoiceConsentStatus.GRANTED, "v1_pos_counter", 1L);
+        var initial = repository.prepareImmediateJob(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210",
+                1L, "idem-diff-dest", true, true, sampleInvoice());
+        assertThat(initial).isInstanceOf(InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Claimed.class);
+
+        // Attempting to reuse the same idempotency key for phone B throws 409 CONFLICT
+        assertThatThrownBy(() -> repository.prepareImmediateJob(42L, InvoiceDeliveryChannel.WHATSAPP, "+919999999999",
+                1L, "idem-diff-dest", true, true, sampleInvoice()))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("CONFLICT");
+    }
+
+    @Test
+    void claimDue_expiredProcessing_markedAmbiguousAndCannotBeReclaimed() {
+        UUID key = UUID.randomUUID();
+        // Insert a delivery that was claimed 10 minutes ago and abandoned
+        jdbcTemplate.update("""
+                INSERT INTO billing_invoice_delivery (
+                    delivery_key, idempotency_key, invoice_id, channel, destination_snapshot,
+                    status, attempt_count, processing_started_at, requested_by_user_id
+                ) VALUES (?, 'idem-abandoned-1', 42, 'WHATSAPP', '+919876543210', 'PROCESSING', 1,
+                    TIMESTAMP '2026-11-16 00:00:00', 1)
+                """, key);
+
+        var claimedJobs = repository.claimDue(10, 3);
+        // Abandoned row is NOT claimed
+        assertThat(claimedJobs).noneMatch(job -> job.deliveryKey().equals(key));
+
+        String status = jdbcTemplate.queryForObject(
+                "SELECT status FROM billing_invoice_delivery WHERE idempotency_key = 'idem-abandoned-1'", String.class);
+        assertThat(status).isEqualTo("AMBIGUOUS");
+
+        String errorCode = jdbcTemplate.queryForObject(
+                "SELECT last_error_code FROM billing_invoice_delivery WHERE idempotency_key = 'idem-abandoned-1'", String.class);
+        assertThat(errorCode).isEqualTo("WORKER_INTERRUPTED");
+
+        // Subsequent claimDue calls still do not reclaim AMBIGUOUS rows
+        var subsequentJobs = repository.claimDue(10, 3);
+        assertThat(subsequentJobs).noneMatch(job -> job.deliveryKey().equals(key));
+    }
+
+    @Test
+    void claimDue_workerConcurrency_twoConcurrentWorkersDoNotClaimSameRows() throws Exception {
+        // Grant consent for invoice 42
+        repository.saveConsent(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210",
+                InvoiceConsentStatus.GRANTED, "v1_pos_counter", 1L);
+        when(mockInvoiceRepo.findHistoryItem(42L)).thenReturn(Optional.of(sampleInvoice()));
+
+        // Insert 6 pending rows
+        for (int i = 1; i <= 6; i++) {
+            jdbcTemplate.update("""
+                    INSERT INTO billing_invoice_delivery (
+                        delivery_key, idempotency_key, invoice_id, channel, destination_snapshot, status, requested_by_user_id
+                    ) VALUES (?, ?, 42, 'WHATSAPP', '+919876543210', 'PENDING', 1)
+                    """, UUID.randomUUID(), "idem-concurrent-" + i);
+        }
+
+        // Run two concurrent worker claims of batch size 3 each in transactional worker context
+        org.springframework.jdbc.datasource.DataSourceTransactionManager txManager =
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource);
+        org.springframework.transaction.support.TransactionTemplate txTemplate =
+                new org.springframework.transaction.support.TransactionTemplate(txManager);
+
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.concurrent.Callable<List<Long>> workerTask = () -> {
+            return txTemplate.execute(status -> {
+                var jobs = repository.claimDue(3, 3);
+                return jobs.stream().map(InvoiceDeliveryJob::id).toList();
+            });
+        };
+
+        var future1 = executor.submit(workerTask);
+        var future2 = executor.submit(workerTask);
+
+        List<Long> batch1 = future1.get();
+        List<Long> batch2 = future2.get();
+        executor.shutdown();
+
+        // Ensure disjoint sets: no row was claimed by both workers
+        java.util.Set<Long> overlap = new java.util.HashSet<>(batch1);
+        overlap.retainAll(batch2);
+        assertThat(overlap).isEmpty();
+        assertThat(batch1.size() + batch2.size()).isLessThanOrEqualTo(6);
+
+        // Any remaining pending rows are claimed cleanly by a subsequent worker without duplicates
+        List<Long> remaining = repository.claimDue(3, 3).stream().map(InvoiceDeliveryJob::id).toList();
+        java.util.Set<Long> combined = new java.util.HashSet<>(batch1);
+        combined.addAll(batch2);
+        java.util.Set<Long> remainingOverlap = new java.util.HashSet<>(combined);
+        remainingOverlap.retainAll(remaining);
+        assertThat(remainingOverlap).isEmpty();
+        assertThat(combined.size() + remaining.size()).isEqualTo(6);
+    }
+
+    @Test
+    void retry_allowedOnlyAfterConfirmedFailureOrBlockedConfig() {
+        repository.saveConsent(42L, InvoiceDeliveryChannel.WHATSAPP, "+919876543210",
+                InvoiceConsentStatus.GRANTED, "v1_pos_counter", 1L);
+
+        // 1. FAILED status -> retry allowed
+        jdbcTemplate.update("""
+                INSERT INTO billing_invoice_delivery (
+                    delivery_key, idempotency_key, invoice_id, channel, destination_snapshot, status, attempt_count, requested_by_user_id
+                ) VALUES (?, 'idem-retry-fail', 42, 'WHATSAPP', '+919876543210', 'FAILED', 1, 1)
+                """, UUID.randomUUID());
+        Long failedId = jdbcTemplate.queryForObject(
+                "SELECT id FROM billing_invoice_delivery WHERE idempotency_key = 'idem-retry-fail'", Long.class);
+
+        var retriedView = repository.retry(42L, failedId, 1L, "idem-retry-new-key");
+        assertThat(retriedView.status()).isEqualTo(InvoiceDeliveryStatus.PENDING);
+        assertThat(retriedView.destination()).isEqualTo("+919876543210");
+
+        // 2. AMBIGUOUS status -> retry blocked with 409 CONFLICT
+        jdbcTemplate.update("""
+                INSERT INTO billing_invoice_delivery (
+                    delivery_key, idempotency_key, invoice_id, channel, destination_snapshot, status, attempt_count, requested_by_user_id
+                ) VALUES (?, 'idem-retry-ambig', 42, 'WHATSAPP', '+919876543210', 'AMBIGUOUS', 1, 1)
+                """, UUID.randomUUID());
+        Long ambigId = jdbcTemplate.queryForObject(
+                "SELECT id FROM billing_invoice_delivery WHERE idempotency_key = 'idem-retry-ambig'", Long.class);
+
+        assertThatThrownBy(() -> repository.retry(42L, ambigId, 1L, "idem-retry-ambig-key"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("CONFLICT");
+
+        // 3. PROVIDER_ACCEPTED status -> retry blocked with 409 CONFLICT
+        jdbcTemplate.update("""
+                INSERT INTO billing_invoice_delivery (
+                    delivery_key, idempotency_key, invoice_id, channel, destination_snapshot, status, attempt_count, requested_by_user_id
+                ) VALUES (?, 'idem-retry-accepted', 42, 'WHATSAPP', '+919876543210', 'PROVIDER_ACCEPTED', 1, 1)
+                """, UUID.randomUUID());
+        Long acceptedId = jdbcTemplate.queryForObject(
+                "SELECT id FROM billing_invoice_delivery WHERE idempotency_key = 'idem-retry-accepted'", Long.class);
+
+        assertThatThrownBy(() -> repository.retry(42L, acceptedId, 1L, "idem-retry-accepted-key"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("CONFLICT");
     }
 }
 

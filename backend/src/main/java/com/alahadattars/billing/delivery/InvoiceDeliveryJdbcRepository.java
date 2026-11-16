@@ -33,6 +33,14 @@ public class InvoiceDeliveryJdbcRepository {
         }
         destination = destination.trim();
 
+        // Serialize consent modifications per invoice to prevent concurrent insert/update races
+        List<Long> lockedInvoice = jdbcTemplate.query("SELECT id FROM billing_invoice WHERE id = ? FOR UPDATE",
+                (rs, rowNum) -> rs.getLong(1), invoiceId);
+        if (lockedInvoice.isEmpty()) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "Invoice not found");
+        }
+
         List<Long> existingIds = jdbcTemplate.query("""
                 SELECT id FROM billing_invoice_delivery_consent WHERE invoice_id = ? AND channel = ?
                 """, (rs, rowNum) -> rs.getLong(1), invoiceId, channel.name());
@@ -225,7 +233,7 @@ public class InvoiceDeliveryJdbcRepository {
 
     @Transactional
     public List<InvoiceDeliveryJob> claimDue(int batchSize, int maxAttempts) {
-        java.sql.Timestamp expiredThreshold = java.sql.Timestamp.from(Instant.now().minus(java.time.Duration.ofMinutes(2)));
+        java.sql.Timestamp expiredThreshold = java.sql.Timestamp.from(Instant.now().minus(java.time.Duration.ofMinutes(5)));
         List<Claimed> expired = jdbcTemplate.query("""
                 SELECT id, delivery_key, invoice_id, channel, destination_snapshot, attempt_count, processing_started_at
                 FROM billing_invoice_delivery
@@ -310,11 +318,11 @@ public class InvoiceDeliveryJdbcRepository {
         jdbcTemplate.update("UPDATE billing_invoice_delivery "
                 + "SET status = 'PROCESSING', attempt_count = attempt_count + 1, "
                 + "    processing_started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP "
-                + "WHERE id IN (" + inClause + ")", dueIds.toArray());
+                + "WHERE id IN (" + inClause + ") AND status IN ('PENDING', 'RETRY_WAIT')", dueIds.toArray());
 
         List<Claimed> claimed = jdbcTemplate.query(
                 "SELECT id, delivery_key, invoice_id, channel, destination_snapshot, attempt_count, processing_started_at "
-                + "FROM billing_invoice_delivery WHERE id IN (" + inClause + ") ORDER BY created_at, id",
+                + "FROM billing_invoice_delivery WHERE id IN (" + inClause + ") AND status = 'PROCESSING' ORDER BY created_at, id",
                 (rs, rowNum) -> new Claimed(
                         rs.getLong("id"), UUID.fromString(rs.getString("delivery_key")), rs.getLong("invoice_id"),
                         InvoiceDeliveryChannel.valueOf(rs.getString("channel")), rs.getString("destination_snapshot"),
