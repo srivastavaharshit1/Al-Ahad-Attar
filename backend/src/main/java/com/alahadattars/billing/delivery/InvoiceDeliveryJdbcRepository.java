@@ -3,6 +3,8 @@ package com.alahadattars.billing.delivery;
 import com.alahadattars.billing.invoice.InvoiceChannel;
 import com.alahadattars.billing.invoice.InvoiceJdbcRepository;
 import com.alahadattars.billing.invoice.InvoiceListItem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,12 +19,57 @@ import java.util.UUID;
 
 @Repository
 public class InvoiceDeliveryJdbcRepository {
+    private static final Logger log = LoggerFactory.getLogger(InvoiceDeliveryJdbcRepository.class);
+
     private final JdbcTemplate jdbcTemplate;
     private final InvoiceJdbcRepository invoiceRepository;
+    private volatile Boolean isPostgreSql;
 
     public InvoiceDeliveryJdbcRepository(JdbcTemplate jdbcTemplate, InvoiceJdbcRepository invoiceRepository) {
         this.jdbcTemplate = jdbcTemplate;
         this.invoiceRepository = invoiceRepository;
+    }
+
+    private boolean isPostgreSql() {
+        if (isPostgreSql == null) {
+            synchronized (this) {
+                if (isPostgreSql == null) {
+                    try {
+                        String productName = jdbcTemplate.execute((java.sql.Connection conn) -> conn.getMetaData().getDatabaseProductName());
+                        isPostgreSql = productName != null && productName.toLowerCase().contains("postgres");
+                    } catch (Exception e) {
+                        isPostgreSql = false;
+                    }
+                }
+            }
+        }
+        return isPostgreSql;
+    }
+
+    public static long computeDestinationLockKey(InvoiceDeliveryChannel channel, String destination) {
+        String keyStr = "CONSENT:" + (channel != null ? channel.name() : "") + ":" + (destination != null ? destination.trim() : "");
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(keyStr.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.nio.ByteBuffer.wrap(hash).getLong();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
+        }
+    }
+
+    private void acquireDestinationLock(InvoiceDeliveryChannel channel, String destination) {
+        if (destination == null || destination.isBlank()) {
+            return;
+        }
+        if (!isPostgreSql()) {
+            return;
+        }
+        long lockKey = computeDestinationLockKey(channel, destination);
+        jdbcTemplate.execute("SELECT pg_advisory_xact_lock(?)", (java.sql.PreparedStatement ps) -> {
+            ps.setLong(1, lockKey);
+            ps.execute();
+            return null;
+        });
     }
 
     @Transactional
@@ -33,13 +80,30 @@ public class InvoiceDeliveryJdbcRepository {
         }
         destination = destination.trim();
 
-        // Serialize consent modifications per invoice to prevent concurrent insert/update races
+        // 1. Serialize consent modifications per invoice to prevent concurrent insert/update races
         List<Long> lockedInvoice = jdbcTemplate.query("SELECT id FROM billing_invoice WHERE id = ? FOR UPDATE",
                 (rs, rowNum) -> rs.getLong(1), invoiceId);
         if (lockedInvoice.isEmpty()) {
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.NOT_FOUND, "Invoice not found");
         }
+
+        List<ConsentRecord> existingConsents = jdbcTemplate.query("""
+                SELECT consent_status, destination FROM billing_invoice_delivery_consent
+                WHERE invoice_id = ? AND channel = ?
+                """, (rs, rowNum) -> new ConsentRecord(rs.getString("consent_status"), rs.getString("destination")),
+                invoiceId, channel.name());
+
+        if (destination.isBlank()) {
+            if (!existingConsents.isEmpty() && existingConsents.get(0).destination() != null && !existingConsents.get(0).destination().isBlank()) {
+                destination = existingConsents.get(0).destination().trim();
+            } else {
+                throw new IllegalArgumentException("A valid destination is required to record initial consent");
+            }
+        }
+
+        // 2. Acquire transaction-scoped PostgreSQL advisory lock for (channel, destination) to serialize all concurrent consent operations
+        acquireDestinationLock(channel, destination);
 
         List<Long> existingIds = jdbcTemplate.query("""
                 SELECT id FROM billing_invoice_delivery_consent WHERE invoice_id = ? AND channel = ?
@@ -59,9 +123,6 @@ public class InvoiceDeliveryJdbcRepository {
                     WHERE id = ?
                     """, destination, destination, status.name(), wordingVersion, actorUserId, status.name(), consentId);
         } else {
-            if (destination.isBlank()) {
-                throw new IllegalArgumentException("A valid destination is required to record initial consent");
-            }
             jdbcTemplate.update("""
                     INSERT INTO billing_invoice_delivery_consent (
                         invoice_id, channel, destination, consent_status, wording_version, captured_by_user_id,
@@ -111,6 +172,8 @@ public class InvoiceDeliveryJdbcRepository {
                         ? "+" + MetaWhatsAppInvoiceSender.normalizePhone(raw) : raw.trim();
             }
         }
+
+        acquireDestinationLock(channel, destination);
 
         ConsentEligibility eligibility = checkConsentEligibility(invoiceId, channel, destination);
         InvoiceDeliveryStatus status = (eligibility instanceof ConsentEligibility.Eligible)
@@ -315,10 +378,17 @@ public class InvoiceDeliveryJdbcRepository {
         }
 
         String inClause = java.util.Collections.nCopies(dueIds.size(), "?").stream().collect(java.util.stream.Collectors.joining(","));
-        jdbcTemplate.update("UPDATE billing_invoice_delivery "
+        int updatedCount = jdbcTemplate.update("UPDATE billing_invoice_delivery "
                 + "SET status = 'PROCESSING', attempt_count = attempt_count + 1, "
                 + "    processing_started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP "
                 + "WHERE id IN (" + inClause + ") AND status IN ('PENDING', 'RETRY_WAIT')", dueIds.toArray());
+
+        if (updatedCount == 0) {
+            return List.of();
+        }
+        if (updatedCount != dueIds.size()) {
+            log.warn("Worker claimed {} of {} selected delivery rows due to concurrent state change", updatedCount, dueIds.size());
+        }
 
         List<Claimed> claimed = jdbcTemplate.query(
                 "SELECT id, delivery_key, invoice_id, channel, destination_snapshot, attempt_count, processing_started_at "
@@ -540,7 +610,10 @@ public class InvoiceDeliveryJdbcRepository {
                     org.springframework.http.HttpStatus.NOT_FOUND, "Invoice not found");
         }
 
-        // 2. Check existing delivery by idempotency key
+        // 2. Acquire transaction-scoped PostgreSQL advisory lock for (channel, destination)
+        acquireDestinationLock(channel, destination);
+
+        // 3. Check existing delivery by idempotency key
         Optional<StoredDelivery> existing = findByIdempotencyKey(idempotencyKey);
         if (existing.isPresent()) {
             StoredDelivery stored = existing.get();

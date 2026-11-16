@@ -770,5 +770,17 @@ class InvoiceDeliveryJdbcRepositoryH2Test {
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
                 .hasMessageContaining("CONFLICT");
     }
+
+    @Test
+    void computeDestinationLockKey_isDeterministicAndDistinctPerDestination() {
+        long key1 = InvoiceDeliveryJdbcRepository.computeDestinationLockKey(InvoiceDeliveryChannel.WHATSAPP, "+919876543210");
+        long key2 = InvoiceDeliveryJdbcRepository.computeDestinationLockKey(InvoiceDeliveryChannel.WHATSAPP, "+919876543210");
+        long keyDifferentPhone = InvoiceDeliveryJdbcRepository.computeDestinationLockKey(InvoiceDeliveryChannel.WHATSAPP, "+918888888888");
+        long keyDifferentChannel = InvoiceDeliveryJdbcRepository.computeDestinationLockKey(InvoiceDeliveryChannel.EMAIL, "+919876543210");
+
+        assertThat(key1).isEqualTo(key2);
+        assertThat(key1).isNotEqualTo(keyDifferentPhone);
+        assertThat(key1).isNotEqualTo(keyDifferentChannel);
+    }
 }
 
