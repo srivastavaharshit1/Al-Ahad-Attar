@@ -41,11 +41,11 @@ public class InvoiceDeliveryService {
     @PreAuthorize("hasRole('ADMIN')")
     public void recordConsent(AuthenticatedBillingAdmin actor, long invoiceId, InvoiceConsentRequest request) {
         requireInvoice(invoiceId);
-        validateDestination(request.channel(), request.status(), request.destination());
+        String destination = resolveAndValidateConsentDestination(invoiceId, request.channel(), request.status(), request.destination());
         if (request.status() == InvoiceConsentStatus.GRANTED) {
             consentPolicyProvider.requireApprovedWording(request.channel(), request.wordingVersion());
         }
-        deliveryRepository.saveConsent(invoiceId, request.channel(), request.destination(), request.status(),
+        deliveryRepository.saveConsent(invoiceId, request.channel(), destination, request.status(),
                 request.wordingVersion(), actor.userId());
     }
 
@@ -223,18 +223,37 @@ public class InvoiceDeliveryService {
         }
     }
 
-    private static void validateDestination(InvoiceDeliveryChannel channel, InvoiceConsentStatus status, String destination) {
-        if (status != InvoiceConsentStatus.GRANTED) {
-            return;
+    private String resolveAndValidateConsentDestination(long invoiceId, InvoiceDeliveryChannel channel,
+                                                         InvoiceConsentStatus status, String destination) {
+        String raw = destination;
+        if (raw == null || raw.isBlank()) {
+            Optional<String> existing = deliveryRepository.findConsents(invoiceId).stream()
+                    .filter(c -> c.channel() == channel && c.destination() != null && !c.destination().isBlank())
+                    .map(InvoiceConsentView::destination)
+                    .findFirst();
+            if (existing.isPresent()) {
+                raw = existing.get();
+            }
         }
-        if (destination == null || destination.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Destination is required for granted consent");
+        if (raw == null || raw.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A valid destination is required to record " + status.name().toLowerCase(java.util.Locale.ROOT) + " consent");
         }
-        if (channel == InvoiceDeliveryChannel.EMAIL && !destination.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email destination is invalid");
+
+        if (channel == InvoiceDeliveryChannel.WHATSAPP) {
+            String normalized = MetaWhatsAppInvoiceSender.normalizePhone(raw);
+            String formatted = "+" + normalized;
+            if (!formatted.matches("^\\+[1-9][0-9]{7,14}$")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "WhatsApp destination must use international E.164 format");
+            }
+            return formatted;
+        } else if (channel == InvoiceDeliveryChannel.EMAIL) {
+            String trimmed = raw.trim();
+            if (!trimmed.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email destination is invalid");
+            }
+            return trimmed;
         }
-        if (channel == InvoiceDeliveryChannel.WHATSAPP && !destination.matches("^\\+[1-9][0-9]{7,14}$")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "WhatsApp destination must use international E.164 format");
-        }
+        return raw.trim();
     }
 }
