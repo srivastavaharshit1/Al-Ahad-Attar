@@ -124,28 +124,34 @@ export const Contact: React.FC = () => {
             </h3>
             
             {(settings?.businessAddress || settings?.city || settings?.country) && (
-              <address className="not-italic font-body-md text-body-md text-on-surface-variant mb-4 leading-relaxed">
-                {settings?.businessAddress && <>{settings.businessAddress}<br/></>}
+              <address className="not-italic font-body-md text-sm md:text-[14.5px] text-ink/85 mb-4 leading-relaxed font-normal">
+                {settings?.businessAddress && <span className="text-ink font-medium">{settings.businessAddress}<br/></span>}
                 {settings?.city}{settings?.state && `, ${settings.state}`} {settings?.pincode}<br/>
                 {settings?.country}
               </address>
             )}
 
             {settings?.businessHours && (
-              <p className="font-body-md text-body-md text-on-surface-variant mb-2 leading-relaxed whitespace-pre-wrap">
-                <span className="font-medium">Hours:</span> {settings.businessHours}
+              <p className="font-body-md text-sm md:text-[14.5px] text-ink/85 mb-2.5 leading-relaxed whitespace-pre-wrap">
+                <span className="font-semibold text-ink">Hours:</span> {settings.businessHours}
               </p>
             )}
 
             {settings?.phoneNumber && (
-              <p className="font-body-md text-body-md text-on-surface-variant mb-2 leading-relaxed">
-                <span className="font-medium">Phone:</span> {settings.phoneNumber}
+              <p className="font-body-md text-sm md:text-[14.5px] text-ink/85 mb-2.5 leading-relaxed">
+                <span className="font-semibold text-ink">Phone:</span>{' '}
+                <a href={`tel:${settings.phoneNumber}`} className="hover:text-accent transition-colors">
+                  {settings.phoneNumber}
+                </a>
               </p>
             )}
 
             {settings?.emailAddress && (
-              <p className="font-body-md text-body-md text-on-surface-variant mb-4 leading-relaxed">
-                <span className="font-medium">Email:</span> {settings.emailAddress}
+              <p className="font-body-md text-sm md:text-[14.5px] text-ink/85 mb-4 leading-relaxed">
+                <span className="font-semibold text-ink">Email:</span>{' '}
+                <a href={`mailto:${settings.emailAddress}`} className="hover:text-accent transition-colors">
+                  {settings.emailAddress}
+                </a>
               </p>
             )}
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 
 const WHATSAPP_MESSAGE = encodeURIComponent(
@@ -7,11 +8,21 @@ const WHATSAPP_MESSAGE = encodeURIComponent(
 
 export const FloatingWhatsApp: React.FC = () => {
   const { settings } = useStoreSettings();
+  const location = useLocation();
 
   if (!settings?.whatsappNumber) return null;
 
+  // Suppress on Checkout to prevent obstruction of interactive payment/address/guest fields
+  if (location.pathname === '/checkout' || location.pathname.startsWith('/checkout/')) {
+    return null;
+  }
+
   const cleaned = settings.whatsappNumber.replace(/[^0-9]/g, '');
   const href = `https://wa.me/${cleaned}?text=${WHATSAPP_MESSAGE}`;
+
+  // On Product Detail Pages and Gift Set Detail Pages, a sticky "Add to Bag" bar is fixed at bottom-0 on mobile (< md).
+  // Elevate WhatsApp button to bottom-20 on mobile so it never collides with or covers the sticky CTA.
+  const isPdpPage = location.pathname.startsWith('/product/') || location.pathname.startsWith('/gift-sets/');
 
   return (
     <a
@@ -20,13 +31,15 @@ export const FloatingWhatsApp: React.FC = () => {
       rel="noopener noreferrer"
       aria-label="Chat with our fragrance specialist on WhatsApp"
       title="Chat with our fragrance specialist on WhatsApp"
-      className="fixed bottom-6 right-6 z-40 flex items-center justify-center rounded-full bg-[#133224] border border-accent/60 shadow-[0_6px_25px_rgba(19,50,36,0.4)] hover:shadow-[0_8px_32px_rgba(212,175,55,0.3)] hover:border-accent hover:scale-105 active:scale-95 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 group"
+      className={`fixed ${
+        isPdpPage ? 'bottom-20 md:bottom-6' : 'bottom-6'
+      } right-4 sm:right-6 z-30 flex items-center justify-center rounded-full bg-[#075E54] hover:bg-[#128C7E] border border-[#C8A55E] shadow-[0_4px_16px_rgba(7,94,84,0.28)] hover:shadow-[0_6px_22px_rgba(7,94,84,0.38)] hover:border-[#C8A55E] hover:scale-105 active:scale-95 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8A55E] focus-visible:ring-offset-2 group`}
       style={{ width: '52px', height: '52px' }}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
-        fill="#fbf9f5"
+        fill="#FFFFFF"
         width="26"
         height="26"
         aria-hidden="true"

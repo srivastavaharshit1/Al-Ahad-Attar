@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import { Search, Heart, ShoppingBag, User, Menu, X, ArrowRight } from 'lucide-react';
 import { SearchOverlay } from './SearchOverlay';
@@ -62,6 +63,18 @@ export const Navbar: React.FC = () => {
     };
   }, [isMobileMenuOpen]);
 
+  // Close mobile menu on Escape key press
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileMenuOpen]);
+
   return (
     <>
       <nav
@@ -77,7 +90,7 @@ export const Navbar: React.FC = () => {
         }`}>
 
           {/* Left: Brand Logo */}
-          <div className="shrink-0 flex items-center h-full py-2 mr-2 sm:mr-3 lg:mr-4 xl:mr-6 min-w-0 max-w-[130px] xs:max-w-[170px] sm:max-w-none">
+          <div className="shrink-0 flex items-center h-full py-2 mr-2 sm:mr-3 lg:mr-4 xl:mr-6 min-w-0 max-w-[200px] sm:max-w-none">
             <Link
               to="/"
               className="flex items-center gap-2 h-full min-w-0 rounded-sm group focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
@@ -90,7 +103,7 @@ export const Navbar: React.FC = () => {
                 />
               ) : (
                 <span
-                  className="font-serif text-[13px] xs:text-[15px] sm:text-base md:text-lg xl:text-2xl text-ink tracking-[0.04em] uppercase whitespace-nowrap block transition-colors duration-300 group-hover:text-accent font-normal truncate"
+                  className="font-serif text-[14px] xs:text-[15px] sm:text-base md:text-lg xl:text-2xl text-ink tracking-[0.04em] uppercase whitespace-nowrap block transition-colors duration-300 group-hover:text-accent font-normal truncate"
                 >
                   {settings?.storeName || 'AL AHAD ATTARS'}
                 </span>
@@ -110,27 +123,27 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Right: Actions (Search, Wishlist, Cart, Profile, Menu) */}
-          <div className="flex items-center justify-end gap-0.5 xs:gap-1 sm:gap-2 ml-auto shrink-0">
+          <div className="flex items-center justify-end gap-1 sm:gap-2 ml-auto shrink-0">
             {/* Search Button */}
             <button
               onClick={() => setIsSearchOpen(true)}
-              className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full text-ink/75 hover:text-accent hover:bg-black/[0.03] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent cursor-pointer"
+              className="w-10 h-10 flex items-center justify-center rounded-full text-ink/80 hover:text-accent hover:bg-black/[0.03] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent cursor-pointer"
               aria-label="Search Fragrances"
               title="Search"
             >
-              <Search className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
+              <Search className="w-5 h-5 text-ink/80 hover:text-accent transition-colors" />
             </button>
 
-            {/* Wishlist Link */}
+            {/* Wishlist Link - Relocated to mobile drawer on small screens (< sm) to eliminate overcrowding and expand touch targets */}
             <Link
               to="/wishlist"
-              className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full text-ink/75 hover:text-accent hover:bg-black/[0.03] transition-colors relative focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+              className="hidden sm:flex w-10 h-10 items-center justify-center rounded-full text-ink/80 hover:text-accent hover:bg-black/[0.03] transition-colors relative focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
               aria-label="Wishlist"
               title="Wishlist"
             >
-              <Heart className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
+              <Heart className="w-5 h-5" />
               {productIds.length > 0 && (
-                <span className="absolute top-1 right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-accent text-ink rounded-full text-[8.5px] sm:text-[9px] font-bold flex items-center justify-center shadow-xs">
+                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-accent text-ink rounded-full text-[9px] font-bold flex items-center justify-center shadow-xs">
                   {productIds.length > 9 ? '9+' : productIds.length}
                 </span>
               )}
@@ -139,47 +152,55 @@ export const Navbar: React.FC = () => {
             {/* Cart Link */}
             <Link
               to="/cart"
-              className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full text-ink/75 hover:text-accent hover:bg-black/[0.03] transition-colors relative focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+              className="w-10 h-10 flex items-center justify-center rounded-full text-ink/80 hover:text-accent hover:bg-black/[0.03] transition-colors relative focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
               aria-label="Cart"
               title="Shopping Cart"
             >
-              <ShoppingBag className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
+              <ShoppingBag className="w-5 h-5 text-ink/80 hover:text-accent transition-colors" />
               {itemCount > 0 && (
-                <span className="absolute top-1 right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-accent text-ink rounded-full text-[8.5px] sm:text-[9px] font-bold flex items-center justify-center shadow-xs">
+                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-accent text-ink rounded-full text-[9px] font-bold flex items-center justify-center shadow-xs">
                   {itemCount > 9 ? '9+' : itemCount}
                 </span>
               )}
             </Link>
 
-            {/* Profile / Account Link */}
+            {/* Profile / Account Link - Relocated to mobile drawer on small screens (< sm) to eliminate overcrowding and expand touch targets */}
             <Link
               to={user?.role === 'ADMIN' ? '/admin' : '/account/dashboard'}
-              className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full text-ink/75 hover:text-accent hover:bg-black/[0.03] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+              className="hidden sm:flex w-10 h-10 items-center justify-center rounded-full text-ink/80 hover:text-accent hover:bg-black/[0.03] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
               aria-label={user?.role === 'ADMIN' ? 'Admin Dashboard' : 'My Account'}
               title={user?.role === 'ADMIN' ? 'Admin Dashboard' : 'My Account'}
             >
-              <User className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
+              <User className="w-5 h-5" />
             </Link>
 
             {/* Mobile Menu Hamburger */}
             <button
-              className="lg:hidden w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full text-ink/80 hover:text-accent hover:bg-black/[0.03] transition-colors ml-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent cursor-pointer"
+              className="lg:hidden w-10 h-10 flex items-center justify-center rounded-full text-ink/80 hover:text-accent hover:bg-black/[0.03] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent cursor-pointer"
               aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
               aria-expanded={isMobileMenuOpen}
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               {isMobileMenuOpen ? (
-                <X className="w-5 h-5 sm:w-[22px] sm:h-[22px]" />
+                <X className="w-5 h-5" />
               ) : (
-                <Menu className="w-5 h-5 sm:w-[22px] sm:h-[22px]" />
+                <Menu className="w-5 h-5" />
               )}
             </button>
           </div>
         </div>
 
-        {/* Mobile Navigation Drawer */}
-        {isMobileMenuOpen && (
-          <div className="lg:hidden fixed inset-0 z-50 flex">
+      </nav>
+
+      {/* Mobile Navigation Drawer rendered via portal to document.body to escape navbar backdrop-blur containing block */}
+      {isMobileMenuOpen &&
+        createPortal(
+          <div
+            className="lg:hidden fixed inset-0 z-[60] flex"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Mobile navigation"
+          >
             {/* Backdrop */}
             <div
               className="fixed inset-0 bg-ink/60 backdrop-blur-sm transition-opacity duration-300"
@@ -188,7 +209,7 @@ export const Navbar: React.FC = () => {
             />
 
             {/* Drawer Panel */}
-            <div className="relative ml-auto w-full max-w-sm bg-[#fbf9f5] h-full shadow-2xl flex flex-col justify-between border-l border-[#e4dcc8] z-10 animate-fade-up">
+            <div className="relative ml-auto w-full max-w-sm bg-[#fbf9f5] h-full h-dvh max-h-screen shadow-2xl flex flex-col justify-between border-l border-[#e4dcc8] z-10 animate-fade-up">
               {/* Drawer Header */}
               <div className="flex items-center justify-between p-5 border-b border-[#e4dcc8]">
                 <span className="font-serif text-base text-ink tracking-wider uppercase font-medium">
@@ -318,9 +339,9 @@ export const Navbar: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
-      </nav>
 
       <SearchOverlay isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
     </>
