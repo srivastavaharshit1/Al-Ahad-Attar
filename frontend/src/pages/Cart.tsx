@@ -34,7 +34,6 @@ export const Cart: React.FC = () => {
   } = useCart();
 
   const { ref: itemsRef, inView: itemsInView } = useInView<HTMLDivElement>();
-  const { ref: summaryRef, inView: summaryInView } = useInView<HTMLDivElement>();
   const [addingFreeGift, setAddingFreeGift] = useState<{promotionId: number, variantId: number} | null>(null);
 
 
@@ -344,7 +343,7 @@ export const Cart: React.FC = () => {
           </div>
 
           {/* ─── RIGHT: Sticky Order Summary ─── */}
-          <div ref={summaryRef} className={`lg:col-span-5 reveal ${summaryInView ? 'in-view' : ''}`}>
+          <div className="lg:col-span-5">
             <div className="sticky top-24 bg-white border rounded-md shadow-sm" style={{ borderColor: C.border, borderTop: `4px solid ${C.goldDark}` }}>
               <div className="p-6 md:p-8">
                 <div className="flex items-center justify-between mb-6 pb-4 border-b" style={{ borderColor: C.border }}>
