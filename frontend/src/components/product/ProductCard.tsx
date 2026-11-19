@@ -324,7 +324,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
 
             {((product as any).colorCount > 1) ? (
               <span className="text-[8px] sm:text-[9px] text-accent tracking-[0.14em] uppercase font-semibold bg-accent/10 px-1.5 py-0.5 rounded-[1px] border border-accent/25">
-                +{(product as any).colorCount} Colours
+                +{(product as any).colorCount} {(defaultVariant?.colorName || product.variants?.some((v: any) => v.colorName)) ? 'Colours' : 'Variants'}
               </span>
             ) : size ? (
               <span className="text-[8px] sm:text-[9px] text-[#8a8171] tracking-[0.16em] uppercase font-medium bg-[#f5f1e8] px-1.5 py-0.5 rounded-[1px] border border-[#e4dcc8]/60">
