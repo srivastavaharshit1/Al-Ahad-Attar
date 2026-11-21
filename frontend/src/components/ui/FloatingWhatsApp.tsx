@@ -33,8 +33,8 @@ export const FloatingWhatsApp: React.FC = () => {
       title="Chat with our fragrance specialist on WhatsApp"
       className={`fixed ${
         isPdpPage ? 'bottom-20 md:bottom-6' : 'bottom-6'
-      } right-4 sm:right-6 z-30 flex items-center justify-center rounded-full bg-[#075E54] hover:bg-[#128C7E] border border-[#C8A55E] shadow-[0_4px_16px_rgba(7,94,84,0.28)] hover:shadow-[0_6px_22px_rgba(7,94,84,0.38)] hover:border-[#C8A55E] hover:scale-105 active:scale-95 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8A55E] focus-visible:ring-offset-2 group`}
-      style={{ width: '52px', height: '52px' }}
+      } right-4 sm:right-6 z-30 flex items-center justify-center rounded-full bg-[#25D366] hover:bg-[#20BA5A] text-white shadow-[0_4px_16px_rgba(37,211,102,0.4)] hover:shadow-[0_6px_22px_rgba(37,211,102,0.55)] hover:scale-105 active:scale-95 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2 group`}
+      style={{ width: '52px', height: '52px', borderRadius: '9999px' }}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"

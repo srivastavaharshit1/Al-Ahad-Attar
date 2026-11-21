@@ -14,6 +14,7 @@ interface BottleSelectionModalProps {
   onConfirm: (bottle: Bottle | null) => void;
   selectedSize?: string;
   productType?: 'ATTAR' | 'PERFUME' | '';
+  confirmLabel?: string;
 }
 
 export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
@@ -22,6 +23,7 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
   onConfirm,
   selectedSize,
   productType,
+  confirmLabel,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const [bottles, setBottles] = useState<Bottle[]>([]);
@@ -29,6 +31,9 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
   useFocusTrap(modalRef, isOpen);
+
+  const isBottleAvailable = (b: Bottle) =>
+    b.price === 0 || (b.stockQuantity !== undefined && b.stockQuantity !== null && b.stockQuantity > 0);
 
   useEffect(() => {
     if (isOpen) {
@@ -39,19 +44,23 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
         .then((data) => {
           let filtered = data || [];
           if (selectedSize) {
-            filtered = filtered.filter((b: Bottle) => !b.capacity || b.capacity === selectedSize);
+            filtered = filtered.filter(
+              (b: Bottle) => !b.capacity || b.capacity.toLowerCase() === selectedSize.toLowerCase()
+            );
           }
           filtered.sort((a: Bottle, b: Bottle) => (a.price || 0) - (b.price || 0));
           setBottles(filtered);
           if (filtered.length > 0) {
-            // Pre-select the first one with price 0 AND in stock if exists, or just the first one in stock
-            const freeBottle = filtered.find((b) => b.price === 0 && (b.stockQuantity || 0) > 0);
+            // Pre-select complimentary bottle if available, else first in-stock bottle
+            const freeBottle = filtered.find((b) => b.price === 0 && isBottleAvailable(b));
             if (freeBottle) {
               setSelectedId(freeBottle.id);
             } else {
-              const inStockBottle = filtered.find((b) => (b.stockQuantity || 0) > 0);
+              const inStockBottle = filtered.find((b) => isBottleAvailable(b));
               setSelectedId(inStockBottle ? inStockBottle.id : null);
             }
+          } else {
+            setSelectedId(null);
           }
         })
         .catch(() => toast.error('Failed to load bottle options'))
@@ -125,14 +134,14 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
                 <div 
                   key={bottle.id}
                   onClick={() => {
-                    if ((bottle.stockQuantity || 0) > 0) {
+                    if (isBottleAvailable(bottle)) {
                       setSelectedId(bottle.id);
                     }
                   }}
                   className={`
                     relative bg-white border rounded-[2px] p-3.5 sm:p-4 transition-all duration-300 flex flex-col items-center text-center h-full justify-between
-                    ${bottle.stockQuantity === 0 ? 'opacity-50 cursor-not-allowed border-[#e4dcc8]/40' : 'cursor-pointer hover:shadow-md'}
-                    ${selectedId === bottle.id ? 'border-accent bg-accent/5 ring-1 ring-accent' : ((bottle.stockQuantity || 0) > 0 ? 'border-[#e4dcc8] hover:border-accent/60' : '')}
+                    ${!isBottleAvailable(bottle) ? 'opacity-50 cursor-not-allowed border-[#e4dcc8]/40' : 'cursor-pointer hover:shadow-md'}
+                    ${selectedId === bottle.id ? 'border-accent bg-accent/5 ring-1 ring-accent' : (isBottleAvailable(bottle) ? 'border-[#e4dcc8] hover:border-accent/60' : '')}
                   `}
                 >
                   {selectedId === bottle.id && (
@@ -178,7 +187,7 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
                     <div className="text-accent font-semibold text-xs tracking-wider uppercase">
                       {bottle.price === 0 ? 'Included' : `+${formatPrice(bottle.price)}`}
                     </div>
-                    {bottle.stockQuantity === 0 && (
+                    {!isBottleAvailable(bottle) && (
                       <div className="text-error font-medium text-[9px] mt-1 bg-error-container/40 px-2 py-0.5 rounded-[1px] uppercase tracking-wider">
                         Sold Out
                       </div>
@@ -200,10 +209,10 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
           </button>
           <button
             onClick={() => onConfirm(selectedId ? bottles.find(b => b.id === selectedId) || null : null)}
-            disabled={!selectedId || bottles.length === 0}
+            disabled={isLoading || (bottles.length > 0 && !selectedId)}
             className="px-8 py-3 bg-ink text-white rounded-[2px] hover:bg-accent hover:text-ink transition-all duration-300 font-semibold text-xs uppercase tracking-[0.2em] disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
           >
-            Confirm & Add to Cart
+            {confirmLabel || 'Confirm & Add to Cart'}
           </button>
         </div>
       </div>

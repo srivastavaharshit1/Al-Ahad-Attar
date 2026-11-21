@@ -23,6 +23,10 @@ backend/.env
 frontend/.env
 !.env.example
 !*/.env.example
+backend/staging.env.example
+staging.env*
+application-local.yml
+backend/src/main/resources/application-local.yml
 
 # Compiled Java class files
 *.class
@@ -54,6 +58,8 @@ backend/*.log
 !backend/pom.xml
 
 # Temp/scratch scripts
+backend/scratch/
+scratch/
 *.py
 fix*.js
 test*.js
@@ -78,9 +84,11 @@ test-env/
 
 # Uploads (binary assets — keep on disk, don't commit)
 backend/uploads/
+backend/dummy.jpg
 
-
-# Data dumps and logs
+# Backups and data dumps
+backups/
+*.dump
 *.csv
 
 # Local powershell test scripts

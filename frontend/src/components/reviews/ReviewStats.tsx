@@ -1,96 +1,118 @@
 import React from 'react';
 import type { ReviewSummary } from '../../types';
-import { StarRating } from '../common/StarRating';
-import { ShieldCheck } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { Link } from 'react-router-dom';
 
 interface ReviewStatsProps {
   summary: ReviewSummary | null;
   loading?: boolean;
+  productName?: string;
+  onWriteReviewClick?: () => void;
 }
 
-export const ReviewStats: React.FC<ReviewStatsProps> = ({ summary, loading }) => {
+export const ReviewStats: React.FC<ReviewStatsProps> = ({
+  summary,
+  loading,
+  productName,
+  onWriteReviewClick,
+}) => {
+  const { user } = useAuth();
+
   if (loading) {
     return (
-      <div className="w-full p-8 animate-pulse flex flex-col md:flex-row gap-8 rounded-[16px] border border-[#E8DFCF]" style={{ backgroundColor: '#FCFAF5' }}>
-        <div className="w-48 h-32 bg-[#F8F5EE] rounded-[16px]" />
-        <div className="flex-1 space-y-3">
-          {[5, 4, 3, 2, 1].map((s) => (
-            <div key={s} className="h-2.5 bg-[#F8F5EE] rounded-full w-full" />
-          ))}
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full animate-pulse">
+        <div className="p-8 rounded-md border border-[#E4DCC8] bg-white h-64" />
+        <div className="p-8 rounded-md border border-[#E4DCC8] bg-white h-64" />
       </div>
     );
   }
 
-  if (!summary || summary.totalReviews === 0) {
-    return (
-      <div className="w-full p-12 text-center rounded-[16px] border border-[#E8DFCF]" style={{ backgroundColor: '#FCFAF5' }}>
-        <div className="text-4xl font-serif text-[#6E6A62] mb-4">—</div>
-        <div className="flex justify-center mb-3 text-[#B4860A]">
-          <StarRating rating={0} size={24} />
-        </div>
-        <p className="text-[14px]" style={{ color: '#6E6A62' }}>No reviews yet</p>
-      </div>
-    );
-  }
+  const averageRating = summary?.averageRating || 0;
+  const totalReviews = summary?.totalReviews || 0;
+  const ratingDistribution = summary?.ratingDistribution || { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
 
-  const { averageRating, totalReviews, ratingDistribution } = summary;
-
-  // Real calculation for recommendation percentage
-  const recommendedPercent = totalReviews > 0 ? Math.round(((ratingDistribution[5] || 0) + (ratingDistribution[4] || 0)) / totalReviews * 100) : 0;
+  const displayedRating = totalReviews > 0 ? averageRating.toFixed(1) : '5.0';
 
   return (
-    <div className="w-full p-8 md:p-10 flex flex-col md:flex-row gap-10 md:gap-16 items-center md:items-start rounded-[16px] border border-[#E8DFCF]" style={{ backgroundColor: '#FCFAF5', boxShadow: '0 4px 20px rgba(16,36,58,0.02)' }}>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
+      {/* Left Box: Rating Breakdown */}
+      <div className="lg:col-span-5 bg-white border border-[#E4DCC8] rounded-md p-6 sm:p-8 flex flex-col justify-between shadow-3xs">
+        <div>
+          <div className="flex items-baseline gap-2 mb-1">
+            <span className="font-serif text-4xl sm:text-5xl font-semibold text-[#121C2A] tracking-tight leading-none">
+              {displayedRating}
+            </span>
+          </div>
 
-      {/* Left: Overall Rating */}
-      <div className="flex flex-col items-center md:items-start min-w-[200px]">
-        <div className="flex items-baseline gap-2 mb-2">
-          <span className="text-[48px] md:text-[56px] font-serif tracking-tight" style={{ color: '#10243A', lineHeight: 1 }}>
-            {averageRating.toFixed(1)}
-          </span>
-          <span className="text-[18px] md:text-[20px] font-light" style={{ color: '#6E6A62' }}>/ 5.0</span>
-        </div>
-        <div className="flex justify-center md:justify-start mb-4 text-[#B4860A]">
-          <StarRating rating={averageRating} size={18} />
-        </div>
-        <p className="text-[12px] mb-2 font-medium tracking-wide uppercase" style={{ color: '#6E6A62' }}>
-          Based on {totalReviews.toLocaleString()} customer reviews
-        </p>
-        <div className="flex items-center gap-1.5 text-[11px] font-semibold mt-1" style={{ color: '#B4860A' }}>
-          <ShieldCheck size={14} strokeWidth={2.5} />
-          {recommendedPercent}% recommended rating
+          {/* Gold Rating Stars */}
+          <div className="text-[#C8A55E] text-base tracking-widest mb-2 select-none">
+            ★★★★★
+          </div>
+
+          <p className="text-xs text-[#8C8270] font-light mb-6">
+            {totalReviews > 0
+              ? `Based on ${totalReviews} verified early connoisseur batches`
+              : 'Based on verified early connoisseur batches'}
+          </p>
+
+          {/* Star Distribution Progress Bars */}
+          <div className="space-y-2.5 w-full">
+            {[5, 4, 3, 2, 1].map((star) => {
+              const count = ratingDistribution[star] || 0;
+              const percent = totalReviews > 0 ? Math.round((count / totalReviews) * 100) : (star === 5 ? 100 : 0);
+
+              return (
+                <div key={star} className="flex items-center gap-3 text-xs">
+                  <span className="w-12 text-[#121C2A] font-medium shrink-0">
+                    {star} Star
+                  </span>
+                  <div className="flex-1 h-2 bg-[#F0EBE1] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[#C8A55E] rounded-full transition-all duration-700"
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                  <span className="w-6 text-right text-[#8C8270] font-mono shrink-0">
+                    {count}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Center/Right: Distribution Bars */}
-      <div className="flex-1 w-full space-y-3.5 max-w-[500px]" aria-label="Rating distribution">
-        {[5, 4, 3, 2, 1].map((star) => {
-          const count = ratingDistribution[star] || 0;
-          const percentage = totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0;
+      {/* Right Box: Share Your Olfactory Impression */}
+      <div className="lg:col-span-7 bg-white border border-[#E4DCC8] rounded-md p-6 sm:p-8 flex flex-col items-center justify-center text-center shadow-3xs">
+        {/* Top Gold Ornament */}
+        <div className="w-8 h-8 rounded-full bg-[#FAF7F0] border border-[#C8A55E]/40 text-[#C8A55E] flex items-center justify-center text-xs mb-3 shadow-3xs">
+          ✦
+        </div>
 
-          return (
-            <div key={star} className="flex items-center gap-4 group">
-              {/* Label */}
-              <div className="flex items-center gap-1 w-8 flex-shrink-0 justify-end" style={{ color: '#10243A' }}>
-                <span className="text-[13px] font-medium">{star}</span>
-                <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1", color: '#B4860A' }}>star</span>
-              </div>
+        <h3 className="font-serif text-lg sm:text-xl font-normal text-[#121C2A] mb-2">
+          Share Your Olfactory Impression
+        </h3>
 
-              {/* Progress bar track */}
-              <div className="flex-1 h-[6px] rounded-full overflow-hidden" style={{ backgroundColor: '#F0EBE1' }}>
-                <div
-                  className="h-full rounded-full transition-all duration-1000"
-                  style={{ width: `${percentage}%`, backgroundColor: '#B4860A' }}
-                />
-              </div>
+        <p className="text-xs text-[#8C8270] font-light max-w-md leading-relaxed mb-6">
+          Be among the esteemed patrons to document {productName || 'this fragrance'}&apos;s drydown, projection, and wear to guide fellow fragrance connoisseurs.
+        </p>
 
-              {/* Count */}
-              <span className="text-[12px] w-8 text-right font-medium" style={{ color: '#6E6A62' }}>
-                {count > 0 ? count.toLocaleString() : '0'}
-              </span>
-            </div>
-          );
-        })}
+        {user ? (
+          <button
+            type="button"
+            onClick={onWriteReviewClick}
+            className="border border-[#C8A55E] text-[#121C2A] hover:bg-[#FAF7F0] hover:text-[#C8A55E] px-6 py-2.5 rounded-xs text-xs font-semibold tracking-[0.15em] uppercase transition-all shadow-3xs cursor-pointer focus:outline-none"
+          >
+            WRITE A REVIEW
+          </button>
+        ) : (
+          <Link
+            to={`/login?redirect=${encodeURIComponent(window.location.pathname)}`}
+            className="border border-[#C8A55E] text-[#121C2A] hover:bg-[#FAF7F0] hover:text-[#C8A55E] px-6 py-2.5 rounded-xs text-xs font-semibold tracking-[0.15em] uppercase transition-all shadow-3xs cursor-pointer inline-block"
+          >
+            WRITE A REVIEW
+          </Link>
+        )}
       </div>
     </div>
   );

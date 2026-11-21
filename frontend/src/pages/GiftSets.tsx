@@ -1,12 +1,20 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Search, Sparkles, Filter, Package, AlertCircle } from 'lucide-react';
+import { Search, X, ChevronDown, Package, AlertCircle } from 'lucide-react';
 import { giftSetService } from '../services/giftSetService';
 import type { GiftSet } from '../types/giftSet';
 import { GiftSetCard } from '../components/giftset/GiftSetCard';
 import { SEO } from '../components/seo/SEO';
-import { Breadcrumb } from '../components/ui/Breadcrumb';
 
 type SortOption = 'featured' | 'price-asc' | 'price-desc' | 'name-asc';
+type CurationFilter = 'all' | 'for-him' | 'for-her' | 'wedding-bridal' | 'royal-oud-heritage';
+
+const CURATION_PILLS: { id: CurationFilter; label: string }[] = [
+  { id: 'all', label: 'All Curations' },
+  { id: 'for-him', label: 'For Him' },
+  { id: 'for-her', label: 'For Her' },
+  { id: 'wedding-bridal', label: 'Wedding & Bridal' },
+  { id: 'royal-oud-heritage', label: 'Royal Oud Heritage' },
+];
 
 export const GiftSets: React.FC = () => {
   const [giftSets, setGiftSets] = useState<GiftSet[]>([]);
@@ -14,7 +22,7 @@ export const GiftSets: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [inStockOnly, setInStockOnly] = useState(false);
+  const [activeCuration, setActiveCuration] = useState<CurationFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('featured');
 
   const fetchGiftSets = async () => {
@@ -38,25 +46,86 @@ export const GiftSets: React.FC = () => {
   const filteredSets = useMemo(() => {
     let result = [...giftSets];
 
-    // Search filter
+    // 1. Search Query Filter
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase().trim();
       result = result.filter(gs => {
-        const matchName = gs.name.toLowerCase().includes(q);
-        const matchDesc = gs.description?.toLowerCase().includes(q);
+        const matchName = (gs.name || '').toLowerCase().includes(q);
+        const matchDesc = (gs.description || '').toLowerCase().includes(q);
+        const matchNotes = (gs.packagingNotes || '').toLowerCase().includes(q);
         const matchItems = gs.items?.some(it =>
-          it.productName.toLowerCase().includes(q) || it.variantSize.toLowerCase().includes(q)
+          (it.productName || '').toLowerCase().includes(q) ||
+          (it.variantSize || '').toLowerCase().includes(q)
         );
-        return matchName || matchDesc || matchItems;
+        return matchName || matchDesc || matchNotes || matchItems;
       });
     }
 
-    // Availability filter (backend authoritative stock)
-    if (inStockOnly) {
-      result = result.filter(gs => gs.inStock && gs.availableStock > 0);
+    // 2. Curation Pill Filter
+    if (activeCuration !== 'all') {
+      result = result.filter(gs => {
+        const text = `${gs.name || ''} ${gs.description || ''} ${gs.packagingNotes || ''} ${
+          gs.items ? gs.items.map(it => it.productName).join(' ') : ''
+        }`.toLowerCase();
+
+        switch (activeCuration) {
+          case 'for-him':
+            return (
+              text.includes('him') ||
+              text.includes('men') ||
+              text.includes('musk') ||
+              text.includes('oud') ||
+              text.includes('spicy') ||
+              text.includes('leather') ||
+              text.includes('amber') ||
+              text.includes('night') ||
+              text.includes('wood') ||
+              text.includes('vetiver') ||
+              text.includes('royal')
+            );
+          case 'for-her':
+            return (
+              text.includes('her') ||
+              text.includes('women') ||
+              text.includes('floral') ||
+              text.includes('rose') ||
+              text.includes('taif') ||
+              text.includes('jasmine') ||
+              text.includes('white musk') ||
+              text.includes('garden') ||
+              text.includes('amber')
+            );
+          case 'wedding-bridal':
+            return (
+              text.includes('bridal') ||
+              text.includes('wedding') ||
+              text.includes('celebration') ||
+              text.includes('ceremony') ||
+              text.includes('coffret') ||
+              text.includes('trio') ||
+              text.includes('wardrobe') ||
+              text.includes('collection') ||
+              text.includes('gift')
+            );
+          case 'royal-oud-heritage':
+            return (
+              text.includes('oud') ||
+              text.includes('royal') ||
+              text.includes('heritage') ||
+              text.includes('archive') ||
+              text.includes('sultan') ||
+              text.includes('majlis') ||
+              text.includes('connoisseur') ||
+              text.includes('cambodian') ||
+              text.includes('ambergris')
+            );
+          default:
+            return true;
+        }
+      });
     }
 
-    // Sorting
+    // 3. Sorting
     result.sort((a, b) => {
       const priceA = a.salePrice ? Number(a.salePrice) : Number(a.price);
       const priceB = b.salePrice ? Number(b.salePrice) : Number(b.price);
@@ -74,121 +143,136 @@ export const GiftSets: React.FC = () => {
     });
 
     return result;
-  }, [giftSets, searchTerm, inStockOnly, sortBy]);
+  }, [giftSets, searchTerm, activeCuration, sortBy]);
 
   return (
-    <div className="w-full min-h-screen bg-[#fbf9f5] pb-20">
+    <div className="w-full min-h-screen bg-[#FBF9F5] pb-24">
       <SEO
         title="Curated Fragrance Gift Sets | Al Ahad Attars"
         description="Discover luxury fragrance gift sets by Al Ahad Attars. Handcrafted presentations combining authentic attars and exquisite packaging for discerning recipients."
         canonicalUrl="/gift-sets"
       />
 
-      {/* Hero Header */}
-      <div className="bg-[#f5f1e8] border-b border-[#e4dcc8] py-12 md:py-16 px-4 md:px-8">
-        <div className="max-w-7xl mx-auto">
-          <Breadcrumb
-            items={[
-              { label: 'Home', href: '/' },
-              { label: 'Curated Gift Sets' },
-            ]}
-          />
+      {/* Hero Header Section */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 pt-8 sm:pt-10 pb-4">
+        <div className="text-center max-w-2xl mx-auto">
+          {/* Eyebrow with flanking gold hairline rules */}
+          <div className="flex items-center justify-center gap-3 mb-2.5">
+            <span className="w-8 sm:w-12 h-px bg-[#C8A55E]/60" aria-hidden="true" />
+            <span className="text-[#A68848] text-[10.5px] font-medium uppercase tracking-[0.28em]">
+              ARTISANAL PRESENTATIONS
+            </span>
+            <span className="w-8 sm:w-12 h-px bg-[#C8A55E]/60" aria-hidden="true" />
+          </div>
 
-          <div className="mt-6 text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-2.5 sm:gap-3 mb-3">
-              <span className="w-6 h-px bg-accent/70" aria-hidden="true" />
-              <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.35em] block font-medium">
-                BESPOKE PRESENTATION
-              </span>
-              <span className="w-6 h-px bg-accent/70" aria-hidden="true" />
-            </div>
+          {/* Heading */}
+          <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl text-[#121C2A] font-normal tracking-tight mb-3 leading-tight">
+            Curated Gift Sets
+          </h1>
 
-            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl text-ink font-normal tracking-tight mb-4 leading-tight">
-              Curated Gift Sets
-            </h1>
+          {/* Subtitle */}
+          <p className="text-[#5A6578] font-light text-xs sm:text-sm md:text-base leading-relaxed">
+            Masterfully assembled collections pairing rare attars, artisanal flacons, and rigid velvet-lined presentation boxes — designed for memorable moments and discerning recipients.
+          </p>
 
-            <p className="font-body-md text-on-surface-variant font-light text-sm sm:text-base leading-relaxed">
-              Explore our masterfully assembled gift collections. Each set unites our finest fragrances within signature
-              handcrafted presentation packaging, created for milestone moments and discerning recipients.
-            </p>
+          {/* Delicate Centered Diamond/Dot Accent */}
+          <div className="flex items-center justify-center gap-2.5 mt-4 mb-7 sm:mb-9">
+            <span className="w-6 h-px bg-[#C8A55E]/40" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#C8A55E]" />
+            <span className="w-6 h-px bg-[#C8A55E]/40" />
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 pt-8">
-        {/* Filter and Control Bar */}
-        <div className="bg-white border border-[#e4dcc8] rounded-[2px] p-4 sm:p-5 mb-8 shadow-[0_2px_12px_rgba(18,28,42,0.03)] flex flex-col md:flex-row md:items-center justify-between gap-4">
-          {/* Search Input */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink/40" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Search by set name or fragrance..."
-              className="w-full pl-10 pr-4 py-2 text-xs bg-[#fbf9f5] border border-[#e4dcc8] rounded-[2px] text-ink placeholder:text-ink/40 focus:border-accent focus:outline-none transition-colors"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink/40 hover:text-ink"
-              >
-                ✕
-              </button>
-            )}
+      {/* Main Content Area */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+        {/* Filter and Control Bar (Single Cohesive Row) */}
+        <div className="mb-8 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Search Input & Curation Pills Wrapper */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 min-w-0">
+            {/* Search Input */}
+            <div className="relative w-full sm:w-56 md:w-64 shrink-0">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8C8270]" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Search gift sets"
+                className="w-full pl-9 pr-8 py-1.5 text-xs bg-white border border-[#E4DCC8] rounded-full text-[#121C2A] placeholder:text-[#8C8270]/70 focus:border-[#C8A55E] focus:outline-none transition-colors shadow-2xs font-sans"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#8C8270] hover:text-[#121C2A] p-0.5 cursor-pointer"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Curation Filter Pills (Horizontally scrollable without breaking) */}
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1">
+              {CURATION_PILLS.map(pill => {
+                const isActive = activeCuration === pill.id;
+                return (
+                  <button
+                    key={pill.id}
+                    type="button"
+                    onClick={() => setActiveCuration(pill.id)}
+                    className={`rounded-full px-3.5 py-1.5 text-xs whitespace-nowrap transition-all cursor-pointer font-sans ${
+                      isActive
+                        ? 'bg-white text-[#121C2A] border border-[#C8A55E] shadow-2xs font-medium'
+                        : 'bg-transparent text-[#5A6578] border border-[#E4DCC8]/70 hover:border-[#C8A55E]/60 hover:text-[#121C2A]'
+                    }`}
+                  >
+                    {pill.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Options & Sorting */}
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4 justify-between md:justify-end">
-            {/* In stock only toggle */}
-            <label className="inline-flex items-center gap-2 text-xs text-ink cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={inStockOnly}
-                onChange={e => setInStockOnly(e.target.checked)}
-                className="w-3.5 h-3.5 text-accent rounded-xs border-[#e4dcc8] focus:ring-accent accent-accent"
-              />
-              <span className="font-medium tracking-wide">In Stock Only</span>
-            </label>
-
+          {/* Right Controls: Sort Dropdown & Count */}
+          <div className="flex items-center justify-between sm:justify-end gap-3.5 sm:gap-4 shrink-0 pt-2 lg:pt-0">
             {/* Sort Dropdown */}
-            <div className="flex items-center gap-2">
-              <Filter className="w-3.5 h-3.5 text-accent" />
+            <div className="relative inline-flex items-center">
               <select
                 value={sortBy}
                 onChange={e => setSortBy(e.target.value as SortOption)}
                 aria-label="Sort gift sets"
-                className="bg-[#fbf9f5] border border-[#e4dcc8] text-ink text-xs py-2 px-3 rounded-[2px] focus:border-accent focus:outline-none tracking-wide"
+                className="appearance-none bg-white border border-[#E4DCC8] rounded-full pl-3.5 pr-8 py-1.5 text-xs text-[#121C2A] focus:outline-none focus:border-[#C8A55E] cursor-pointer font-sans shadow-2xs"
               >
-                <option value="featured">Featured First</option>
+                <option value="featured">Featured Curations</option>
                 <option value="price-asc">Price: Low to High</option>
                 <option value="price-desc">Price: High to Low</option>
                 <option value="name-asc">Alphabetical: A to Z</option>
               </select>
+              <ChevronDown className="w-3.5 h-3.5 text-[#8C8270] absolute right-2.5 pointer-events-none" />
             </div>
 
-            {/* Count Badge */}
-            <span className="text-[11px] font-mono uppercase tracking-wider text-ink/60 bg-[#f5f1e8] px-2.5 py-1.5 rounded-[1px] border border-[#e4dcc8]">
-              {filteredSets.length} {filteredSets.length === 1 ? 'Set' : 'Sets'}
+            {/* Total Count */}
+            <span className="text-xs text-[#8C8270] font-light whitespace-nowrap pl-1">
+              {filteredSets.length} {filteredSets.length === 1 ? 'set' : 'sets'}
             </span>
           </div>
         </div>
 
-        {/* Loading State */}
+        {/* Loading Skeletons */}
         {loading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map(n => (
               <div
                 key={n}
-                className="bg-white rounded-[2px] border border-[#e4dcc8] overflow-hidden animate-pulse flex flex-col"
+                className="bg-white rounded-2xl border border-[#E4DCC8]/70 overflow-hidden animate-pulse flex flex-col"
               >
-                <div className="aspect-square bg-[#f0ebd9]" />
-                <div className="p-4 space-y-3">
-                  <div className="h-3 bg-[#e8e0cc] rounded w-1/3 mx-auto" />
-                  <div className="h-4 bg-[#e8e0cc] rounded w-3/4 mx-auto" />
-                  <div className="h-3 bg-[#e8e0cc] rounded w-1/2 mx-auto" />
-                  <div className="h-6 bg-[#f0ebd9] rounded w-1/3 mx-auto mt-4" />
+                <div className="aspect-[4/3.8] bg-[#F0EBD9]" />
+                <div className="p-5 space-y-3">
+                  <div className="h-3 bg-[#E8E0CC] rounded w-1/3" />
+                  <div className="h-4 bg-[#E8E0CC] rounded w-3/4" />
+                  <div className="h-3 bg-[#E8E0CC] rounded w-1/2" />
+                  <div className="h-5 bg-[#F0EBD9] rounded w-1/3 mt-4" />
                 </div>
               </div>
             ))}
@@ -197,13 +281,14 @@ export const GiftSets: React.FC = () => {
 
         {/* Error State */}
         {!loading && error && (
-          <div className="bg-white border border-red-200 rounded-[2px] p-8 text-center max-w-md mx-auto my-12 shadow-xs">
+          <div className="bg-white border border-red-200 rounded-2xl p-8 text-center max-w-md mx-auto my-12 shadow-xs">
             <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3 stroke-[1.5]" />
-            <h3 className="font-serif text-lg text-ink mb-2">Unable to Load Gift Sets</h3>
-            <p className="text-xs text-ink/70 mb-5 leading-relaxed">{error}</p>
+            <h3 className="font-serif text-lg text-[#121C2A] mb-2">Unable to Load Gift Sets</h3>
+            <p className="text-xs text-[#121C2A]/70 mb-5 leading-relaxed">{error}</p>
             <button
+              type="button"
               onClick={fetchGiftSets}
-              className="bg-ink text-white px-6 py-2.5 rounded-[2px] text-xs font-semibold uppercase tracking-wider hover:bg-accent hover:text-ink transition-colors"
+              className="bg-[#121C2A] text-white px-6 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider hover:bg-[#C8A55E] hover:text-[#121C2A] transition-colors cursor-pointer"
             >
               Try Again
             </button>
@@ -212,67 +297,38 @@ export const GiftSets: React.FC = () => {
 
         {/* Empty State */}
         {!loading && !error && filteredSets.length === 0 && (
-          <div className="bg-white border border-[#e4dcc8] rounded-[2px] p-12 text-center max-w-lg mx-auto my-12 shadow-xs">
-            <div className="w-16 h-16 rounded-full bg-[#f8f5ec] border border-[#e4dcc8] flex items-center justify-center mx-auto mb-4">
-              <Package className="w-8 h-8 text-accent stroke-[1.5]" />
+          <div className="bg-white border border-[#E4DCC8]/80 rounded-2xl p-10 sm:p-14 text-center max-w-lg mx-auto my-12 shadow-xs">
+            <div className="w-16 h-16 rounded-full bg-[#FAF7F0] border border-[#E4DCC8] flex items-center justify-center mx-auto mb-4">
+              <Package className="w-8 h-8 text-[#C8A55E] stroke-[1.4]" />
             </div>
-            <h3 className="font-serif text-xl text-ink mb-2">No Gift Sets Found</h3>
-            <p className="text-xs text-ink/65 mb-6 max-w-sm mx-auto leading-relaxed">
-              {searchTerm || inStockOnly
-                ? "We couldn't find any gift sets matching your selected filters. Try clearing your search or filters."
-                : 'Our artisans are preparing new bespoke collections. Please check back soon.'}
+            <h3 className="font-serif text-xl text-[#121C2A] mb-2 font-normal">
+              No Curated Sets Found
+            </h3>
+            <p className="text-xs text-[#5A6578] mb-6 leading-relaxed">
+              We couldn't find any gift sets matching your criteria. Try adjusting your search query or curation filter.
             </p>
-            {(searchTerm || inStockOnly) && (
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setInStockOnly(false);
-                }}
-                className="bg-ink text-white px-6 py-2.5 rounded-[2px] text-xs font-semibold uppercase tracking-wider hover:bg-accent hover:text-ink transition-colors"
-              >
-                Clear All Filters
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setActiveCuration('all');
+              }}
+              className="bg-[#121C2A] text-white px-6 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider hover:bg-[#C8A55E] hover:text-[#121C2A] transition-colors cursor-pointer shadow-xs"
+            >
+              Reset Filters
+            </button>
           </div>
         )}
 
-        {/* Grid of Gift Sets */}
+        {/* 4-Column Gift Sets Grid */}
         {!loading && !error && filteredSets.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
-            {filteredSets.map(gs => (
-              <div key={gs.id} className="w-full">
-                <GiftSetCard giftSet={gs} />
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {filteredSets.map((gs, idx) => (
+              <GiftSetCard key={gs.id} giftSet={gs} index={idx} />
             ))}
           </div>
         )}
-
-        {/* Trust & Presentation Callout Section */}
-        <div className="mt-16 md:mt-24 pt-12 border-t border-[#e4dcc8] grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
-          <div className="p-6 bg-white border border-[#e4dcc8]/60 rounded-[2px]">
-            <Sparkles className="w-6 h-6 text-accent mx-auto mb-3" />
-            <h4 className="font-serif text-base text-ink mb-1.5 font-medium">Bespoke Curation</h4>
-            <p className="text-xs text-ink/65 font-light leading-relaxed">
-              Each set is thoughtfully harmonized by master perfumers to complement signature olfactory profiles.
-            </p>
-          </div>
-          <div className="p-6 bg-white border border-[#e4dcc8]/60 rounded-[2px]">
-            <Package className="w-6 h-6 text-accent mx-auto mb-3" />
-            <h4 className="font-serif text-base text-ink mb-1.5 font-medium">Luxury Packaging Included</h4>
-            <p className="text-xs text-ink/65 font-light leading-relaxed">
-              Presented in our signature rigid boxes lined with velvet inserts, ready for dignified gifting.
-            </p>
-          </div>
-          <div className="p-6 bg-white border border-[#e4dcc8]/60 rounded-[2px]">
-            <span className="material-symbols-outlined text-2xl text-accent mx-auto mb-2 block">verified</span>
-            <h4 className="font-serif text-base text-ink mb-1.5 font-medium">100% Pure Attars</h4>
-            <p className="text-xs text-ink/65 font-light leading-relaxed">
-              Alcohol-free, authentic Arabic attars and artisanal extractions crafted with rare botanicals.
-            </p>
-          </div>
-        </div>
-      </div>
+      </main>
     </div>
   );
 };
-
