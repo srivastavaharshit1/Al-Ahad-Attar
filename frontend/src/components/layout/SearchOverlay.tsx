@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { productService } from '../../services/productService';
 import { getImageUrl } from '../../utils/getImageUrl';
+import { resolveProductImage } from '../../utils/productUtils';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface SearchOverlayProps {
   isOpen: boolean;
@@ -9,11 +11,25 @@ interface SearchOverlayProps {
 }
 
 export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose }) => {
+  const overlayRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
   const [suggestedProducts, setSuggestedProducts] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+  useFocusTrap(overlayRef, isOpen);
+
+  // Lock body scroll when search overlay is open and restore on unmount/close
+  useEffect(() => {
+    if (isOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -56,6 +72,10 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
 
   return (
     <div 
+      ref={overlayRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Search fragrances"
       className={`fixed inset-0 z-50 bg-surface/95 backdrop-blur-xl flex flex-col pt-24 px-margin-mobile md:px-margin-desktop overflow-y-auto transition-all duration-400 ease-in-out ${isOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}
     >
       <button
@@ -137,7 +157,7 @@ export const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose })
             </h3>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
               {suggestedProducts.map((product: any) => {
-                const primaryImage = product.thumbnail || '';
+                const primaryImage = resolveProductImage(product.images) || product.thumbnail || product.imageUrl || (product.images && product.images[0]?.imageUrl) || '';
                 return (
                   <Link key={product.id} to={`/product/${product.id}`} onClick={onClose} className="group flex flex-col gap-4 p-4 rounded-xl hover:bg-surface-container-lowest transition-colors border border-transparent hover:border-outline-variant/30 shadow-none hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                     <div className="aspect-square bg-surface-container rounded-lg overflow-hidden relative">

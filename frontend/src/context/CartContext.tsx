@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useRef, type ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react';
 import type { CartItem } from '../types';
 import { storage } from '../utils/storage';
 import { useAuth } from '../hooks/useAuth';
@@ -64,17 +64,17 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const pendingQuantities = useRef<Map<string, number>>(new Map());
   const pendingRemovals = useRef<Set<string>>(new Set());
 
-  const setIsGiftWrapped = (isWrapped: boolean) => {
+  const setIsGiftWrapped = useCallback((isWrapped: boolean) => {
     setIsGiftWrappedState(isWrapped);
     storage.set('cart_is_gift_wrapped', isWrapped);
-  };
+  }, []);
 
-  const setGiftMessage = (msg: string | null) => {
+  const setGiftMessage = useCallback((msg: string | null) => {
     setGiftMessageState(msg);
     storage.set('cart_gift_message', msg);
-  };
+  }, []);
 
-  const syncCartState = (cartData: any) => {
+  const syncCartState = useCallback((cartData: any) => {
     if (!cartData) return;
     
     setItems(prevItems => {
@@ -143,7 +143,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (cartData.manuallySelectedPromotionId !== undefined) {
       setManuallySelectedPromotionId(cartData.manuallySelectedPromotionId === -1 ? null : cartData.manuallySelectedPromotionId);
     }
-  };
+  }, []);
 
   // Load cart data
   useEffect(() => {
@@ -256,7 +256,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     JSON.stringify(items.map(i => ({ p: i.productId, v: i.variantId, gs: i.giftSetId, isGs: i.isGiftSet, q: i.quantity, f: i.freeItem, prm: i.freePromotionId, b: i.bottle?.id })))
   ]);
 
-  const addItem = async (item: CartItem) => {
+  const addItem = useCallback(async (item: CartItem) => {
     if (isAuthenticated) {
       try {
         if (item.isGiftSet && item.giftSetId) {
@@ -293,9 +293,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
       toast.success(`${item.name} added to cart`);
     }
-  };
+  }, [isAuthenticated, syncCartState]);
 
-  const removeItem = async (id: string) => {
+  const removeItem = useCallback(async (id: string) => {
     pendingRemovals.current.add(id);
     pendingQuantities.current.delete(id);
     
@@ -323,10 +323,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } else {
       toast.success("Item removed from cart");
     }
-  };
+  }, [isAuthenticated, syncCartState]);
 
-
-  const updateQuantity = (id: string, deltaOrQuantity: number, isDelta: boolean = false) => {
+  const updateQuantity = useCallback((id: string, deltaOrQuantity: number, isDelta: boolean = false) => {
     const baseQuantity = pendingQuantities.current.has(id) 
       ? pendingQuantities.current.get(id)! 
       : (items.find(i => i.id === id)?.quantity || 0);
@@ -368,9 +367,43 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
     }, 400));
-  };
+  }, [isAuthenticated, items, removeItem, syncCartState]);
 
-  const clearCart = async () => {
+  const removeCoupon = useCallback(async () => {
+    if (isAuthenticated) {
+      try {
+        const response = await cartService.removeCoupon();
+        if (response) {
+            syncCartState(response.data);
+            toast.success("Coupon removed");
+        }
+      } catch (error) {
+        console.error("Failed to remove coupon", error);
+        toast.error("Failed to remove coupon");
+      }
+    } else {
+      setCouponCode(null);
+    }
+  }, [isAuthenticated, syncCartState]);
+
+  const removePromotion = useCallback(async () => {
+    if (isAuthenticated) {
+      try {
+        const response = await cartService.removePromotion();
+        if (response) {
+            syncCartState(response.data);
+            toast.success("Offer removed");
+        }
+      } catch (error) {
+        console.error("Failed to remove promotion", error);
+        toast.error("Failed to remove promotion");
+      }
+    } else {
+      setManuallySelectedPromotionId(null);
+    }
+  }, [isAuthenticated, syncCartState]);
+
+  const clearCart = useCallback(async () => {
     if (isAuthenticated) {
       try {
         await cartService.clearCart();
@@ -383,9 +416,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
     removeCoupon();
     removePromotion();
-  };
+  }, [isAuthenticated, removeCoupon, removePromotion]);
   
-  const applyCoupon = async (code: string) => {
+  const applyCoupon = useCallback(async (code: string) => {
     if (isAuthenticated) {
       try {
         const response = await cartService.applyCoupon(code);
@@ -412,26 +445,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } else {
       setCouponCode(code);
     }
-  };
-  
-  const removeCoupon = async () => {
-    if (isAuthenticated) {
-      try {
-        const response = await cartService.removeCoupon();
-        if (response) {
-            syncCartState(response.data);
-            toast.success("Coupon removed");
-        }
-      } catch (error) {
-        console.error("Failed to remove coupon", error);
-        toast.error("Failed to remove coupon");
-      }
-    } else {
-      setCouponCode(null);
-    }
-  };
+  }, [isAuthenticated, syncCartState]);
 
-  const applyPromotion = async (promotionId: number) => {
+  const applyPromotion = useCallback(async (promotionId: number) => {
     if (isAuthenticated) {
       try {
         const response = await cartService.applyPromotion(promotionId);
@@ -446,26 +462,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } else {
       setManuallySelectedPromotionId(promotionId);
     }
-  };
+  }, [isAuthenticated, syncCartState]);
 
-  const removePromotion = async () => {
-    if (isAuthenticated) {
-      try {
-        const response = await cartService.removePromotion();
-        if (response) {
-            syncCartState(response.data);
-            toast.success("Offer removed");
-        }
-      } catch (error) {
-        console.error("Failed to remove promotion", error);
-        toast.error("Failed to remove promotion");
-      }
-    } else {
-      setManuallySelectedPromotionId(null);
-    }
-  };
-
-  const addFreeItem = async (promotionId: number, variantId: number) => {
+  const addFreeItem = useCallback(async (promotionId: number, variantId: number) => {
     if (isAuthenticated) {
       try {
         const response = await cartService.addFreeProduct(promotionId, variantId);
@@ -480,9 +479,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } else {
       toast.error("Please login to claim free gifts");
     }
-  };
+  }, [isAuthenticated, syncCartState]);
 
-  const removeFreeItem = async (cartItemId: string) => {
+  const removeFreeItem = useCallback(async (cartItemId: string) => {
     if (isAuthenticated) {
       try {
         const response = await cartService.removeFreeProduct(Number(cartItemId));
@@ -499,23 +498,31 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setItems(prev => prev.filter(item => item.id !== cartItemId));
       toast.success("Free gift removed");
     }
-  };
+  }, [isAuthenticated, syncCartState]);
 
-  const itemCount = items.reduce((acc, item) => acc + item.quantity, 0);
-  const subtotal = items.reduce((acc, item) => acc + ((item.originalPrice || 0) * item.quantity), 0);
-  const offerDiscount = items.reduce((acc, item) => acc + ((item.discountAmount || 0) * item.quantity), 0);
+  const itemCount = useMemo(() => items.reduce((acc, item) => acc + item.quantity, 0), [items]);
+  const subtotal = useMemo(() => items.reduce((acc, item) => acc + ((item.originalPrice || 0) * item.quantity), 0), [items]);
+  const offerDiscount = useMemo(() => items.reduce((acc, item) => acc + ((item.discountAmount || 0) * item.quantity), 0), [items]);
   const totalAfterOffer = subtotal - offerDiscount;
   
-  const effectiveDiscount = Math.min(discount, totalAfterOffer);
+  const effectiveDiscount = useMemo(() => Math.min(discount, totalAfterOffer), [discount, totalAfterOffer]);
+
+  const contextValue = useMemo(() => ({
+    items, addItem, removeItem, updateQuantity, clearCart,
+    itemCount, subtotal, offerDiscount, couponCode, discount: effectiveDiscount,
+    cartDiscount, appliedPromotions, availablePromotions, lockedPromotions, unlockMessages,
+    applyCoupon, removeCoupon, manuallySelectedPromotionId, applyPromotion, removePromotion,
+    freeProductOptions, addFreeItem, removeFreeItem, isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage
+  }), [
+    items, addItem, removeItem, updateQuantity, clearCart,
+    itemCount, subtotal, offerDiscount, couponCode, effectiveDiscount,
+    cartDiscount, appliedPromotions, availablePromotions, lockedPromotions, unlockMessages,
+    applyCoupon, removeCoupon, manuallySelectedPromotionId, applyPromotion, removePromotion,
+    freeProductOptions, addFreeItem, removeFreeItem, isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage
+  ]);
 
   return (
-    <CartContext.Provider value={{ 
-      items, addItem, removeItem, updateQuantity, clearCart, 
-      itemCount, subtotal, offerDiscount, couponCode, discount: effectiveDiscount,
-      cartDiscount, appliedPromotions, availablePromotions, lockedPromotions, unlockMessages,
-      applyCoupon, removeCoupon, manuallySelectedPromotionId, applyPromotion, removePromotion,
-      freeProductOptions, addFreeItem, removeFreeItem, isGiftWrapped, setIsGiftWrapped, giftMessage, setGiftMessage
-    }}>
+    <CartContext.Provider value={contextValue}>
       {children}
     </CartContext.Provider>
   );

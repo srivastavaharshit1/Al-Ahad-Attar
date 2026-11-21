@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { bottleService } from '../../services/bottleService';
 import type { Bottle } from '../../services/bottleService';
 import { formatPrice } from '../../utils/formatPrice';
 import { getImageUrl } from '../../utils/getImageUrl';
 import { X, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface BottleSelectionModalProps {
   isOpen: boolean;
@@ -14,8 +16,6 @@ interface BottleSelectionModalProps {
   productType?: 'ATTAR' | 'PERFUME' | '';
 }
 
-import { createPortal } from 'react-dom';
-
 export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
   isOpen,
   onClose,
@@ -23,13 +23,16 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
   selectedSize,
   productType,
 }) => {
+  const modalRef = useRef<HTMLDivElement>(null);
   const [bottles, setBottles] = useState<Bottle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
+  useFocusTrap(modalRef, isOpen);
+
   useEffect(() => {
     if (isOpen) {
-      // Prevent body scrolling when modal is open
+      const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       setIsLoading(true);
       bottleService.getActive(productType)
@@ -53,20 +56,35 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
         })
         .catch(() => toast.error('Failed to load bottle options'))
         .finally(() => setIsLoading(false));
-    } else {
-      document.body.style.overflow = 'unset';
-    }
 
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
   }, [isOpen, selectedSize, productType]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-ink/70 backdrop-blur-sm animate-fade-up">
-      <div className="bg-white w-full max-w-2xl rounded-[3px] shadow-[0_25px_60px_rgba(18,28,42,0.3)] overflow-hidden flex flex-col max-h-[90vh] border border-[#e4dcc8]">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bottle-modal-title"
+        className="bg-white w-full max-w-2xl rounded-[3px] shadow-[0_25px_60px_rgba(18,28,42,0.3)] overflow-hidden flex flex-col max-h-[90vh] border border-[#e4dcc8]"
+      >
         
         {/* Header */}
         <div className="flex justify-between items-center px-6 py-5 border-b border-[#e4dcc8] bg-[#fbf9f5]">
@@ -74,7 +92,7 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
             <span className="text-accent text-[9px] font-label-md uppercase tracking-[0.25em] font-medium block mb-1">
               CUSTOMIZE PRESENTATION
             </span>
-            <h2 className="text-2xl font-headline-lg font-normal text-ink tracking-wide">Select Your Bottle</h2>
+            <h2 id="bottle-modal-title" className="text-2xl font-headline-lg font-normal text-ink tracking-wide">Select Your Bottle</h2>
           </div>
           <button 
             onClick={onClose} 
@@ -102,7 +120,7 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
               Standard luxury bottle included.
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 sm:gap-4">
               {bottles.map(bottle => (
                 <div 
                   key={bottle.id}
@@ -112,7 +130,7 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
                     }
                   }}
                   className={`
-                    relative bg-white border rounded-[2px] p-4 transition-all duration-300 flex flex-col items-center text-center
+                    relative bg-white border rounded-[2px] p-3.5 sm:p-4 transition-all duration-300 flex flex-col items-center text-center h-full justify-between
                     ${bottle.stockQuantity === 0 ? 'opacity-50 cursor-not-allowed border-[#e4dcc8]/40' : 'cursor-pointer hover:shadow-md'}
                     ${selectedId === bottle.id ? 'border-accent bg-accent/5 ring-1 ring-accent' : ((bottle.stockQuantity || 0) > 0 ? 'border-[#e4dcc8] hover:border-accent/60' : '')}
                   `}
@@ -123,28 +141,49 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
                     </div>
                   )}
 
-                  <div className="w-full aspect-square bg-[#fbf9f5] rounded-[1px] mb-3 flex items-center justify-center p-2 border border-[#e4dcc8]/40">
+                  <div className="w-full aspect-square bg-[#fbf9f5] rounded-[1px] mb-3 flex items-center justify-center p-2 border border-[#e4dcc8]/40 relative overflow-hidden">
                     {bottle.imageUrl ? (
-                      <img src={getImageUrl(bottle.imageUrl)} alt={bottle.name} className="max-w-full max-h-full object-contain drop-shadow" />
-                    ) : (
-                      <span className="material-symbols-outlined text-3xl text-accent/40">science</span>
-                    )}
+                      <img 
+                        src={getImageUrl(bottle.imageUrl)} 
+                        alt={bottle.name} 
+                        className="max-w-full max-h-full object-contain drop-shadow"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const fallback = e.currentTarget.parentElement?.querySelector('.bottle-fallback');
+                          if (fallback) fallback.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={`bottle-fallback w-full h-full flex flex-col items-center justify-center text-accent/60 ${bottle.imageUrl ? 'hidden' : ''}`}>
+                      <span className="material-symbols-outlined text-3xl mb-0.5 opacity-60">science</span>
+                      <span className="text-[9px] uppercase tracking-wider text-on-surface-variant/60 font-light">Artisanal Flacon</span>
+                    </div>
                   </div>
                   
-                  <h3 className="font-headline-md text-ink text-sm mb-1 line-clamp-1 font-normal tracking-wide">{bottle.name}</h3>
-                  <div className="text-accent font-semibold text-xs tracking-wider uppercase mt-auto">
-                    {bottle.price === 0 ? 'Included' : `+${formatPrice(bottle.price)}`}
+                  <div className="w-full flex flex-col items-center flex-1">
+                    <h3 className="font-headline-md text-ink text-xs sm:text-sm mb-1 line-clamp-1 font-normal tracking-wide">{bottle.name}</h3>
+                    {bottle.capacity && (
+                      <span className="inline-block text-[9.5px] sm:text-[10px] uppercase tracking-wider text-accent font-medium bg-accent/10 px-2 py-0.5 rounded-[1px] mb-1.5 border border-accent/20">
+                        {bottle.capacity}
+                      </span>
+                    )}
+                    {bottle.description && (
+                      <p className="text-[10.5px] sm:text-[11px] text-on-surface-variant/80 mt-1 line-clamp-2 leading-relaxed font-light">
+                        {bottle.description}
+                      </p>
+                    )}
                   </div>
-                  {bottle.stockQuantity === 0 && (
-                    <div className="text-error font-medium text-[9px] mt-1 bg-error-container/40 px-2 py-0.5 rounded-[1px] uppercase tracking-wider">
-                      Sold Out
+
+                  <div className="mt-3 pt-2 border-t border-[#e4dcc8]/40 w-full flex flex-col items-center">
+                    <div className="text-accent font-semibold text-xs tracking-wider uppercase">
+                      {bottle.price === 0 ? 'Included' : `+${formatPrice(bottle.price)}`}
                     </div>
-                  )}
-                  {bottle.description && (
-                    <p className="text-[11px] text-on-surface-variant/80 mt-1.5 line-clamp-2 leading-relaxed font-light">
-                      {bottle.description}
-                    </p>
-                  )}
+                    {bottle.stockQuantity === 0 && (
+                      <div className="text-error font-medium text-[9px] mt-1 bg-error-container/40 px-2 py-0.5 rounded-[1px] uppercase tracking-wider">
+                        Sold Out
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

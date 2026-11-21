@@ -60,7 +60,7 @@ export const Checkout: React.FC = () => {
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [notes, setNotes] = useState('');
   const [checkoutMode, setCheckoutMode] = useState<'auth_entry' | 'guest' | 'user'>(
-    isAuthenticated ? 'user' : 'auth_entry'
+    isAuthenticated ? 'user' : 'guest'
   );
   const [guestEmail, setGuestEmail] = useState('');
   const [guestAddress, setGuestAddress] = useState<any>({
@@ -123,7 +123,7 @@ export const Checkout: React.FC = () => {
       fetchUserData();
       fetchAddresses();
     } else {
-      setCheckoutMode('auth_entry');
+      setCheckoutMode('guest');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
@@ -658,17 +658,22 @@ export const Checkout: React.FC = () => {
                   {/* Continue as Guest */}
                   <div
                     onClick={() => setCheckoutMode('guest')}
-                    className="flex flex-col p-5 rounded-md border cursor-pointer h-full transition-colors relative"
-                    style={{ borderColor: C.goldBorder, backgroundColor: C.inputBg }}
+                    className="flex flex-col p-5 rounded-md border bg-white h-full cursor-pointer hover:border-[#c8a55e] transition-colors"
+                    style={{ borderColor: C.border }}
                   >
-                    <div className="absolute top-4 right-4 text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded flex items-center gap-1" style={{ backgroundColor: C.goldBg, color: C.goldDark, border: `1px solid ${C.goldBorder}` }}>
-                      <span className="material-symbols-outlined text-[10px]">check</span> SELECTED
-                    </div>
                     <div className="mb-4">
-                      <span className="material-symbols-outlined text-[20px]" style={{ color: C.goldDark }}>person</span>
+                      <span className="material-symbols-outlined text-[20px]" style={{ color: C.navyLight }}>person</span>
                     </div>
                     <div className="text-[13px] font-bold tracking-wide uppercase mb-1" style={{ color: C.navy }}>Continue as Guest</div>
                     <div className="text-[11px] mb-4 flex-grow" style={{ color: C.navyLight }}>Checkout without creating an account</div>
+                    <button
+                      type="button"
+                      onClick={() => setCheckoutMode('guest')}
+                      className="w-full text-center py-2.5 rounded text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer"
+                      style={{ backgroundColor: C.inputBg, color: C.navy, border: `1px solid ${C.border}` }}
+                    >
+                      CONTINUE AS GUEST
+                    </button>
                   </div>
                 </div>
               ) : checkoutMode === 'guest' ? (

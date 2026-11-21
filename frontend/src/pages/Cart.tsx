@@ -34,7 +34,6 @@ export const Cart: React.FC = () => {
   } = useCart();
 
   const { ref: itemsRef, inView: itemsInView } = useInView<HTMLDivElement>();
-  const { ref: summaryRef, inView: summaryInView } = useInView<HTMLDivElement>();
   const [addingFreeGift, setAddingFreeGift] = useState<{promotionId: number, variantId: number} | null>(null);
 
 
@@ -78,8 +77,8 @@ export const Cart: React.FC = () => {
           <p className="text-[13px] mb-8" style={{ color: C.navyLight }}>
             Looks like you haven't added anything to your cart yet. Explore our luxury fragrance collection.
           </p>
-          <Link 
-            to="/collection" 
+          <Link
+            to="/collections"
             className="w-full py-4 rounded text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:brightness-110 shadow-sm"
             style={{ backgroundColor: C.goldDark }}
           >
@@ -102,7 +101,7 @@ export const Cart: React.FC = () => {
             <h1 className="text-3xl md:text-4xl font-serif" style={{ color: C.navy }}>Shopping Cart</h1>
           </div>
           <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-none pt-4 md:pt-0" style={{ borderColor: C.border }}>
-             <Link to="/collection" className="text-[10px] font-bold uppercase tracking-widest hover:underline" style={{ color: C.navyLight }}>CONTINUE SHOPPING</Link>
+             <Link to="/collections" className="text-[10px] font-bold uppercase tracking-widest hover:underline" style={{ color: C.navyLight }}>CONTINUE SHOPPING</Link>
              <span className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded" style={{ backgroundColor: C.inputBg, color: C.navy, border: `1px solid ${C.border}` }}>
                {itemCount} {itemCount === 1 ? 'ITEM' : 'ITEMS'}
              </span>
@@ -344,7 +343,7 @@ export const Cart: React.FC = () => {
           </div>
 
           {/* ─── RIGHT: Sticky Order Summary ─── */}
-          <div ref={summaryRef} className={`lg:col-span-5 reveal ${summaryInView ? 'in-view' : ''}`}>
+          <div className="lg:col-span-5">
             <div className="sticky top-24 bg-white border rounded-md shadow-sm" style={{ borderColor: C.border, borderTop: `4px solid ${C.goldDark}` }}>
               <div className="p-6 md:p-8">
                 <div className="flex items-center justify-between mb-6 pb-4 border-b" style={{ borderColor: C.border }}>
