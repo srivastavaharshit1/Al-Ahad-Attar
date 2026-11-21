@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { bottleService } from '../../services/bottleService';
 import type { Bottle } from '../../services/bottleService';
 import { formatPrice } from '../../utils/formatPrice';
 import { getImageUrl } from '../../utils/getImageUrl';
 import { X, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface BottleSelectionModalProps {
   isOpen: boolean;
@@ -14,8 +16,6 @@ interface BottleSelectionModalProps {
   productType?: 'ATTAR' | 'PERFUME' | '';
 }
 
-import { createPortal } from 'react-dom';
-
 export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
   isOpen,
   onClose,
@@ -23,13 +23,16 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
   selectedSize,
   productType,
 }) => {
+  const modalRef = useRef<HTMLDivElement>(null);
   const [bottles, setBottles] = useState<Bottle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
+  useFocusTrap(modalRef, isOpen);
+
   useEffect(() => {
     if (isOpen) {
-      // Prevent body scrolling when modal is open
+      const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       setIsLoading(true);
       bottleService.getActive(productType)
@@ -53,20 +56,35 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
         })
         .catch(() => toast.error('Failed to load bottle options'))
         .finally(() => setIsLoading(false));
-    } else {
-      document.body.style.overflow = 'unset';
-    }
 
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
   }, [isOpen, selectedSize, productType]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-ink/70 backdrop-blur-sm animate-fade-up">
-      <div className="bg-white w-full max-w-2xl rounded-[3px] shadow-[0_25px_60px_rgba(18,28,42,0.3)] overflow-hidden flex flex-col max-h-[90vh] border border-[#e4dcc8]">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bottle-modal-title"
+        className="bg-white w-full max-w-2xl rounded-[3px] shadow-[0_25px_60px_rgba(18,28,42,0.3)] overflow-hidden flex flex-col max-h-[90vh] border border-[#e4dcc8]"
+      >
         
         {/* Header */}
         <div className="flex justify-between items-center px-6 py-5 border-b border-[#e4dcc8] bg-[#fbf9f5]">
@@ -74,7 +92,7 @@ export const BottleSelectionModal: React.FC<BottleSelectionModalProps> = ({
             <span className="text-accent text-[9px] font-label-md uppercase tracking-[0.25em] font-medium block mb-1">
               CUSTOMIZE PRESENTATION
             </span>
-            <h2 className="text-2xl font-headline-lg font-normal text-ink tracking-wide">Select Your Bottle</h2>
+            <h2 id="bottle-modal-title" className="text-2xl font-headline-lg font-normal text-ink tracking-wide">Select Your Bottle</h2>
           </div>
           <button 
             onClick={onClose} 

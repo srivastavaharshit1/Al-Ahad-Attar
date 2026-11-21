@@ -129,7 +129,7 @@ export const ProductPage: React.FC = () => {
         <p className="font-body-md text-on-surface-variant mb-8 leading-relaxed max-w-sm">
           {error || 'The product you are looking for does not exist or an error occurred.'}
         </p>
-        <button onClick={() => navigate('/collection')} className="btn btn-primary">
+        <button onClick={() => navigate('/collections')} className="btn btn-primary">
           Back to Collection
         </button>
       </div>
@@ -371,14 +371,14 @@ export const ProductPage: React.FC = () => {
       <section className="max-w-[1400px] mx-auto w-full px-4 md:px-8">
       <Breadcrumb items={[
         { label: 'Home', href: '/' },
-        { label: 'Collection', href: '/collection' },
+        { label: 'Collections', href: '/collections' },
         ...(product.category ? [{
           label: product.category.name,
-          href: `/collection?category=${product.category.name?.toLowerCase() || ''}`
+          href: `/collections?category=${product.category.name?.toLowerCase() || ''}`
         }] : []),
         ...(product.subCategory ? [{
           label: product.subCategory.name,
-          href: `/collection?category=${product.category?.name?.toLowerCase() || ''}&subcategory=${product.subCategory.id}`
+          href: `/collections?category=${product.category?.name?.toLowerCase() || ''}&subcategory=${product.subCategory.id}`
         }] : []),
         { label: product.name }
       ]} />
