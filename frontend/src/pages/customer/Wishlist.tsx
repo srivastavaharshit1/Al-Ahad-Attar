@@ -9,31 +9,61 @@ import { getImageUrl } from '../../utils/getImageUrl';
 import { Loader } from '../../components/ui/Loader';
 import { useInView } from '../../hooks/useInView';
 import { resolveProductImage } from '../../utils/productUtils';
-
+import { BottleSelectionModal } from '../../components/product/BottleSelectionModal';
+import type { Bottle } from '../../services/bottleService';
 
 export const Wishlist: React.FC = () => {
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedWishlistItem, setSelectedWishlistItem] = useState<WishlistItem | null>(null);
+  const [showBottleModal, setShowBottleModal] = useState(false);
   const { addItem } = useCart();
   const { productIds, removeFromWishlist } = useWishlist();
   const { ref, inView } = useInView<HTMLDivElement>();
 
   useEffect(() => {
+    let isCancelled = false;
     const fetchWishlistItems = async () => {
       try {
         setIsLoading(true);
         const promises = productIds.map(id => apiClient.get(`/variants/${id}`));
-        const responses = await Promise.all(promises);
-        const fetchedItems = responses.map((res) => ({
-          id: res.data.data.id,
-          variant: res.data.data,
-          createdAt: new Date().toISOString()
-        }));
+        const results = await Promise.allSettled(promises);
+        if (isCancelled) return;
+
+        const fetchedItems: WishlistItem[] = [];
+        const missingIds: string[] = [];
+
+        results.forEach((res, idx) => {
+          const id = productIds[idx];
+          if (res.status === 'fulfilled' && res.value?.data?.data) {
+            fetchedItems.push({
+              id: res.value.data.data.id,
+              variant: res.value.data.data,
+              createdAt: new Date().toISOString()
+            });
+          } else if (res.status === 'rejected') {
+            const status = res.reason?.response?.status;
+            // Only purge if confirmed permanently missing/deactivated (404 or 410)
+            if (status === 404 || status === 410) {
+              missingIds.push(id);
+            } else {
+              console.warn(`Temporary issue fetching wishlist variant ${id}:`, res.reason);
+            }
+          }
+        });
+
+        // Purge permanently deleted variant IDs from local wishlist
+        if (missingIds.length > 0) {
+          missingIds.forEach(id => removeFromWishlist(id));
+        }
+
         setWishlist(fetchedItems);
       } catch (error) {
         console.error("Failed to fetch wishlist items", error);
       } finally {
-        setIsLoading(false);
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -43,6 +73,10 @@ export const Wishlist: React.FC = () => {
       setWishlist([]);
       setIsLoading(false);
     }
+
+    return () => {
+      isCancelled = true;
+    };
   }, [productIds]);
 
   const getVariantThumbnail = (variant: any) => {
@@ -58,20 +92,40 @@ export const Wishlist: React.FC = () => {
     }
   };
 
-  const handleAddToCart = (item: WishlistItem) => {
+  const addToCartWithBottle = (item: WishlistItem, bottle: Bottle | null) => {
+    const bottlePrice = bottle?.price || 0;
+    const basePrice = item.variant.price + bottlePrice;
+
     addItem({
-      id: Math.random().toString(),
+      id: '',
       productId: item.variant.productId?.toString() || '0',
-      name: item.variant.productName || 'Product',
-      quantity: 1,
-      image: getVariantThumbnail(item.variant) || '',
       variantId: item.variant.id,
-      size: item.variant.size,
-      originalPrice: item.variant.price,
-      finalPrice: item.variant.price
+      quantity: 1,
+      name: item.variant.productName || 'Product',
+      image: getVariantThumbnail(item.variant) || '',
+      size: item.variant.colorName || item.variant.size,
+      originalPrice: basePrice,
+      finalPrice: basePrice,
+      bottle: bottle ? { id: bottle.id, name: bottle.name, price: bottle.price } : undefined
     });
-    // Optional: remove from wishlist after adding to cart
+
     handleRemove(item.variant.id);
+    setShowBottleModal(false);
+    setSelectedWishlistItem(null);
+  };
+
+  const handleAddToCart = (item: WishlistItem) => {
+    const productType = (item.variant.productType || '').toUpperCase();
+    const isAttar = productType === 'ATTAR' || productType === 'ATTARS';
+    const isPerfume = productType === 'PERFUME' || productType === 'PERFUMES';
+    const isFragranceVariant = isAttar || isPerfume;
+
+    if (isFragranceVariant) {
+      setSelectedWishlistItem(item);
+      setShowBottleModal(true);
+    } else {
+      addToCartWithBottle(item, null);
+    }
   };
 
   if (isLoading) {
@@ -82,8 +136,25 @@ export const Wishlist: React.FC = () => {
     );
   }
 
+  const selectedProductType = selectedWishlistItem?.variant?.productType?.toUpperCase();
+
   return (
     <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-10 md:py-16 min-h-screen">
+      <BottleSelectionModal
+        isOpen={showBottleModal}
+        onClose={() => {
+          setShowBottleModal(false);
+          setSelectedWishlistItem(null);
+        }}
+        onConfirm={(bottle) => {
+          if (selectedWishlistItem) {
+            addToCartWithBottle(selectedWishlistItem, bottle);
+          }
+        }}
+        selectedSize={selectedWishlistItem?.variant?.size}
+        productType={selectedProductType === 'PERFUME' || selectedProductType === 'PERFUMES' ? 'PERFUME' : selectedProductType === 'ATTAR' || selectedProductType === 'ATTARS' ? 'ATTAR' : ''}
+      />
+
       <div className="flex items-center justify-between mb-8">
         <div>
           <span className="text-accent text-[10px] font-label-md uppercase tracking-[0.3em] mb-2 block">Saved Items</span>
@@ -152,7 +223,7 @@ export const Wishlist: React.FC = () => {
           <p className="font-body-md text-on-surface-variant mb-8 leading-relaxed max-w-md">
             Save your favorite perfumes and attars here to find them quickly later. Browse our collection to start curating your perfect scent wardrobe.
           </p>
-          <Link to="/collection" className="btn btn-primary inline-flex items-center">
+          <Link to="/collections" className="btn btn-primary inline-flex items-center">
             Explore Collection
           </Link>
         </div>

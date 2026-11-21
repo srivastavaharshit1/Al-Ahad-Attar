@@ -51,6 +51,7 @@ export const Footer: React.FC = () => {
           <h4 className="font-label-md text-[10px] text-accent uppercase tracking-[0.25em] mb-4 sm:mb-6 font-medium">Shop</h4>
           <ul className="space-y-3 sm:space-y-3.5">
             <li><Link to="/category/attars" className={footerLinkClass}>Attars</Link></li>
+            <li><Link to="/category/perfumes" className={footerLinkClass}>Perfumes</Link></li>
             <li><Link to="/category/bakhoor" className={footerLinkClass}>Bakhoor</Link></li>
             <li><Link to="/category/car-perfumes" className={footerLinkClass}>Car Perfumes</Link></li>
             <li><Link to="/collections" className={footerLinkClass}>Collections</Link></li>
