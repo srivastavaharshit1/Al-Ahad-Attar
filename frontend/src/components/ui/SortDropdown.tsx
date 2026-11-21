@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { ArrowDownAZ, ArrowDownZA } from 'lucide-react';
 
 export interface SortOption {
   id: string;
@@ -8,8 +9,8 @@ export interface SortOption {
 
 export const SORT_OPTIONS: SortOption[] = [
   { id: 'createdAt,desc', label: 'Newest First', backendSort: 'createdAt,desc' },
-  { id: 'name,asc', label: 'Name: A–Z', backendSort: 'name,asc' },
-  { id: 'name,desc', label: 'Name: Z–A', backendSort: 'name,desc' },
+  { id: 'name,asc', label: 'Name: A-Z', backendSort: 'name,asc' },
+  { id: 'name,desc', label: 'Name: Z-A', backendSort: 'name,desc' },
   { id: 'price,asc', label: 'Price: Low to High', backendSort: 'minPrice,asc' },
   { id: 'price,desc', label: 'Price: High to Low', backendSort: 'minPrice,desc' },
 ];
@@ -121,25 +122,19 @@ export const SortDropdown: React.FC<SortDropdownProps> = ({
         );
 
       case 'name,asc':
-        // Typographic AŽ icon
         return (
-          <span
-            className="font-serif font-bold text-[#9b7938] text-[13px] tracking-tight select-none leading-none inline-block w-4 text-center"
+          <ArrowDownAZ
+            className="w-4 h-4 text-[#9b7938]"
             aria-hidden="true"
-          >
-            AŽ
-          </span>
+          />
         );
 
       case 'name,desc':
-        // Typographic ŽA icon
         return (
-          <span
-            className="font-serif font-bold text-[#9b7938] text-[13px] tracking-tight select-none leading-none inline-block w-4 text-center"
+          <ArrowDownZA
+            className="w-4 h-4 text-[#9b7938]"
             aria-hidden="true"
-          >
-            ŽA
-          </span>
+          />
         );
 
       case 'price,asc':

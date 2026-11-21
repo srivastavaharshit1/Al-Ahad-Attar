@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { storeSettingsService, type StoreSettings } from '../services/storeSettingsService';
 
 interface StoreSettingsContextType {
@@ -19,7 +19,7 @@ export const StoreSettingsProvider: React.FC<{children: React.ReactNode}> = ({ c
     const [settings, setSettings] = useState<StoreSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const refreshSettings = async () => {
+    const refreshSettings = useCallback(async () => {
         try {
             const res = await storeSettingsService.getSettings();
             if (res.data) {
@@ -37,14 +37,20 @@ export const StoreSettingsProvider: React.FC<{children: React.ReactNode}> = ({ c
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         refreshSettings();
-    }, []);
+    }, [refreshSettings]);
+
+    const contextValue = useMemo(() => ({
+        settings,
+        isLoading,
+        refreshSettings
+    }), [settings, isLoading, refreshSettings]);
 
     return (
-        <StoreSettingsContext.Provider value={{ settings, isLoading, refreshSettings }}>
+        <StoreSettingsContext.Provider value={contextValue}>
             {children}
         </StoreSettingsContext.Provider>
     );

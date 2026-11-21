@@ -76,6 +76,18 @@ public class BillingInvoiceController {
         deliveryService.recordConsent(AuthenticatedBillingAdmin.from(authentication), invoiceId, request);
     }
 
+    @PostMapping("/{invoiceId}/delivery/whatsapp/send")
+    public InvoiceDeliveryView sendWhatsAppInvoice(
+            Authentication authentication,
+            @PathVariable long invoiceId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestParam(required = false) String phone) {
+        String key = (idempotencyKey != null && !idempotencyKey.isBlank())
+                ? idempotencyKey : java.util.UUID.randomUUID().toString();
+        return deliveryService.sendImmediate(
+                AuthenticatedBillingAdmin.from(authentication), invoiceId, InvoiceDeliveryChannel.WHATSAPP, key, phone);
+    }
+
     @PostMapping("/{invoiceId}/delivery/{channel}")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public InvoiceDeliveryView queueDelivery(

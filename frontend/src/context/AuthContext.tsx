@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, type ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import type { User, LoginCredentials, RegisterData } from '../types';
 import { authService } from '../services/authService';
 import { profileService } from '../services/profileService';
@@ -21,49 +21,59 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
     const initAuth = async () => {
       const token = storage.get<string | null>('token', null);
       if (token) {
         try {
           const response = await profileService.getProfile();
-          if (response.data) {
+          if (response.data && isMounted) {
             setUser(response.data);
             storage.set('user', response.data);
           }
         } catch (error) {
           console.error('Failed to load user profile, token might be invalid', error);
-          setUser(null);
-          storage.remove('user');
-          storage.remove('token');
+          if (isMounted) {
+            setUser(null);
+            storage.remove('user');
+            storage.remove('token');
+          }
         }
       } else {
-        setUser(null);
+        if (isMounted) {
+          setUser(null);
+        }
       }
-      setIsLoading(false);
+      if (isMounted) {
+        setIsLoading(false);
+      }
     };
 
     initAuth();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  const login = async (credentials: LoginCredentials) => {
+  const login = useCallback(async (credentials: LoginCredentials) => {
     const response = await authService.login(credentials);
     if (response.data) {
       setUser(response.data.user);
       storage.set('user', response.data.user);
       storage.set('token', response.data.token);
     }
-  };
+  }, []);
 
-  const register = async (userData: RegisterData) => {
+  const register = useCallback(async (userData: RegisterData) => {
     const response = await authService.register(userData);
     if (response.data) {
       setUser(response.data.user);
       storage.set('user', response.data.user);
       storage.set('token', response.data.token);
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await authService.logout();
     } catch (e) {
@@ -73,19 +83,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       storage.remove('user');
       storage.remove('token');
     }
-  };
+  }, []);
 
-  const googleLogin = async (idToken: string, phone?: string) => {
+  const googleLogin = useCallback(async (idToken: string, phone?: string) => {
     const response = await authService.googleLogin(idToken, phone);
     if (response.data) {
       setUser(response.data.user);
       storage.set('user', response.data.user);
       storage.set('token', response.data.token);
     }
-  };
+  }, []);
+
+  const isAuthenticated = useMemo(() => !!user, [user]);
+
+  const contextValue = useMemo(() => ({
+    user,
+    isAuthenticated,
+    isLoading,
+    login,
+    register,
+    googleLogin,
+    logout
+  }), [user, isAuthenticated, isLoading, login, register, googleLogin, logout]);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, register, googleLogin, logout }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

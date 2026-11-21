@@ -16,7 +16,7 @@ import { StarRating } from '../components/common/StarRating';
 import { useInView } from '../hooks/useInView';
 import { SEO } from '../components/seo/SEO';
 import { BottleSelectionModal } from '../components/product/BottleSelectionModal';
-import { resolveProductImage } from '../utils/productUtils';
+import { resolveProductImage, sortVariantsByVolume } from '../utils/productUtils';
 
 function getAllProductImages(images: ProductImage[]): ProductImage[] {
   const unique = new Map<string | number, ProductImage>();
@@ -75,8 +75,9 @@ export const ProductPage: React.FC = () => {
             }
 
             setActiveType(initialType);
-            const initialVariants = (res.data.variants.filter((v: Variant) => v.productType === initialType) as Variant[])
-              .sort((a, b) => a.price - b.price);
+            const initialVariants = sortVariantsByVolume(
+              (res.data.variants.filter((v: Variant) => v.productType === initialType) as Variant[])
+            );
 
             // ── Preferred default size ─────────────────────────────────────────
             // Attar → prefer 6ml.  Perfume → prefer 60ml.
@@ -128,7 +129,7 @@ export const ProductPage: React.FC = () => {
         <p className="font-body-md text-on-surface-variant mb-8 leading-relaxed max-w-sm">
           {error || 'The product you are looking for does not exist or an error occurred.'}
         </p>
-        <button onClick={() => navigate('/collection')} className="btn btn-primary">
+        <button onClick={() => navigate('/collections')} className="btn btn-primary">
           Back to Collection
         </button>
       </div>
@@ -175,8 +176,9 @@ export const ProductPage: React.FC = () => {
   };
 
   const showTypeToggle = hasAttar && hasPerfume;
-  const filteredVariants = (product.variants?.filter(v => v.productType === activeType) || [])
-    .sort((a, b) => a.price - b.price);
+  const filteredVariants = sortVariantsByVolume(
+    product.variants?.filter(v => v.productType === activeType) || []
+  );
 
   const handleVariantChange = (variant: Variant) => {
     setSelectedVariant(variant);
@@ -187,8 +189,9 @@ export const ProductPage: React.FC = () => {
 
   const handleTypeChange = (type: string) => {
     setActiveType(type);
-    const newVariants = (product?.variants?.filter(v => v.productType === type) || [])
-      .sort((a, b) => a.price - b.price);
+    const newVariants = sortVariantsByVolume(
+      product?.variants?.filter(v => v.productType === type) || []
+    );
     if (newVariants.length > 0) {
       // Apply the same preferred-size logic as the initial load.
       const preferredSize = type === 'ATTAR' ? '6ml' : type === 'PERFUME' ? '60ml' : null;
@@ -337,8 +340,8 @@ export const ProductPage: React.FC = () => {
     "offers": {
       "@type": "AggregateOffer",
       "offerCount": product.variants?.length || 1,
-      "lowPrice": filteredVariants.length > 0 ? filteredVariants[0].price : (selectedVariant?.price || 0),
-      "highPrice": filteredVariants.length > 0 ? filteredVariants[filteredVariants.length - 1].price : (selectedVariant?.price || 0),
+      "lowPrice": filteredVariants.length > 0 ? Math.min(...filteredVariants.map(v => v.price)) : (selectedVariant?.price || 0),
+      "highPrice": filteredVariants.length > 0 ? Math.max(...filteredVariants.map(v => v.price)) : (selectedVariant?.price || 0),
       "priceCurrency": "INR",
       "availability": "https://schema.org/InStock",
       "url": `https://alahadattars.com/product/${product.slug}`
@@ -368,14 +371,14 @@ export const ProductPage: React.FC = () => {
       <section className="max-w-[1400px] mx-auto w-full px-4 md:px-8">
       <Breadcrumb items={[
         { label: 'Home', href: '/' },
-        { label: 'Collection', href: '/collection' },
+        { label: 'Collections', href: '/collections' },
         ...(product.category ? [{
           label: product.category.name,
-          href: `/collection?category=${product.category.name?.toLowerCase() || ''}`
+          href: `/collections?category=${product.category.name?.toLowerCase() || ''}`
         }] : []),
         ...(product.subCategory ? [{
           label: product.subCategory.name,
-          href: `/collection?category=${product.category?.name?.toLowerCase() || ''}&subcategory=${product.subCategory.id}`
+          href: `/collections?category=${product.category?.name?.toLowerCase() || ''}&subcategory=${product.subCategory.id}`
         }] : []),
         { label: product.name }
       ]} />

@@ -18,9 +18,10 @@ interface ProductCardProps {
   defaultType?: string;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }) => {
+export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product, defaultType }) => {
   const navigate = useNavigate();
   const [showBottleModal, setShowBottleModal] = useState(false);
+  const [imageError, setImageError] = useState(false);
   // For Product details (ProductResponse)
   const defaultVariant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
   
@@ -195,13 +196,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
           {/* Wishlist Button */}
           <button
             onClick={handleToggleWishlist}
-            className="wishlist-btn-pop absolute top-2.5 right-2.5 sm:top-3 sm:right-3 z-10 w-7 h-7 sm:w-8.5 sm:h-8.5 bg-white/90 backdrop-blur-md rounded-full border border-[#e4dcc8]/70 flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 hover:bg-white hover:border-accent shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent cursor-pointer"
+            className="wishlist-btn-pop absolute top-2 right-2 sm:top-2.5 sm:right-2.5 z-10 w-11 h-11 min-w-[44px] min-h-[44px] bg-white/95 backdrop-blur-md rounded-full border border-[#e4dcc8]/70 flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 hover:bg-white hover:border-accent shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent cursor-pointer"
             aria-pressed={inWishlist}
             title={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
             aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
           >
             <Heart
-              className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors duration-300 ${
+              className={`w-4 h-4 sm:w-4.5 sm:h-4.5 transition-colors duration-300 ${
                 inWishlist ? 'text-accent fill-accent' : 'text-ink/80 hover:text-accent'
               }`}
             />
@@ -221,15 +222,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
             to={`/product/${product.id}${defaultType ? `?type=${defaultType}` : ''}`}
             className="block w-full h-full focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
           >
-            {image ? (
+            {image && !imageError ? (
               <img
                 src={getImageUrl(image)}
                 alt={product.name}
                 className="w-full h-full object-cover transition-transform duration-[1200ms] cubic-bezier(0.16,1,0.3,1) group-hover:scale-106"
                 loading="lazy"
                 decoding="async"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.opacity = '0';
+                onError={() => {
+                  setImageError(true);
                 }}
               />
             ) : (
@@ -262,11 +263,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
             <button
               onClick={handleAddToCart}
               disabled={!variantId || stock === 0}
-              className="w-7 h-7 sm:w-8.5 sm:h-8.5 rounded-full bg-ink text-white shadow-md flex items-center justify-center active:scale-95 disabled:opacity-40 hover:bg-accent hover:text-ink transition-colors cursor-pointer"
+              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-ink text-white shadow-md flex items-center justify-center active:scale-95 disabled:opacity-40 hover:bg-accent hover:text-ink transition-colors cursor-pointer"
               aria-label="Add to cart"
               title="Add to cart"
             >
-              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <Plus className="w-4.5 h-4.5" />
             </button>
           </div>
         </div>
@@ -324,7 +325,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
 
             {((product as any).colorCount > 1) ? (
               <span className="text-[8px] sm:text-[9px] text-accent tracking-[0.14em] uppercase font-semibold bg-accent/10 px-1.5 py-0.5 rounded-[1px] border border-accent/25">
-                +{(product as any).colorCount} Colours
+                +{(product as any).colorCount} {(defaultVariant?.colorName || product.variants?.some((v: any) => v.colorName)) ? 'Colours' : 'Variants'}
               </span>
             ) : size ? (
               <span className="text-[8px] sm:text-[9px] text-[#8a8171] tracking-[0.16em] uppercase font-medium bg-[#f5f1e8] px-1.5 py-0.5 rounded-[1px] border border-[#e4dcc8]/60">
@@ -336,4 +337,4 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, defaultType }
       </div>
     </>
   );
-};
+});

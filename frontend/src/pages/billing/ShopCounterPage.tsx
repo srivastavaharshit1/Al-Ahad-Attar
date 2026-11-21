@@ -8,8 +8,9 @@ import {
   Plus,
   Printer,
   RefreshCw,
+  RotateCcw,
   Search,
-  Share2,
+  Send,
   Trash2,
   Store,
   User,
@@ -137,8 +138,17 @@ export function ShopCounterPage() {
   const [uncommittedConfirmed, setUncommittedConfirmed] = useState(false);
   const [finalizeError, setFinalizeError] = useState('');
   const [finalSale, setFinalSale] = useState<PosSaleFinalizeResponse | null>(null);
-  const [shareLoading, setShareLoading] = useState(false);
-  const [shareStatus, setShareStatus] = useState<{ type: 'success' | 'fallback' | 'info' | 'error'; message: string } | null>(null);
+  const [whatsAppDelivery, setWhatsAppDelivery] = useState<{
+    status: 'IDLE' | 'SENDING' | 'PROVIDER_ACCEPTED' | 'DELIVERED' | 'FAILED' | 'BLOCKED_CONFIGURATION' | 'SKIPPED_NO_CONSENT' | 'AMBIGUOUS';
+    message: string;
+    providerMessageId?: string;
+    destination?: string;
+    canRetry?: boolean;
+    canRefresh?: boolean;
+  } | null>(null);
+  const deliveryIdempotencyKeyRef = useRef<string | null>(null);
+  const lastDeliveryDestinationRef = useRef<string | null>(null);
+  const deliveryPollingTimer = useRef<number | null>(null);
 
   const quoteRequestSequence = useRef(0);
   const idempotencyKey = useRef<string | null>(null);
@@ -521,106 +531,263 @@ export function ShopCounterPage() {
     }
   };
 
-  const shareViaWhatsApp = async () => {
-    if (!finalSale || shareLoading) return;
-    setShareLoading(true);
-    setShareStatus(null);
-
-    const phone = customerMobile.replace(/\D/g, '');
-    const invoiceNum = finalSale.invoiceNumber || String(finalSale.invoiceId);
-    const amount = quoteCurrency(finalSale.payableAmount);
-    const fileName = `Invoice-${invoiceNum}-A4.pdf`;
-    const shareText = `Dear Customer, thank you for shopping at Al Ahad Attars! Your store invoice #${invoiceNum} for ${amount} has been issued. Have a blessed day!`;
-
-    try {
-      // 1. Fetch authoritative A4 PDF blob from backend
-      const pdfBlob = await billingService.downloadInvoice(finalSale.invoiceId, 'A4');
-      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
-
-      // 2. Check if Web Share API with file support is available
-      let canShareFiles = false;
-      try {
-        if (typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && typeof navigator.share === 'function') {
-          canShareFiles = navigator.canShare({ files: [pdfFile] });
-        }
-      } catch {
-        canShareFiles = false;
+  useEffect(() => {
+    return () => {
+      if (deliveryPollingTimer.current) {
+        window.clearInterval(deliveryPollingTimer.current);
       }
+    };
+  }, []);
 
-      if (canShareFiles) {
-        try {
-          await navigator.share({
-            title: `Al Ahad Attars Invoice #${invoiceNum}`,
-            text: shareText,
-            files: [pdfFile],
-          });
-          setShareStatus({
-            type: 'success',
-            message: 'Invoice PDF shared via system share sheet.',
-          });
-          return;
-        } catch (shareErr) {
-          const errName = (shareErr as Error)?.name;
-          if (errName === 'AbortError') {
-            setShareStatus({
-              type: 'info',
-              message: 'Share sheet was closed without sending.',
-            });
+  const applyDeliveryStatus = (delivery: {
+    status: string;
+    destination?: string;
+    providerMessageId?: string | null;
+    lastErrorCode?: string | null;
+    lastErrorSummary?: string | null;
+  }, targetPhone: string) => {
+    const dest = delivery.destination || targetPhone;
+    if (delivery.status === 'DELIVERED') {
+      setWhatsAppDelivery({
+        status: 'DELIVERED',
+        message: 'Invoice PDF has been confirmed delivered to the customer\'s WhatsApp device.',
+        providerMessageId: delivery.providerMessageId || undefined,
+        destination: dest,
+        canRetry: false,
+        canRefresh: true,
+      });
+    } else if (delivery.status === 'PROVIDER_ACCEPTED') {
+      setWhatsAppDelivery({
+        status: 'PROVIDER_ACCEPTED',
+        message: 'Invoice PDF accepted by Meta WhatsApp Cloud API. Awaiting recipient delivery confirmation...',
+        providerMessageId: delivery.providerMessageId || undefined,
+        destination: dest,
+        canRetry: false,
+        canRefresh: true,
+      });
+    } else if (delivery.status === 'AMBIGUOUS') {
+      setWhatsAppDelivery({
+        status: 'AMBIGUOUS',
+        message: 'Delivery outcome is uncertain (request timed out or transport interrupted). Meta may have received this message. Please click \'Refresh Status\' to reconcile before attempting a new send.',
+        providerMessageId: delivery.providerMessageId || undefined,
+        destination: dest,
+        canRetry: false,
+        canRefresh: true,
+      });
+    } else if (delivery.status === 'SKIPPED_NO_CONSENT') {
+      setWhatsAppDelivery({
+        status: 'SKIPPED_NO_CONSENT',
+        message: delivery.lastErrorSummary || 'Customer affirmative consent has not been granted for this destination.',
+        destination: dest,
+        canRetry: true,
+        canRefresh: true,
+      });
+    } else if (delivery.status === 'BLOCKED_CONFIGURATION') {
+      setWhatsAppDelivery({
+        status: 'BLOCKED_CONFIGURATION',
+        message: delivery.lastErrorSummary || 'WhatsApp Cloud API is not configured on the server.',
+        destination: dest,
+        canRetry: false,
+        canRefresh: true,
+      });
+    } else {
+      setWhatsAppDelivery({
+        status: 'FAILED',
+        message: `Delivery failed: ${delivery.lastErrorSummary || delivery.lastErrorCode || 'Meta rejected the invoice delivery request.'}`,
+        providerMessageId: delivery.providerMessageId || undefined,
+        destination: dest,
+        canRetry: true,
+        canRefresh: true,
+      });
+    }
+  };
+
+  const startDeliveryPolling = (invoiceId: number) => {
+    if (deliveryPollingTimer.current) {
+      window.clearInterval(deliveryPollingTimer.current);
+      deliveryPollingTimer.current = null;
+    }
+
+    let elapsedSeconds = 0;
+    const pollIntervalMs = 3000;
+    const maxSeconds = 90;
+
+    deliveryPollingTimer.current = window.setInterval(async () => {
+      elapsedSeconds += pollIntervalMs / 1000;
+      try {
+        const deliveries = await billingService.getDeliveries(invoiceId);
+        const latest = deliveries.find((d) => d.channel === 'WHATSAPP');
+        if (latest) {
+          applyDeliveryStatus(latest, latest.destination);
+          if (
+            latest.status === 'DELIVERED' ||
+            latest.status === 'FAILED' ||
+            latest.status === 'BLOCKED_CONFIGURATION' ||
+            latest.status === 'SKIPPED_NO_CONSENT'
+          ) {
+            if (deliveryPollingTimer.current) {
+              window.clearInterval(deliveryPollingTimer.current);
+              deliveryPollingTimer.current = null;
+            }
             return;
           }
-          console.warn('Web Share failed, falling back to download + WhatsApp link:', shareErr);
         }
+      } catch {
+        // Ignore polling errors
       }
 
-      // 3. Fallback for desktop / browsers lacking Web Share file support:
-      // Trigger authoritative PDF download directly to disk
-      const blobUrl = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+      if (elapsedSeconds >= maxSeconds) {
+        if (deliveryPollingTimer.current) {
+          window.clearInterval(deliveryPollingTimer.current);
+          deliveryPollingTimer.current = null;
+        }
+        setWhatsAppDelivery((prev) =>
+          prev
+            ? {
+                ...prev,
+                canRefresh: true,
+                message: `${prev.message} (Polling paused. Click 'Refresh Delivery Status' to check latest webhook status).`,
+              }
+            : null
+        );
+      }
+    }, pollIntervalMs);
+  };
 
-      // Open WhatsApp chat directly with pre-composed customer greeting
-      const promptOrPhone = phone && phone.length >= 10
-        ? phone
-        : (window.prompt('Enter customer WhatsApp mobile number (10 digits):') || '').replace(/\D/g, '');
-
-      if (promptOrPhone && promptOrPhone.length >= 10) {
-        const formatted = promptOrPhone.startsWith('91') && promptOrPhone.length === 12
-          ? promptOrPhone
-          : (promptOrPhone.length === 10 ? `91${promptOrPhone}` : promptOrPhone);
-        const chatMsg = `${shareText} Please find your invoice PDF (${fileName}) attached.`;
-        window.open(`https://api.whatsapp.com/send?phone=${formatted}&text=${encodeURIComponent(chatMsg)}`, '_blank');
-        setShareStatus({
-          type: 'fallback',
-          message: `Invoice PDF downloaded (${fileName}) and WhatsApp chat opened. Please attach the downloaded PDF in the customer conversation.`,
-        });
-      } else {
-        setShareStatus({
-          type: 'fallback',
-          message: `Invoice PDF downloaded (${fileName}). Enter a valid customer mobile number to open the WhatsApp chat.`,
-        });
+  const refreshDeliveryStatus = async () => {
+    if (!finalSale) return;
+    try {
+      const deliveries = await billingService.getDeliveries(finalSale.invoiceId);
+      const latest = deliveries.find((d) => d.channel === 'WHATSAPP');
+      if (latest) {
+        applyDeliveryStatus(latest, latest.destination);
       }
     } catch (err) {
-      console.error('Failed to prepare or share invoice PDF:', err);
-      setShareStatus({
-        type: 'error',
-        message: 'Could not retrieve invoice PDF for sharing. You can use the Download A4 PDF button instead.',
+      console.error('Failed to refresh delivery status:', err);
+    }
+  };
+
+function validateAndFormatWhatsAppPhone(input: string): { valid: boolean; formatted?: string; error?: string } {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return { valid: false, error: 'Customer mobile number is required for WhatsApp delivery.' };
+  }
+  const hasPlus = trimmed.startsWith('+');
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.startsWith('0')) {
+    return { valid: false, error: 'Mobile number must not start with 0. Provide a 10-digit mobile number or an international number with country code.' };
+  }
+  if (hasPlus) {
+    if (digits.length < 8 || digits.length > 15) {
+      return { valid: false, error: 'International number must be between 8 and 15 digits (E.164 format).' };
+    }
+    if (digits.startsWith('91')) {
+      if (digits.length !== 12 || !/^[6-9]/.test(digits.slice(2))) {
+        return { valid: false, error: 'Indian mobile number must be 10 digits starting with 6, 7, 8, or 9.' };
+      }
+    }
+    return { valid: true, formatted: `+${digits}` };
+  }
+  if (digits.length === 10) {
+    if (!/^[6-9]/.test(digits)) {
+      return { valid: false, error: '10-digit Indian mobile number must start with 6, 7, 8, or 9.' };
+    }
+    return { valid: true, formatted: `+91${digits}` };
+  }
+  if (digits.length === 12 && digits.startsWith('91')) {
+    if (!/^[6-9]/.test(digits.slice(2))) {
+      return { valid: false, error: 'Indian mobile number must start with 6, 7, 8, or 9.' };
+    }
+    return { valid: true, formatted: `+${digits}` };
+  }
+  return {
+    valid: false,
+    error: 'Enter a valid 10-digit Indian mobile number (e.g. 9876543210) or an international number with + (e.g. +14155552671).'
+  };
+}
+
+  const sendWhatsAppInvoice = async () => {
+    if (!finalSale || whatsAppDelivery?.status === 'SENDING') return;
+
+    if (deliveryPollingTimer.current) {
+      window.clearInterval(deliveryPollingTimer.current);
+      deliveryPollingTimer.current = null;
+    }
+
+    let targetInput = customerMobile.trim();
+    let validation = validateAndFormatWhatsAppPhone(targetInput);
+    if (!validation.valid) {
+      const promptPhone = window.prompt(
+        validation.error
+          ? `${validation.error}\nEnter customer WhatsApp mobile number:`
+          : 'Enter customer WhatsApp mobile number (10-digit Indian mobile or +country code):'
+      );
+      if (!promptPhone) return;
+      targetInput = promptPhone.trim();
+      validation = validateAndFormatWhatsAppPhone(targetInput);
+    }
+
+    if (!validation.valid || !validation.formatted) {
+      setWhatsAppDelivery({
+        status: 'FAILED',
+        message: validation.error || 'A valid customer mobile number is required to send via WhatsApp.',
+        canRetry: true,
       });
-    } finally {
-      setShareLoading(false);
+      return;
+    }
+
+    const formattedPhone = validation.formatted;
+
+    // If destination number changed, reset idempotency key so we don't reuse another recipient's key
+    if (lastDeliveryDestinationRef.current && lastDeliveryDestinationRef.current !== formattedPhone) {
+      deliveryIdempotencyKeyRef.current = null;
+    }
+    lastDeliveryDestinationRef.current = formattedPhone;
+
+    if (!deliveryIdempotencyKeyRef.current) {
+      deliveryIdempotencyKeyRef.current = `pos-inv-${finalSale.invoiceId}-wa-${Date.now()}`;
+    }
+    const currentKey = deliveryIdempotencyKeyRef.current;
+
+    setWhatsAppDelivery({
+      status: 'SENDING',
+      message: `Uploading invoice PDF and dispatching to WhatsApp (${formattedPhone})…`,
+      destination: formattedPhone,
+      canRefresh: false,
+    });
+
+    try {
+      const delivery = await billingService.sendWhatsAppInvoice(finalSale.invoiceId, formattedPhone, currentKey);
+      applyDeliveryStatus(delivery, formattedPhone);
+
+      if (delivery.status === 'PROVIDER_ACCEPTED') {
+        startDeliveryPolling(finalSale.invoiceId);
+      }
+    } catch (err: unknown) {
+      console.error('Failed to trigger automatic WhatsApp delivery:', err);
+      const axiosErr = err as { response?: { data?: { message?: string; error?: string } } };
+      const errMsg = axiosErr.response?.data?.message || axiosErr.response?.data?.error || 'Failed to dispatch invoice PDF to WhatsApp. Check network or server configuration.';
+      setWhatsAppDelivery({
+        status: 'FAILED',
+        message: errMsg,
+        canRetry: true,
+        destination: formattedPhone,
+        canRefresh: true,
+      });
     }
   };
 
   const resetForNewSale = () => {
+    if (deliveryPollingTimer.current) {
+      window.clearInterval(deliveryPollingTimer.current);
+      deliveryPollingTimer.current = null;
+    }
+    lastDeliveryDestinationRef.current = null;
+    deliveryIdempotencyKeyRef.current = null;
     setLines([]);
     setQuote(null);
     setFinalSale(null);
-    setShareStatus(null);
-    setShareLoading(false);
+    setWhatsAppDelivery(null);
     setCustomerName('');
     setCustomerMobile('');
     setCashReceived('');
@@ -700,13 +867,35 @@ export function ShopCounterPage() {
               </button>
               <button
                 type="button"
-                onClick={() => void shareViaWhatsApp()}
-                disabled={shareLoading}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 shadow-sm"
+                onClick={() => void sendWhatsAppInvoice()}
+                disabled={whatsAppDelivery?.status === 'SENDING'}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 shadow-sm transition-colors"
               >
-                {shareLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
-                <span>{shareLoading ? 'Sharing PDF…' : 'WhatsApp Invoice'}</span>
+                {whatsAppDelivery?.status === 'SENDING' ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                <span>
+                  {whatsAppDelivery?.status === 'SENDING'
+                    ? 'Sending to WhatsApp…'
+                    : whatsAppDelivery?.status === 'DELIVERED'
+                    ? 'Delivered on WhatsApp'
+                    : whatsAppDelivery?.status === 'PROVIDER_ACCEPTED'
+                    ? 'Sent to WhatsApp (Accepted)'
+                    : 'Send Invoice on WhatsApp'}
+                </span>
               </button>
+              {whatsAppDelivery && (
+                <button
+                  type="button"
+                  onClick={() => void refreshDeliveryStatus()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
+                  title="Query latest delivery status from server"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> Refresh Status
+                </button>
+              )}
             </div>
             <button
               type="button"
@@ -717,32 +906,95 @@ export function ShopCounterPage() {
             </button>
           </div>
 
-          {shareStatus && (
-            <div className={`rounded-xl border p-3 text-xs flex items-start gap-2.5 ${
-              shareStatus.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' :
-              shareStatus.type === 'fallback' ? 'border-blue-200 bg-blue-50 text-blue-900' :
-              shareStatus.type === 'info' ? 'border-slate-200 bg-slate-50 text-slate-700' :
-              'border-red-200 bg-red-50 text-red-800'
-            }`}>
-              {shareStatus.type === 'success' && <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />}
-              {shareStatus.type === 'fallback' && <Download className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />}
-              {shareStatus.type === 'info' && <AlertTriangle className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />}
-              {shareStatus.type === 'error' && <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />}
-              <div>
-                <p className="font-semibold">{
-                  shareStatus.type === 'success' ? 'Invoice PDF Shared' :
-                  shareStatus.type === 'fallback' ? 'Invoice Downloaded · Attach in WhatsApp' :
-                  shareStatus.type === 'info' ? 'Share Cancelled' : 'Share Error'
-                }</p>
-                <p className="mt-0.5">{shareStatus.message}</p>
+          {whatsAppDelivery && (
+            <div
+              className={`rounded-xl border p-3.5 text-xs flex items-start gap-2.5 transition-all ${
+                whatsAppDelivery.status === 'DELIVERED'
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-950'
+                  : whatsAppDelivery.status === 'PROVIDER_ACCEPTED'
+                  ? 'border-blue-300 bg-blue-50 text-blue-950'
+                  : whatsAppDelivery.status === 'SENDING'
+                  ? 'border-amber-300 bg-amber-50 text-amber-950'
+                  : whatsAppDelivery.status === 'AMBIGUOUS'
+                  ? 'border-amber-400 bg-amber-50 text-amber-950'
+                  : whatsAppDelivery.status === 'SKIPPED_NO_CONSENT'
+                  ? 'border-slate-300 bg-slate-50 text-slate-900'
+                  : whatsAppDelivery.status === 'BLOCKED_CONFIGURATION'
+                  ? 'border-slate-300 bg-slate-50 text-slate-800'
+                  : 'border-red-300 bg-red-50 text-red-950'
+              }`}
+            >
+              {whatsAppDelivery.status === 'DELIVERED' && (
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+              )}
+              {whatsAppDelivery.status === 'PROVIDER_ACCEPTED' && (
+                <CheckCircle2 className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+              )}
+              {whatsAppDelivery.status === 'SENDING' && (
+                <LoaderCircle className="h-4 w-4 text-amber-600 animate-spin shrink-0 mt-0.5" />
+              )}
+              {whatsAppDelivery.status === 'AMBIGUOUS' && (
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              )}
+              {whatsAppDelivery.status === 'SKIPPED_NO_CONSENT' && (
+                <AlertTriangle className="h-4 w-4 text-slate-600 shrink-0 mt-0.5" />
+              )}
+              {whatsAppDelivery.status === 'BLOCKED_CONFIGURATION' && (
+                <AlertTriangle className="h-4 w-4 text-slate-600 shrink-0 mt-0.5" />
+              )}
+              {whatsAppDelivery.status === 'FAILED' && (
+                <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+              )}
+              <div className="flex-1">
+                <p className="font-semibold">
+                  {whatsAppDelivery.status === 'DELIVERED'
+                    ? 'Delivered to Customer'
+                    : whatsAppDelivery.status === 'PROVIDER_ACCEPTED'
+                    ? 'Sent to WhatsApp · Accepted by Meta'
+                    : whatsAppDelivery.status === 'SENDING'
+                    ? 'Sending Automatic WhatsApp Invoice…'
+                    : whatsAppDelivery.status === 'AMBIGUOUS'
+                    ? 'Delivery Outcome Uncertain (Ambiguous)'
+                    : whatsAppDelivery.status === 'SKIPPED_NO_CONSENT'
+                    ? 'Customer Consent Required'
+                    : whatsAppDelivery.status === 'BLOCKED_CONFIGURATION'
+                    ? 'WhatsApp Delivery Not Configured'
+                    : 'Delivery Failed'}
+                </p>
+                <p className="mt-0.5 text-slate-700">{whatsAppDelivery.message}</p>
+                {whatsAppDelivery.providerMessageId && (
+                  <p className="mt-1 font-mono text-[10px] text-slate-500">
+                    Meta Message ID: {whatsAppDelivery.providerMessageId}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                {whatsAppDelivery.canRefresh && (
+                  <button
+                    type="button"
+                    onClick={() => void refreshDeliveryStatus()}
+                    className="inline-flex items-center gap-1 rounded bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-200 border border-slate-300 shadow-2xs"
+                  >
+                    <RefreshCw className="h-3 w-3" /> Refresh
+                  </button>
+                )}
+                {whatsAppDelivery.canRetry && (
+                  <button
+                    type="button"
+                    onClick={() => void sendWhatsAppInvoice()}
+                    className="inline-flex items-center gap-1 rounded bg-red-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-red-700 shadow-2xs"
+                  >
+                    <RotateCcw className="h-3 w-3" /> Retry
+                  </button>
+                )}
               </div>
             </div>
           )}
 
-          <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-900 flex items-start gap-2.5">
-            <span className="font-semibold shrink-0">WhatsApp Invoice Workflow:</span>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-emerald-950 flex items-start gap-2.5">
+            <span className="font-semibold shrink-0">Automatic WhatsApp Delivery:</span>
             <span>
-              Click <strong>WhatsApp Invoice</strong> to share the official A4 PDF directly via the device share sheet (on mobile/supported browsers). On desktop, the authoritative invoice PDF downloads automatically and the customer's WhatsApp conversation opens so you can attach it directly. (No credentials or automated bots are used).
+              Clicking <strong>Send Invoice on WhatsApp</strong> uploads the authoritative invoice PDF to Meta's WhatsApp Cloud API and automatically delivers it as an official document message to the customer's mobile number. Real-time delivery status updates automatically from Meta delivery webhooks.
             </span>
           </div>
         </div>

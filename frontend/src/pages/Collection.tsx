@@ -389,7 +389,7 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
   const selectedCatName = categories.find(c => c.id === selectedCategoryId)?.name?.toLowerCase();
 
   return (
-    <main className="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-10 md:py-16">
+    <main className="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop pt-10 pb-20 md:py-16">
       <SEO
         title={`${pageTitle} | Al Ahad Attars`}
         description={`Explore our exclusive ${pageTitle}. Buy premium Arabic attars and perfumes online.`}

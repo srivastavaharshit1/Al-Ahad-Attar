@@ -1,4 +1,4 @@
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const CURRENCY_SYMBOL = '₹';
 export const CURRENCY_CODE = 'INR';
@@ -7,9 +7,10 @@ export const APP_NAME = 'Al Ahad Attars';
 
 export const ROUTES = {
   HOME: '/',
-  COLLECTION: '/collection',
-  ATTARS: '/attars',
-  BAKHOOR: '/bakhoor',
+  COLLECTION: '/collections',
+  ATTARS: '/category/attars',
+  BAKHOOR: '/category/bakhoor',
+  PERFUMES: '/category/perfumes',
   PRODUCT: '/product',
   GIFT_SETS: '/gift-sets',
   CART: '/cart',

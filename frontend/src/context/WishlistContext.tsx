@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, useRef, type ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef, useCallback, useMemo, type ReactNode } from 'react';
 import { storage } from '../utils/storage';
 import { wishlistService } from '../services/wishlistService';
 import { AuthContext } from './AuthContext';
@@ -14,12 +14,14 @@ interface WishlistContextType {
 export const WishlistContext = createContext<WishlistContextType | undefined>(undefined);
 
 export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [productIds, setProductIds] = useState<string[]>([]);
+  const [productIds, setProductIds] = useState<string[]>(() => {
+    return storage.get<string[]>('wishlist', []);
+  });
   const authContext = useContext(AuthContext);
   const isAuthenticated = authContext?.isAuthenticated;
+  const isFirstMount = useRef(true);
 
   // Track in-flight mutations per variantId to prevent rapid-click race conditions.
-  // Using a ref (not state) so mutations don't trigger re-renders.
   const inFlight = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -29,24 +31,27 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
         if (res.data) {
           const dbIds = res.data.map(item => item.variant.id.toString());
           // Sync local items that aren't in DB
-          const localOnly = productIds.filter(id => !dbIds.includes(id));
-          localOnly.forEach(id => wishlistService.addToWishlist(Number(id)).catch(console.error));
-          setProductIds(Array.from(new Set([...dbIds, ...productIds])));
+          setProductIds(prev => {
+            const localOnly = prev.filter(id => !dbIds.includes(id));
+            localOnly.forEach(id => wishlistService.addToWishlist(Number(id)).catch(console.error));
+            return Array.from(new Set([...dbIds, ...prev]));
+          });
         }
       }).catch(console.error);
-    } else {
-      const stored = storage.get<string[]>('wishlist', []);
-      setProductIds(stored);
     }
   }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) {
+      if (isFirstMount.current) {
+        isFirstMount.current = false;
+        return;
+      }
       storage.set('wishlist', productIds);
     }
   }, [productIds, isAuthenticated]);
 
-  const addToWishlist = (variantId: string) => {
+  const addToWishlist = useCallback((variantId: string) => {
     // Prevent duplicate concurrent request for the same variant
     if (inFlight.current.has(variantId)) return;
 
@@ -74,9 +79,9 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
     } else {
       toast.success('Added to wishlist');
     }
-  };
+  }, [isAuthenticated]);
 
-  const removeFromWishlist = (variantId: string) => {
+  const removeFromWishlist = useCallback((variantId: string) => {
     // Prevent duplicate concurrent request for the same variant
     if (inFlight.current.has(variantId)) return;
 
@@ -104,12 +109,21 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
     } else {
       toast.success('Removed from wishlist');
     }
-  };
+  }, [isAuthenticated]);
 
-  const isInWishlist = (variantId: string) => productIds.includes(variantId);
+  const isInWishlist = useCallback((variantId: string) => {
+    return productIds.includes(variantId);
+  }, [productIds]);
+
+  const contextValue = useMemo(() => ({
+    productIds,
+    addToWishlist,
+    removeFromWishlist,
+    isInWishlist
+  }), [productIds, addToWishlist, removeFromWishlist, isInWishlist]);
 
   return (
-    <WishlistContext.Provider value={{ productIds, addToWishlist, removeFromWishlist, isInWishlist }}>
+    <WishlistContext.Provider value={contextValue}>
       {children}
     </WishlistContext.Provider>
   );

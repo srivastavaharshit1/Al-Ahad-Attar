@@ -7,9 +7,15 @@ export const getImageUrl = (path: string | undefined | null): string => {
   }
   
   try {
-    const url = new URL(API_BASE_URL);
+    const base = API_BASE_URL.startsWith('http')
+      ? API_BASE_URL
+      : (typeof window !== 'undefined' ? window.location.origin : '');
+    if (!base) {
+      return path.startsWith('/') ? path : `/${path}`;
+    }
+    const url = new URL(base);
     return `${url.origin}${path.startsWith('/') ? '' : '/'}${path}`;
-  } catch (e) {
+  } catch {
     return path;
   }
 };

@@ -41,11 +41,11 @@ public class InvoiceDeliveryService {
     @PreAuthorize("hasRole('ADMIN')")
     public void recordConsent(AuthenticatedBillingAdmin actor, long invoiceId, InvoiceConsentRequest request) {
         requireInvoice(invoiceId);
-        validateDestination(request.channel(), request.status(), request.destination());
+        String destination = resolveAndValidateConsentDestination(invoiceId, request.channel(), request.status(), request.destination());
         if (request.status() == InvoiceConsentStatus.GRANTED) {
             consentPolicyProvider.requireApprovedWording(request.channel(), request.wordingVersion());
         }
-        deliveryRepository.saveConsent(invoiceId, request.channel(), request.destination(), request.status(),
+        deliveryRepository.saveConsent(invoiceId, request.channel(), destination, request.status(),
                 request.wordingVersion(), actor.userId());
     }
 
@@ -79,6 +79,87 @@ public class InvoiceDeliveryService {
     public List<InvoiceConsentView> findConsents(long invoiceId) {
         requireInvoice(invoiceId);
         return deliveryRepository.findConsents(invoiceId);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    public InvoiceDeliveryView sendImmediate(
+            AuthenticatedBillingAdmin actor,
+            long invoiceId,
+            InvoiceDeliveryChannel channel,
+            String idempotencyKey,
+            String phoneOverride) {
+        InvoiceListItem invoice = invoiceRepository.findHistoryItem(invoiceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invoice not found"));
+        if (channel != InvoiceDeliveryChannel.WHATSAPP) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Immediate sending is currently supported for WhatsApp");
+        }
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 160) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A valid delivery idempotency key is required");
+        }
+
+        String destination = resolveAndValidateDestination(invoiceId, phoneOverride);
+
+        InvoiceChannelSender sender = senders.get(channel);
+        boolean senderAvailable = sender != null && sender.isAvailable();
+        Optional<InvoicePdfDocument> pdfDoc = invoiceRepository.findPdf(invoiceId, InvoicePaperFormat.A4);
+
+        // Phase 1: Claim delivery job in a short transaction with row-level serialization and affirmative consent check
+        InvoiceDeliveryJdbcRepository.ImmediateClaimResult claimResult = deliveryRepository.prepareImmediateJob(
+                invoiceId, channel, destination, actor.userId(), idempotencyKey,
+                senderAvailable, pdfDoc.isPresent(), invoice);
+
+        if (claimResult instanceof InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Terminal terminal) {
+            return terminal.view();
+        }
+
+        InvoiceDeliveryJob job = ((InvoiceDeliveryJdbcRepository.ImmediateClaimResult.Claimed) claimResult).job();
+        byte[] pdfBytes = pdfDoc.orElseThrow().content();
+
+        // Phase 2: External HTTP calls to Meta Cloud API (executed strictly outside any database transaction)
+        try {
+            String providerId = sender.send(invoice, destination, pdfBytes, job.deliveryKey().toString());
+
+            // Phase 3: Persist success outcome in a short transaction
+            deliveryRepository.complete(job, InvoiceDeliveryStatus.PROVIDER_ACCEPTED, providerId, null, null, null);
+            return deliveryRepository.findLatest(invoiceId, channel).orElseThrow();
+        } catch (InvoiceDeliveryException failure) {
+            InvoiceDeliveryStatus failStatus = failure.kind() == DeliveryFailureKind.BLOCKED_CONFIGURATION
+                    ? InvoiceDeliveryStatus.BLOCKED_CONFIGURATION
+                    : (failure.kind() == DeliveryFailureKind.AMBIGUOUS
+                        ? InvoiceDeliveryStatus.AMBIGUOUS
+                        : InvoiceDeliveryStatus.FAILED);
+            deliveryRepository.complete(job, failStatus, null, failure.errorCode(), failure.getMessage(), null);
+            return deliveryRepository.findLatest(invoiceId, channel).orElseThrow();
+        } catch (RuntimeException failure) {
+            deliveryRepository.complete(job, InvoiceDeliveryStatus.AMBIGUOUS, null,
+                    "UNCLASSIFIED_FAILURE", "Delivery outcome is uncertain; manual review is required", null);
+            return deliveryRepository.findLatest(invoiceId, channel).orElseThrow();
+        }
+    }
+
+    @Transactional
+    public void updateStatusFromWebhook(String providerMessageId, InvoiceDeliveryStatus status,
+                                        String errorCode, String errorSummary) {
+        deliveryRepository.updateStatusByProviderMessageId(providerMessageId, status, errorCode, errorSummary);
+    }
+
+    private String resolveAndValidateDestination(long invoiceId, String phoneOverride) {
+        String raw = phoneOverride;
+        if (raw == null || raw.isBlank()) {
+            Optional<String> consentDest = deliveryRepository.findConsents(invoiceId).stream()
+                    .filter(c -> c.channel() == InvoiceDeliveryChannel.WHATSAPP && c.status() == InvoiceConsentStatus.GRANTED)
+                    .map(InvoiceConsentView::destination)
+                    .findFirst();
+            if (consentDest.isPresent() && !consentDest.get().isBlank()) {
+                raw = consentDest.get();
+            }
+        }
+        if (raw == null || raw.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A customer WhatsApp mobile number is required to send the invoice");
+        }
+        String normalized = MetaWhatsAppInvoiceSender.normalizePhone(raw);
+        return "+" + normalized;
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -142,18 +223,37 @@ public class InvoiceDeliveryService {
         }
     }
 
-    private static void validateDestination(InvoiceDeliveryChannel channel, InvoiceConsentStatus status, String destination) {
-        if (status != InvoiceConsentStatus.GRANTED) {
-            return;
+    private String resolveAndValidateConsentDestination(long invoiceId, InvoiceDeliveryChannel channel,
+                                                         InvoiceConsentStatus status, String destination) {
+        String raw = destination;
+        if (raw == null || raw.isBlank()) {
+            Optional<String> existing = deliveryRepository.findConsents(invoiceId).stream()
+                    .filter(c -> c.channel() == channel && c.destination() != null && !c.destination().isBlank())
+                    .map(InvoiceConsentView::destination)
+                    .findFirst();
+            if (existing.isPresent()) {
+                raw = existing.get();
+            }
         }
-        if (destination == null || destination.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Destination is required for granted consent");
+        if (raw == null || raw.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A valid destination is required to record " + status.name().toLowerCase(java.util.Locale.ROOT) + " consent");
         }
-        if (channel == InvoiceDeliveryChannel.EMAIL && !destination.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email destination is invalid");
+
+        if (channel == InvoiceDeliveryChannel.WHATSAPP) {
+            String normalized = MetaWhatsAppInvoiceSender.normalizePhone(raw);
+            String formatted = "+" + normalized;
+            if (!formatted.matches("^\\+[1-9][0-9]{7,14}$")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "WhatsApp destination must use international E.164 format");
+            }
+            return formatted;
+        } else if (channel == InvoiceDeliveryChannel.EMAIL) {
+            String trimmed = raw.trim();
+            if (!trimmed.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email destination is invalid");
+            }
+            return trimmed;
         }
-        if (channel == InvoiceDeliveryChannel.WHATSAPP && !destination.matches("^\\+[1-9][0-9]{7,14}$")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "WhatsApp destination must use international E.164 format");
-        }
+        return raw.trim();
     }
 }
