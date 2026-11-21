@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Truck, Gift, Headphones, Sparkles, Star } from 'lucide-react';
+import { ShieldCheck, Truck, Gift, Headphones, Sparkles, Star, ArrowRight } from 'lucide-react';
 import { homepageService } from '../services/homepageService';
 import type { HomepageDataResponse } from '../types/homepage';
 import { ProductCard } from '../components/product/ProductCard';
@@ -295,7 +295,7 @@ const HomeSkeleton = () => (
 
 // --- Sections ---
 
-const HeroSection = ({ heroes, section }: { heroes: any[], section?: any }) => {
+const HeroSection = ({ heroes }: { heroes: any[], section?: any }) => {
   if (!heroes || heroes.length === 0) return null;
   const heroData = heroes[0];
 
@@ -345,19 +345,14 @@ const HeroSection = ({ heroes, section }: { heroes: any[], section?: any }) => {
           </p>
         )}
 
-        {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 items-center w-full sm:w-auto mt-2">
+        {/* CTA Button */}
+        <div className="flex items-center justify-center mt-3 sm:mt-4">
           <Link 
             to={heroData.buttonUrl || "/collections"} 
-            className="w-full sm:w-auto bg-white text-[#121c2a] px-8 sm:px-12 py-3.5 sm:py-4 text-[10.5px] sm:text-[11px] font-label-md uppercase tracking-[0.2em] font-semibold hover:bg-accent hover:text-white hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 text-center rounded-[2px]"
+            className="inline-flex items-center gap-2 px-6 sm:px-7 py-2 sm:py-2.5 rounded-full text-[11px] sm:text-xs font-label-md uppercase tracking-[0.2em] font-semibold bg-accent text-[#121c2a] hover:bg-accent-hover hover:shadow-lg active:scale-95 transition-all duration-300 group shadow-md"
           >
-            {sanitizeText(heroData.buttonText || "DISCOVER COLLECTION")}
-          </Link>
-          <Link 
-            to="/about" 
-            className="w-full sm:w-auto text-white px-8 sm:px-12 py-3.5 sm:py-4 text-[10.5px] sm:text-[11px] font-label-md uppercase tracking-[0.2em] border border-white/60 bg-white/10 hover:border-white hover:bg-white/20 transition-all duration-300 text-center rounded-[2px] backdrop-blur-2xs"
-          >
-            {sanitizeText(section?.subtitle || "OUR HERITAGE")}
+            <span>Explore</span>
+            <ArrowRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" />
           </Link>
         </div>
       </div>

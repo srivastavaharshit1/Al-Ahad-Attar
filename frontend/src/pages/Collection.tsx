@@ -723,46 +723,6 @@ export const Collection: React.FC<CollectionProps> = ({ category }) => {
 
         {/* Product Grid Area */}
         <div className="col-span-1 lg:col-span-9">
-          {/* Active Filter Chips */}
-          {(activeSidebarFilter !== 'all' || selectedGender || searchQuery) && (
-            <div className="flex flex-wrap items-center gap-2 mb-6">
-              <span className="text-[11px] uppercase tracking-wider text-ink/50 font-medium mr-1">Active:</span>
-              {activeSidebarFilter !== 'all' && (
-                <button
-                  onClick={() => handleSidebarFilter('all')}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs bg-accent/10 border border-accent/30 text-ink hover:bg-accent/20 transition-colors"
-                >
-                  <span>{pageTitleMap[activeSidebarFilter] || activeSidebarFilter}</span>
-                  <span className="material-symbols-outlined text-[14px]">close</span>
-                </button>
-              )}
-              {selectedGender && (
-                <button
-                  onClick={() => { setSelectedGender(''); resetPage(); }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs bg-accent/10 border border-accent/30 text-ink hover:bg-accent/20 transition-colors"
-                >
-                  <span>Gender: {selectedGender.charAt(0) + selectedGender.slice(1).toLowerCase()}</span>
-                  <span className="material-symbols-outlined text-[14px]">close</span>
-                </button>
-              )}
-              {searchQuery && (
-                <button
-                  onClick={() => { setSearchQuery(''); resetPage(); }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs bg-accent/10 border border-accent/30 text-ink hover:bg-accent/20 transition-colors"
-                >
-                  <span>Search: "{searchQuery}"</span>
-                  <span className="material-symbols-outlined text-[14px]">close</span>
-                </button>
-              )}
-              <button
-                onClick={clearFilters}
-                className="text-[11px] font-medium text-accent hover:underline uppercase tracking-wider ml-1"
-              >
-                Clear All
-              </button>
-            </div>
-          )}
-
           {isLoading ? (
             <Loader />
           ) : error ? (

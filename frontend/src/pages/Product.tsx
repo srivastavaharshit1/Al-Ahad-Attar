@@ -734,7 +734,7 @@ export const ProductPage: React.FC = () => {
                         : 'text-[#5A6578] hover:text-[#121C2A]'
                     }`}
                   >
-                    Pure Attar
+                    Attar
                   </button>
                   <button
                     type="button"
@@ -745,7 +745,7 @@ export const ProductPage: React.FC = () => {
                         : 'text-[#5A6578] hover:text-[#121C2A]'
                     }`}
                   >
-                    Eau De Parfum
+                    Perfume
                   </button>
                 </div>
               </div>

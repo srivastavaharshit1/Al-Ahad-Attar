@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Heart, Plus, Sparkles } from 'lucide-react';
+import { Heart, ShoppingCart, Sparkles } from 'lucide-react';
 import type { Product } from '../../types';
 import { useCart } from '../../hooks/useCart';
 import { useWishlist } from '../../hooks/useWishlist';
@@ -267,7 +267,7 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product, de
               aria-label="Add to cart"
               title="Add to cart"
             >
-              <Plus className="w-4.5 h-4.5" />
+              <ShoppingCart className="w-4.5 h-4.5" />
             </button>
           </div>
         </div>
